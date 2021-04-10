@@ -1,0 +1,13 @@
+[package]
+name = "narui"
+version = "0.1.0"
+authors = ["Jaro Habiger <jarohabiger@googlemail.com>"]
+edition = "2018"
+
+[lib]
+name = "narui"
+
+[dependencies]
+lyon = "0.17.5"
+stretch = "0.3.2"
+narui_derive = { path = "../narui_derive" }

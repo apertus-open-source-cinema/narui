@@ -1,0 +1,3 @@
+/* The layout pass takes the tree where the leaf nodes are Primitive Widgets and converts it to a list
+of primitive PositionedPrimitiveWidget s that can then be handled to the rendering Backend.
+ */
