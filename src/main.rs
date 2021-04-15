@@ -3,10 +3,10 @@ use narui::{use_state, hooks::Context};
 
 
 #[widget(size=12.0)]
-fn button(text: &str, size: f32) {
-    println!("{:#?}", context!());
+fn button(text: &str, size: f32, children: Vec<()>) {
+    //println!("{:#?}", context!());
     //let a = use_state!(12);
-    println!("{}", size);
+    //println!("{}", size);
 }
 
 #[widget]
@@ -18,6 +18,8 @@ fn text() {
 fn test_widget(size: f32) {
     rsx! {
         <button text="lol" size=size>
+            <text>
+            </text>
         </button>
     }
 }
@@ -32,7 +34,7 @@ fn main() {
         };
     */
 
-    let __context = Default::default();
+    let __context: Context = Default::default();
     rsx! {
         <test_widget size=12.0/>
     }

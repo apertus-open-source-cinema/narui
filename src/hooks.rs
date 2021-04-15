@@ -27,15 +27,15 @@ impl Default for Context {
     }
 }
 impl Context {
-    fn enter_function(&self, id: &str) -> Context {
+    pub fn enter_widget(&self, key: &str) -> Context {
         Context {
-            path: format!("{}:{}", self.path, id),
+            path: format!("{}.{}", self.path, key),
             hook_counter: 0,
             tree: self.tree.clone(),
         }
     }
 
-    fn enter_hook<T>(&mut self) -> StateValue<T> {
+    pub fn enter_hook<T>(&mut self) -> StateValue<T> {
         self.hook_counter += 1;
         StateValue {
             path: format!("{}->{}", self.path, self.hook_counter),
@@ -46,7 +46,7 @@ impl Context {
 }
 
 #[derive(Debug)]
-struct StateValue<T>{
+pub struct StateValue<T>{
     path: String,
     tree: TreeState,
     phantom: PhantomData<T>,
