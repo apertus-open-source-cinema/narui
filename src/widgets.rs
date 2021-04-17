@@ -88,22 +88,45 @@ pub fn column(
 }
 
 
-/*
-#[widget(on_click = (|| {}))]
-fn gesture_detector(mut on_click: impl FnMut() -> (), children: Vec<()>) -> Widget { on_click(); }
 
+#[widget(on_click = (|| {}))]
+fn gesture_detector(mut on_click: impl FnMut() -> ()) -> Widget {
+    let style = Style {
+        size: Size {
+            height: Dimension::Percent(1.0),
+            width: Dimension::Percent(1.0),
+        },
+        ..Default::default()
+    };
+
+    Widget { style, children: TreeChildren::Leaf(RenderObject::InputSurface) }
+}
+
+#[widget(size = 12.0)]
+fn text(size: f32, children: String) -> Widget {
+     Widget {
+         style: Style {
+             size: Size {
+                 height: Dimension::Points(size),
+                 width: Dimension::Points(size * children.len() as f32),
+             },
+             ..Default::default()
+         },
+         children: TreeChildren::Leaf(RenderObject::Text { text: children, size })
+     }
+}
 
 #[widget(size = 12.0, on_click = (|| {}))]
-fn button(size: f32, mut on_click: impl FnMut() -> (), children: String) -> Widget {
+fn button(size: f32, mut on_click: impl FnMut() -> (), mut children: Widget) -> Widget {
     rsx! {
-        <gesture_detector on_click={on_click}>
-            <stacked>
-                <rounded_rect/>
-                <text size={size}>{children}</text>
-            </stacked>
-        </gesture_detector>
+        <stacked>
+            <gesture_detector on_click={on_click} />
+            <rounded_rect/>
+            {children}
+        </stacked>
     }
 }
+
 
 #[widget(initial_value = 0, step_size = 1)]
 fn counter(initial_value: i32, step_size: i32) -> Widget {
@@ -111,15 +134,7 @@ fn counter(initial_value: i32, step_size: i32) -> Widget {
 
     rsx! {
         <button on_click={|| count.set(*count + step_size)}>
-            {format!("{}", *count)}
+            <text>{format!("{}", *count)}</text>
         </button>
     }
 }
-
-
-#[widget]
-fn text(size: f32, children: String) -> Widget {
-    println!("{:#?}", children);
-}
-
- */

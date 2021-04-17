@@ -12,6 +12,11 @@ pub struct Widget {
     pub style: Style,
     pub children: TreeChildren,
 }
+impl Into<Vec<Widget>> for Widget {
+    fn into(self) -> Vec<Widget> {
+        vec![self]
+    }
+}
 #[derive(Debug)]
 pub enum RenderObject {
     Path(Path),
