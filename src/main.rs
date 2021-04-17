@@ -1,41 +1,51 @@
-use narui_derive::{rsx, widget, context};
-use narui::{use_state, hooks::Context};
+use narui_derive::{rsx, widget, hook};
+use narui::{hooks::Context};
+use narui::hooks::state;
 
 
-#[widget(size=12.0)]
-fn button(text: &str, size: f32, children: Vec<()>) {
-    //println!("{:#?}", context!());
-    //let a = use_state!(12);
-    //println!("{}", size);
+#[widget]
+fn text(size: f32, children: String) {
+    println!("{:#?}", children);
 }
 
 #[widget]
-fn text() {
+fn rounded_rect() {
 
 }
 
 #[widget]
-fn test_widget(size: f32) {
+fn stacked(children: Vec<()>) {
+
+}
+
+
+#[widget(size=12.0, on_click=(|| {}))]
+fn button(size: f32, mut on_click: impl FnMut() -> (), children: String) {
+    on_click();
+
+    assert_eq!(children.len(), 1);
     rsx! {
-        <button text="lol" size=size>
-            <text>
-            </text>
+        <stacked>
+            <rounded_rect/>
+            <text size={size}>{children}</text>
+        </stacked>
+    };
+}
+
+#[widget]
+fn counter() {
+    let count = hook!(state(0));
+
+    rsx! {
+        <button on_click={|| count.set(*count + 1)}>
+            {format!("{}", *count)}
         </button>
     }
 }
 
 fn main() {
-    /*
-        rsx! {
-            <stacked>
-                <rounded_rect/>
-                <text size={20} color={"#fff"}>{format!("{:d}", value)}</text>
-            </stacked>
-        };
-    */
-
     let __context: Context = Default::default();
-    rsx! {
-        <test_widget size=12.0/>
+    for i in 0..10 {
+        rsx! { <counter /> };
     }
 }

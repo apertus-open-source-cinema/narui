@@ -7,11 +7,12 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::marker::PhantomData;
+use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
 struct TreeState(Arc<Mutex<HashMap<String, Box<dyn Any>>>>);
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Context {
     path: String,
     hook_counter: usize,
@@ -45,7 +46,7 @@ impl Context {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct StateValue<T>{
     path: String,
     tree: TreeState,
@@ -55,7 +56,7 @@ impl<T> StateValue<T> where T: 'static + Sync + Send {
     pub fn is_present(&self) -> bool {
         self.tree.0.lock().unwrap().contains_key(&self.path)
     }
-    pub fn set(&mut self, new_value: T) {
+    pub fn set(&self, new_value: T) {
         self.tree.0.lock().unwrap().insert(self.path.clone(), Box::new(new_value));
     }
 }
@@ -75,15 +76,12 @@ impl<T> Deref for StateValue<T> where T: 'static + Sync + Send {
     }
 }
 
-#[macro_export]
-macro_rules! use_state {
-    ($initial_value: expr) => {
-        {
-            let mut state_value = context!().enter_hook();
-            if !state_value.is_present() {
-                state_value.set($initial_value)
-            }
-            *state_value
-        }
+// public hooks
+pub fn state<T>(initial: T, mut context: Context) -> StateValue<T> where T: 'static + Sync + Send + Debug {
+    let state_value: StateValue<T> = context.enter_hook();
+
+    if !state_value.is_present() {
+        state_value.set(initial)
     }
+    state_value
 }
