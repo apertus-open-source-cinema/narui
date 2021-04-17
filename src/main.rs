@@ -1,31 +1,8 @@
-use lyon::{
-    math::{rect, Point},
-    path::{builder::*, Winding},
-    tessellation::{path, path::path::Builder},
-};
-use narui::{
-    api::{RenderObject, TreeChildren, Widget},
-    hooks::{state, Context},
-    layout::do_layout,
-    widgets::*,
-};
-use narui_derive::{hook, rsx, widget};
-use stretch::{
-    geometry::{Rect, Size},
-    style::{
-        AlignContent,
-        AlignItems,
-        Dimension,
-        FlexDirection,
-        FlexWrap,
-        JustifyContent,
-        PositionType,
-        Style,
-    },
-};
+use narui::{api::Widget, hooks::Context, layout::do_layout, widgets::*};
+use narui_derive::rsx;
+use stretch::style::{Dimension, JustifyContent};
 
-
-fn main() {
+fn main() -> Result<(), stretch::Error> {
     let __context: Context = Default::default();
     let top_node = rsx! {
         <column justify_content={JustifyContent::SpaceBetween}>
@@ -40,5 +17,7 @@ fn main() {
         </column>
     };
 
-    dbg!(do_layout(top_node));
+    dbg!(do_layout(top_node)?);
+
+    Ok(())
 }

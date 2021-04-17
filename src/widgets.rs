@@ -1,9 +1,9 @@
 use crate::{
-    api::{RenderObject, TreeChildren, Widget},
+    api::{Children, RenderObject, Widget},
     hooks::{state, Context},
 };
 use lyon::{
-    math::{rect, Point},
+    math::rect,
     path::{builder::*, Winding},
     tessellation::path::{builder::BorderRadii, path::Builder},
 };
@@ -29,7 +29,7 @@ pub fn rounded_rect(width: Dimension, height: Dimension) -> Widget {
             max_size: Size { width, height },
             ..Default::default()
         },
-        children: TreeChildren::Leaf(RenderObject::Path(path)),
+        children: Children::RenderObject(RenderObject::Path(path)),
     }
 }
 
@@ -53,12 +53,12 @@ pub fn stacked(children: Vec<Widget>) -> Widget {
 
     Widget {
         style: parent_style,
-        children: TreeChildren::Children(
+        children: Children::Composed(
             children
                 .into_iter()
                 .map(|child| Widget {
                     style: child_style.clone(),
-                    children: TreeChildren::Children(vec![child]),
+                    children: Children::Composed(vec![child]),
                 })
                 .collect(),
         ),
@@ -84,40 +84,38 @@ pub fn column(
         ..Default::default()
     };
 
-    Widget { style, children: TreeChildren::Children(children) }
+    Widget { style, children: Children::Composed(children) }
 }
-
 
 
 #[widget(on_click = (|| {}))]
 fn gesture_detector(mut on_click: impl FnMut() -> ()) -> Widget {
+    on_click();
+
     let style = Style {
-        size: Size {
-            height: Dimension::Percent(1.0),
-            width: Dimension::Percent(1.0),
-        },
+        size: Size { height: Dimension::Percent(1.0), width: Dimension::Percent(1.0) },
         ..Default::default()
     };
 
-    Widget { style, children: TreeChildren::Leaf(RenderObject::InputSurface) }
+    Widget { style, children: Children::RenderObject(RenderObject::InputSurface) }
 }
 
 #[widget(size = 12.0)]
 fn text(size: f32, children: String) -> Widget {
-     Widget {
-         style: Style {
-             size: Size {
-                 height: Dimension::Points(size),
-                 width: Dimension::Points(size * children.len() as f32),
-             },
-             ..Default::default()
-         },
-         children: TreeChildren::Leaf(RenderObject::Text { text: children, size })
-     }
+    Widget {
+        style: Style {
+            size: Size {
+                height: Dimension::Points(size),
+                width: Dimension::Points(size * children.len() as f32),
+            },
+            ..Default::default()
+        },
+        children: Children::RenderObject(RenderObject::Text { text: children, size }),
+    }
 }
 
-#[widget(size = 12.0, on_click = (|| {}))]
-fn button(size: f32, mut on_click: impl FnMut() -> (), mut children: Widget) -> Widget {
+#[widget(on_click = (|| {}))]
+fn button(on_click: impl FnMut() -> (), children: Widget) -> Widget {
     rsx! {
         <stacked>
             <gesture_detector on_click={on_click} />

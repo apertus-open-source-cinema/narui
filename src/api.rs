@@ -4,18 +4,21 @@ Composed Widgets are functions that return either other Composed Widgets or Prim
 For layout we create `TreeNodes` with stretch Style attributes.
 */
 
-use lyon::{geom::Point, path::Path};
+use lyon::path::Path;
 use stretch::style::Style;
 
 #[derive(Debug)]
 pub struct Widget {
     pub style: Style,
-    pub children: TreeChildren,
+    pub children: Children,
 }
 impl Into<Vec<Widget>> for Widget {
-    fn into(self) -> Vec<Widget> {
-        vec![self]
-    }
+    fn into(self) -> Vec<Widget> { vec![self] }
+}
+#[derive(Debug)]
+pub enum Children {
+    Composed(Vec<Widget>),
+    RenderObject(RenderObject),
 }
 #[derive(Debug)]
 pub enum RenderObject {
@@ -23,9 +26,4 @@ pub enum RenderObject {
     Text { text: String, size: f32 },
     InputSurface, /* this is nothing that gets rendered but instead it gets interpreted by the
                    * input handling logic */
-}
-#[derive(Debug)]
-pub enum TreeChildren {
-    Children(Vec<Widget>),
-    Leaf(RenderObject),
 }

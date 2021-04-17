@@ -2,12 +2,11 @@
 of primitive PositionedPrimitiveWidget s that can then be handled to the rendering Backend.
  */
 
-use crate::api::{RenderObject, TreeChildren, TreeChildren::Leaf, Widget};
+use crate::api::{Children, RenderObject, Widget};
 use stretch::{
-    geometry::{Point, Rect, Size},
+    geometry::{Point, Size},
     node::Node,
     number::Number,
-    style::*,
     Error,
     Stretch,
 };
@@ -52,8 +51,8 @@ fn add_widget_to_stretch(
     stretch_render_object_list: &mut Vec<(Node, RenderObject)>,
 ) -> Result<Node, Error> {
     let (children, render_object) = match widget.children {
-        TreeChildren::Children(children) => (children, None),
-        TreeChildren::Leaf(render_object) => (vec![], Some(render_object)),
+        Children::Composed(children) => (children, None),
+        Children::RenderObject(render_object) => (vec![], Some(render_object)),
     };
     let mut node_children = Vec::with_capacity(children.len());
     for child in children {
