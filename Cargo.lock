@@ -13,6 +13,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "bind_match"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "171f0236f66c7be99f32060539c2bade94033ded356ecf4c9dc9b1e6198326cd"
+
+[[package]]
 name = "euclid"
 version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -97,6 +103,7 @@ dependencies = [
 name = "narui_derive"
 version = "0.1.0"
 dependencies = [
+ "bind_match",
  "proc-macro2",
  "quote",
  "syn",
