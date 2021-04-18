@@ -12,25 +12,26 @@ use stretch::{
 };
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PositionedRenderObject {
-    render_object: RenderObject,
-    position: Point<f32>,
-    size: Size<f32>,
-    z_index: i32,
+    pub render_object: RenderObject,
+    pub position: Point<f32>,
+    pub size: Size<f32>,
+    pub z_index: i32,
 }
 
-pub fn do_layout(top: Widget) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
+pub fn do_layout(
+    top: Widget,
+    size: Size<f32>,
+) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
     let mut stretch = stretch::node::Stretch::new();
     let mut stretch_render_object_list = vec![];
     let top_node = add_widget_to_stretch(top, &mut stretch, &mut stretch_render_object_list)?;
 
     stretch.compute_layout(
         top_node,
-        Size { width: Number::Defined(100.0), height: Number::Defined(100.0) },
+        Size { width: Number::Defined(size.width), height: Number::Defined(size.height) },
     )?;
-    println!("{}", print_layout(&stretch, top_node));
-
 
     Ok(stretch_render_object_list
         .into_iter()

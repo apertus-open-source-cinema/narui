@@ -8,20 +8,28 @@ use lyon::{
     tessellation::path::{builder::BorderRadii, path::Builder},
 };
 use narui_derive::{hook, rsx, widget};
+use std::sync::Arc;
 use stretch::{
-    geometry::{Rect, Size},
+    geometry::{Point, Rect, Size},
     style::{AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, PositionType, Style},
 };
 
-#[widget(width = Default::default(), height = Default::default())]
-pub fn rounded_rect(width: Dimension, height: Dimension) -> Widget {
-    let mut builder = Builder::new();
-    builder.add_rounded_rectangle(
-        &rect(0.0, 0.0, 100.0, 50.0),
-        &BorderRadii { top_left: 10.0, top_right: 5.0, bottom_left: 20.0, bottom_right: 25.0 },
-        Winding::Positive,
-    );
-    let path = builder.build();
+#[widget(width = Default::default(), height = Default::default(), border_radius = 10.0)]
+pub fn rounded_rect(width: Dimension, height: Dimension, border_radius: f32) -> Widget {
+    let path_gen = move |size: Size<f32>| {
+        let mut builder = Builder::new();
+        builder.add_rounded_rectangle(
+            &rect(0.0, 0.0, size.width, size.height),
+            &BorderRadii {
+                top_left: border_radius,
+                top_right: border_radius,
+                bottom_left: border_radius,
+                bottom_right: border_radius,
+            },
+            Winding::Positive,
+        );
+        builder.build()
+    };
 
     Widget {
         style: Style {
@@ -29,7 +37,7 @@ pub fn rounded_rect(width: Dimension, height: Dimension) -> Widget {
             max_size: Size { width, height },
             ..Default::default()
         },
-        children: Children::RenderObject(RenderObject::Path(path)),
+        children: Children::RenderObject(RenderObject::Path(Arc::new(path_gen))),
     }
 }
 

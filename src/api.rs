@@ -4,10 +4,12 @@ Composed Widgets are functions that return either other Composed Widgets or Prim
 For layout we create `TreeNodes` with stretch Style attributes.
 */
 
+use derivative::Derivative;
 use lyon::path::Path;
-use stretch::style::Style;
+use std::sync::Arc;
+use stretch::{geometry::Size, style::Style};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Widget {
     pub style: Style,
     pub children: Children,
@@ -15,14 +17,15 @@ pub struct Widget {
 impl Into<Vec<Widget>> for Widget {
     fn into(self) -> Vec<Widget> { vec![self] }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Children {
     Composed(Vec<Widget>),
     RenderObject(RenderObject),
 }
-#[derive(Debug)]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
 pub enum RenderObject {
-    Path(Path),
+    Path(#[derivative(Debug = "ignore")] Arc<dyn Fn(Size<f32>) -> Path>),
     Text { text: String, size: f32 },
     InputSurface, /* this is nothing that gets rendered but instead it gets interpreted by the
                    * input handling logic */

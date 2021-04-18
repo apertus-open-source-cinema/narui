@@ -8,6 +8,13 @@ edition = "2018"
 name = "narui"
 
 [dependencies]
+narui_derive = { path = "../narui_derive" }
 lyon = "0.17.5"
 stretch = "0.3.2"
-narui_derive = { path = "../narui_derive" }
+winit = "0.24.0"
+anyhow = "1.0.40"
+lazy_static = "1.4.0"
+vulkano = "0.22.0"
+vulkano-shaders = "0.22.0"
+vulkano-win = "0.22.0"
+derivative = "2.2.0"
