@@ -1,33 +1,18 @@
 pub mod lyon_render;
+pub mod text_render;
 
-use crate::{
-    api::{RenderObject, Widget},
-    layout::{do_layout, PositionedRenderObject},
-};
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use lyon::{
-    lyon_algorithms::path::{
-        builder::PathBuilder,
-        geom::{point, Translation},
-    },
-    lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers},
-    tessellation::{path::Path, FillVertexConstructor},
-};
 use std::sync::Arc;
-
-use crate::{fps_report::FPSReporter, hooks::Context, vulkano_render::lyon_render::LyonRenderer};
 use stretch::geometry::Size;
 use vulkano::{
-    buffer::{BufferUsage, BufferView, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState, SubpassContents},
-    descriptor::descriptor_set::PersistentDescriptorSet,
     device::{Device, DeviceExtensions, Queue},
-    format::{ClearValue, Format, R8Unorm},
-    framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass},
+    format::ClearValue,
+    framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract},
     image::{view::ImageView, AttachmentImage, ImageAccess, ImageUsage, SwapchainImage},
     instance::{Instance, PhysicalDevice},
-    pipeline::{raster::PolygonMode::Point, viewport::Viewport, GraphicsPipeline},
+    pipeline::viewport::Viewport,
     swapchain,
     swapchain::{
         AcquireError,
@@ -49,6 +34,13 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+use crate::{
+    api::Widget,
+    fps_report::FPSReporter,
+    hooks::Context,
+    layout::do_layout,
+    vulkano_render::{lyon_render::LyonRenderer, text_render::TextRenderer},
+};
 
 #[derive(Clone)]
 pub struct VulkanContext {
@@ -95,7 +87,7 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
         .unwrap()
         .clone();
 
-    let mut dimensions = [1u32, 1];
+    let mut dimensions;
 
     let (mut swapchain, images) = {
         let caps = surface.capabilities(device.physical_device()).unwrap();
@@ -162,6 +154,8 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
 
     let mut fps_report = FPSReporter::new("gui");
     let context: Context = Default::default();
+    let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
+    let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
 
     event_loop.run_return(move |event, _, control_flow| match event {
         Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
@@ -222,8 +216,8 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
             )
             .unwrap();
 
-            let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
             lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted);
+            text_render.render(&mut builder, &dynamic_state, &dimensions);
 
             builder.end_render_pass().unwrap();
             let command_buffer = builder.build().unwrap();

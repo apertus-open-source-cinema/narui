@@ -11,7 +11,7 @@ use lyon::{
 use narui_derive::{hook, rsx, widget};
 use std::sync::Arc;
 use stretch::{
-    geometry::{Point, Rect, Size},
+    geometry::{Rect, Size},
     style::{AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, PositionType, Style},
 };
 
@@ -136,8 +136,8 @@ fn gesture_detector(mut on_click: impl FnMut() -> ()) -> Widget {
     Widget { style, children: Children::RenderObject(RenderObject::InputSurface) }
 }
 
-#[widget(size = 12.0)]
-fn text(size: f32, children: String) -> Widget {
+#[widget(size = 12.0, color = Color::grey())]
+fn text(size: f32, children: String, color: Color) -> Widget {
     Widget {
         style: Style {
             size: Size {
@@ -146,7 +146,7 @@ fn text(size: f32, children: String) -> Widget {
             },
             ..Default::default()
         },
-        children: Children::RenderObject(RenderObject::Text { text: children, size }),
+        children: Children::RenderObject(RenderObject::Text { text: children, size, color }),
     }
 }
 

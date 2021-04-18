@@ -34,6 +34,7 @@ pub enum RenderObject {
     Text {
         text: String,
         size: f32,
+        color: Color,
     },
     InputSurface, /* this is nothing that gets rendered but instead it gets interpreted by the
                    * input handling logic */

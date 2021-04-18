@@ -18,6 +18,8 @@ vulkano = "0.22.0"
 vulkano-shaders = "0.22.0"
 vulkano-win = "0.22.0"
 derivative = "2.2.0"
+glyph_brush = "0.7.2"
+notosans = "0.1.0"
 
 [profile.release]
 debug = true

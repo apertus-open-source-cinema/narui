@@ -5,16 +5,13 @@ use crate::{
     vulkano_render::VulkanContext,
 };
 use lyon::{
-    lyon_algorithms::path::{
-        builder::PathBuilder,
-        geom::{point, Translation},
-    },
+    lyon_algorithms::path::geom::Translation,
     lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers},
     tessellation::{path::Path, FillVertexConstructor},
 };
 use std::sync::Arc;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer, CpuBufferPool},
+    buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState},
     descriptor::PipelineLayoutAbstract,
     device::Device,
@@ -36,7 +33,8 @@ mod vertex_shader {
             layout(location = 0) out vec4 color_frag;
             void main() {
                 color_frag = color;
-                gl_Position = vec4((position / (vec2(params.width, params.height) / 2.) - vec2(1.)) * vec2(1., -1.), 0.0, 1.0);
+                vec2 zero_to_one = position / vec2(params.width, params.height);
+                gl_Position = vec4(vec2(zero_to_one * 2. - vec2(1.)), 0.0, 1.0);
             }
         "
     }
@@ -102,7 +100,7 @@ impl LyonRenderer {
                 .build(device.clone())
                 .unwrap(),
         );
-        let mut fill_tesselator = FillTessellator::new();
+        let fill_tesselator = FillTessellator::new();
 
         Self { pipeline, device, fill_tesselator }
     }
@@ -123,11 +121,13 @@ impl LyonRenderer {
                 ));
                 let mut buffers_builder =
                     BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor { color });
-                self.fill_tesselator.tessellate_path(
-                    translated.as_slice(),
-                    &FillOptions::DEFAULT,
-                    &mut buffers_builder,
-                );
+                self.fill_tesselator
+                    .tessellate_path(
+                        translated.as_slice(),
+                        &FillOptions::DEFAULT,
+                        &mut buffers_builder,
+                    )
+                    .unwrap();
             }
         }
 
