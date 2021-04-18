@@ -4,5 +4,5 @@ pub mod hooks;
 pub mod layout;
 pub mod widgets;
 
-pub mod vulkano_render;
 pub mod types;
+pub mod vulkano_render;

@@ -1,4 +1,9 @@
-use crate::{api::RenderObject, layout::PositionedRenderObject, vulkano_render::VulkanContext};
+use crate::{
+    api::RenderObject,
+    layout::PositionedRenderObject,
+    types::Color,
+    vulkano_render::VulkanContext,
+};
 use lyon::{
     lyon_algorithms::path::{
         builder::PathBuilder,
@@ -16,7 +21,6 @@ use vulkano::{
     framebuffer::{RenderPassAbstract, Subpass},
     pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline},
 };
-use crate::types::Color;
 
 mod vertex_shader {
     vulkano_shaders::shader! {
@@ -111,13 +115,14 @@ impl LyonRenderer {
     ) {
         let mut lyon_vertex_buffer: VertexBuffers<Vertex, u16> = VertexBuffers::new();
         for render_object in render_objects {
-            if let RenderObject::Path {path, color} = render_object.render_object {
+            if let RenderObject::Path { path, color } = render_object.render_object {
                 let untranslated: Path = path(render_object.size);
                 let translated = untranslated.transformed(&Translation::new(
                     render_object.position.x,
                     render_object.position.y,
                 ));
-                let mut buffers_builder = BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {color});
+                let mut buffers_builder =
+                    BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor { color });
                 self.fill_tesselator.tessellate_path(
                     translated.as_slice(),
                     &FillOptions::DEFAULT,

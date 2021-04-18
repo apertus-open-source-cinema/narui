@@ -16,7 +16,7 @@ use lyon::{
 };
 use std::sync::Arc;
 
-use crate::{fps_report::FPSReporter, vulkano_render::lyon_render::LyonRenderer};
+use crate::{fps_report::FPSReporter, hooks::Context, vulkano_render::lyon_render::LyonRenderer};
 use stretch::geometry::Size;
 use vulkano::{
     buffer::{BufferUsage, BufferView, CpuAccessibleBuffer},
@@ -48,7 +48,6 @@ use winit::{
     platform::{run_return::EventLoopExtRunReturn, unix::EventLoopExtUnix},
     window::{Window, WindowBuilder},
 };
-use crate::hooks::Context;
 
 
 #[derive(Clone)]

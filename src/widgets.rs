@@ -1,6 +1,7 @@
 use crate::{
     api::{Children, RenderObject, Widget},
     hooks::{state, Context},
+    types::Color,
 };
 use lyon::{
     math::rect,
@@ -13,10 +14,14 @@ use stretch::{
     geometry::{Point, Rect, Size},
     style::{AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, PositionType, Style},
 };
-use crate::types::Color;
 
 #[widget(width = Default::default(), height = Default::default(), border_radius = 10.0, color = Color::apertus_orange())]
-pub fn rounded_rect(width: Dimension, height: Dimension, border_radius: f32, color: Color) -> Widget {
+pub fn rounded_rect(
+    width: Dimension,
+    height: Dimension,
+    border_radius: f32,
+    color: Color,
+) -> Widget {
     let path_gen = move |size: Size<f32>| {
         let mut builder = Builder::new();
         builder.add_rounded_rectangle(
@@ -38,7 +43,7 @@ pub fn rounded_rect(width: Dimension, height: Dimension, border_radius: f32, col
             max_size: Size { width, height },
             ..Default::default()
         },
-        children: Children::RenderObject(RenderObject::Path {path: Arc::new(path_gen), color}),
+        children: Children::RenderObject(RenderObject::Path { path: Arc::new(path_gen), color }),
     }
 }
 

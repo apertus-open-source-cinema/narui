@@ -1,6 +1,12 @@
-use narui::{api::Widget, hooks::Context, layout::do_layout, vulkano_render::render, widgets::*};
-use narui::types::Color;
-use narui_derive::{toplevel_rsx, rsx};
+use narui::{
+    api::Widget,
+    hooks::Context,
+    layout::do_layout,
+    types::Color,
+    vulkano_render::render,
+    widgets::*,
+};
+use narui_derive::{rsx, toplevel_rsx};
 use stretch::style::{Dimension, JustifyContent};
 
 fn main() {
