@@ -1,3 +1,5 @@
+pub mod lyon_render;
+
 use crate::{
     api::{RenderObject, Widget},
     layout::{do_layout, PositionedRenderObject},
@@ -12,20 +14,9 @@ use lyon::{
     lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers},
     tessellation::{path::Path, FillVertexConstructor},
 };
-use std::{
-    sync::{
-        mpsc::{
-            sync_channel,
-            SyncSender,
-            TrySendError::{Disconnected, Full},
-        },
-        Arc,
-        Mutex,
-        MutexGuard,
-    },
-    thread,
-    thread::JoinHandle,
-};
+use std::sync::Arc;
+
+use crate::{fps_report::FPSReporter, vulkano_render::lyon_render::LyonRenderer};
 use stretch::geometry::Size;
 use vulkano::{
     buffer::{BufferUsage, BufferView, CpuAccessibleBuffer},
@@ -168,6 +159,9 @@ pub fn render(top_node: Widget) {
         window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
     let mut recreate_swapchain = false;
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
+
+    let mut fps_report = FPSReporter::new("gui");
+
     event_loop.run_return(move |event, _, control_flow| match event {
         Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
             *control_flow = ControlFlow::Exit;
@@ -227,17 +221,12 @@ pub fn render(top_node: Widget) {
             )
             .unwrap();
 
-            let lyon_renderer = LyonRenderer {};
-            lyon_renderer.render(
-                &mut builder,
-                &dynamic_state,
-                render_pass.clone(),
-                &dimensions,
-                layouted,
-            );
+            let lyon_renderer = LyonRenderer::new(render_pass.clone());
+            lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted);
 
             builder.end_render_pass().unwrap();
             let command_buffer = builder.build().unwrap();
+            fps_report.frame();
 
             let future = previous_frame_end
                 .take()
@@ -307,129 +296,4 @@ fn window_size_dependent_setup(
             ) as Arc<dyn FramebufferAbstract + Send + Sync>
         })
         .collect::<Vec<_>>()
-}
-
-
-mod vertex_shader {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: "
-            #version 450
-            layout(push_constant) uniform PushConstantData {
-                uint width;
-                uint height;
-            } params;
-            layout(location = 0) in vec2 position;
-            void main() {
-                gl_Position = vec4((position / (vec2(params.width, params.height) / 2.) - vec2(1.)) * vec2(1., -1.), 0.0, 1.0);
-            }
-        "
-    }
-}
-mod fragment_shader {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: "
-            #version 450
-            layout(location = 0) out vec4 f_color;
-
-            void main() {
-                f_color = vec4(1., 1., 1., 1.);
-            }
-        "
-    }
-}
-
-pub struct LyonRenderer {}
-impl LyonRenderer {
-    pub fn render(
-        &self,
-        vk: &mut AutoCommandBufferBuilder,
-        dynamic_state: &DynamicState,
-        render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
-        dimensions: &[u32; 2],
-        render_objects: Vec<PositionedRenderObject>,
-    ) {
-        let device = VulkanContext::get().device;
-
-        #[derive(Default, Debug, Clone)]
-        struct Vertex {
-            position: [f32; 2],
-        }
-        vulkano::impl_vertex!(Vertex, position);
-
-        struct VertexConstructor {};
-        impl FillVertexConstructor<Vertex> for VertexConstructor {
-            fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
-                Vertex { position: [vertex.position().x, vertex.position().y] }
-            }
-        }
-
-        let mut vertex_buffer: VertexBuffers<Vertex, u16> = VertexBuffers::new();
-        let mut fill_tesselator = FillTessellator::new();
-        let mut buffers_builder = BuffersBuilder::new(&mut vertex_buffer, VertexConstructor {});
-        let mut builder = fill_tesselator.builder(&FillOptions::DEFAULT, &mut buffers_builder);
-
-        for render_object in render_objects {
-            if let RenderObject::Path(path_generator) = render_object.render_object {
-                let untranslated: Path = path_generator(render_object.size);
-                let translated = untranslated.transformed(&Translation::new(
-                    render_object.position.x,
-                    render_object.position.y,
-                ));
-                fill_tesselator.tessellate_path(
-                    translated.as_slice(),
-                    &FillOptions::DEFAULT,
-                    &mut buffers_builder,
-                );
-            }
-        }
-
-        let gpu_vertex_buffer = CpuAccessibleBuffer::<[Vertex]>::from_iter(
-            device.clone(),
-            BufferUsage::all(),
-            false,
-            vertex_buffer.vertices.into_iter(),
-        )
-        .unwrap();
-
-        let gpu_index_buffer = CpuAccessibleBuffer::<[u16]>::from_iter(
-            device.clone(),
-            BufferUsage::all(),
-            false,
-            vertex_buffer.indices.into_iter(),
-        )
-        .unwrap();
-
-        let vs = vertex_shader::Shader::load(device.clone()).unwrap();
-        let fs = fragment_shader::Shader::load(device.clone()).unwrap();
-
-        let pipeline = Arc::new(
-            GraphicsPipeline::start()
-                .vertex_input_single_buffer::<Vertex>()
-                .vertex_shader(vs.main_entry_point(), ())
-                .triangle_list()
-                .viewports_dynamic_scissors_irrelevant(1)
-                .fragment_shader(fs.main_entry_point(), ())
-                .blend_alpha_blending()
-                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                .build(device.clone())
-                .unwrap(),
-        );
-
-
-        let push_constants =
-            vertex_shader::ty::PushConstantData { width: dimensions[0], height: dimensions[1] };
-
-        vk.draw_indexed(
-            pipeline.clone(),
-            &dynamic_state,
-            gpu_vertex_buffer.clone(),
-            gpu_index_buffer.clone(),
-            (),
-            push_constants,
-            vec![],
-        )
-        .unwrap();
-    }
 }

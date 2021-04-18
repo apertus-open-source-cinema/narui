@@ -18,3 +18,6 @@ vulkano = "0.22.0"
 vulkano-shaders = "0.22.0"
 vulkano-win = "0.22.0"
 derivative = "2.2.0"
+
+[profile.release]
+debug = true

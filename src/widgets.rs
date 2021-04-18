@@ -85,7 +85,29 @@ pub fn column(
         flex_wrap: FlexWrap::NoWrap,
         size: Size {
             height: if fill_parent { Dimension::Percent(1.0) } else { Default::default() },
-            ..Default::default()
+            width: if fill_parent { Dimension::Percent(1.0) } else { Default::default() },
+        },
+        justify_content,
+        align_items,
+        ..Default::default()
+    };
+
+    Widget { style, children: Children::Composed(children) }
+}
+
+#[widget(justify_content = Default::default(), align_items = Default::default(), fill_parent = true)]
+pub fn row(
+    justify_content: JustifyContent,
+    align_items: AlignItems,
+    fill_parent: bool,
+    children: Vec<Widget>,
+) -> Widget {
+    let style = Style {
+        flex_direction: FlexDirection::Row,
+        flex_wrap: FlexWrap::NoWrap,
+        size: Size {
+            height: if fill_parent { Dimension::Percent(1.0) } else { Default::default() },
+            width: if fill_parent { Dimension::Percent(1.0) } else { Default::default() },
         },
         justify_content,
         align_items,
