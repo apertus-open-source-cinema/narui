@@ -4,7 +4,7 @@ use crate::{
     api::{RenderObject, Widget},
     layout::{do_layout, PositionedRenderObject},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use lyon::{
     lyon_algorithms::path::{
@@ -48,6 +48,7 @@ use winit::{
     platform::{run_return::EventLoopExtRunReturn, unix::EventLoopExtUnix},
     window::{Window, WindowBuilder},
 };
+use crate::hooks::Context;
 
 
 #[derive(Clone)]
@@ -79,7 +80,7 @@ impl VulkanContext {
     pub fn get() -> Self { VULKAN_CONTEXT.clone() }
 }
 
-pub fn render(top_node: Widget) {
+pub fn render(top_node: impl Fn(Context) -> Widget) {
     let mut event_loop: EventLoop<()> = EventLoopExtUnix::new_any_thread();
     let device = VulkanContext::get().device;
     let surface = WindowBuilder::new()
@@ -161,6 +162,7 @@ pub fn render(top_node: Widget) {
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
 
     let mut fps_report = FPSReporter::new("gui");
+    let context: Context = Default::default();
 
     event_loop.run_return(move |event, _, control_flow| match event {
         Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
@@ -216,12 +218,12 @@ pub fn render(top_node: Widget) {
                 .unwrap();
 
             let layouted = do_layout(
-                top_node.clone(),
+                top_node(context.clone()),
                 Size { width: dimensions[0] as f32, height: dimensions[1] as f32 },
             )
             .unwrap();
 
-            let lyon_renderer = LyonRenderer::new(render_pass.clone());
+            let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
             lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted);
 
             builder.end_render_pass().unwrap();

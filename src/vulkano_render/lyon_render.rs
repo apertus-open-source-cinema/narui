@@ -16,6 +16,7 @@ use vulkano::{
     framebuffer::{RenderPassAbstract, Subpass},
     pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline},
 };
+use crate::types::Color;
 
 mod vertex_shader {
     vulkano_shaders::shader! {
@@ -27,7 +28,10 @@ mod vertex_shader {
                 uint height;
             } params;
             layout(location = 0) in vec2 position;
+            layout(location = 1) in vec4 color;
+            layout(location = 0) out vec4 color_frag;
             void main() {
+                color_frag = color;
                 gl_Position = vec4((position / (vec2(params.width, params.height) / 2.) - vec2(1.)) * vec2(1., -1.), 0.0, 1.0);
             }
         "
@@ -39,9 +43,10 @@ mod fragment_shader {
         src: "
             #version 450
             layout(location = 0) out vec4 f_color;
+            layout(location = 0) in vec4 color_frag;
 
             void main() {
-                f_color = vec4(1., 1., 1., 1.);
+                f_color = color_frag;
             }
         "
     }
@@ -51,12 +56,15 @@ mod fragment_shader {
 #[derive(Default, Debug, Clone)]
 struct Vertex {
     position: [f32; 2],
+    color: [f32; 4],
 }
-vulkano::impl_vertex!(Vertex, position);
-struct VertexConstructor {}
+vulkano::impl_vertex!(Vertex, position, color);
+struct VertexConstructor {
+    color: Color,
+}
 impl FillVertexConstructor<Vertex> for VertexConstructor {
     fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
-        Vertex { position: [vertex.position().x, vertex.position().y] }
+        Vertex { position: [vertex.position().x, vertex.position().y], color: self.color.into() }
     }
 }
 
@@ -69,6 +77,7 @@ pub struct LyonRenderer {
             std::sync::Arc<dyn RenderPassAbstract + Send + Sync>,
         >,
     >,
+    fill_tesselator: FillTessellator,
 }
 impl LyonRenderer {
     pub fn new(render_pass: Arc<dyn RenderPassAbstract + Send + Sync>) -> Self {
@@ -89,30 +98,27 @@ impl LyonRenderer {
                 .build(device.clone())
                 .unwrap(),
         );
+        let mut fill_tesselator = FillTessellator::new();
 
-
-        Self { pipeline, device }
+        Self { pipeline, device, fill_tesselator }
     }
     pub fn render(
-        &self,
+        &mut self,
         buffer_builder: &mut AutoCommandBufferBuilder,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
         render_objects: Vec<PositionedRenderObject>,
     ) {
         let mut lyon_vertex_buffer: VertexBuffers<Vertex, u16> = VertexBuffers::new();
-        let mut fill_tesselator = FillTessellator::new();
-        let mut buffers_builder =
-            BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {});
-
         for render_object in render_objects {
-            if let RenderObject::Path(path_generator) = render_object.render_object {
-                let untranslated: Path = path_generator(render_object.size);
+            if let RenderObject::Path {path, color} = render_object.render_object {
+                let untranslated: Path = path(render_object.size);
                 let translated = untranslated.transformed(&Translation::new(
                     render_object.position.x,
                     render_object.position.y,
                 ));
-                fill_tesselator.tessellate_path(
+                let mut buffers_builder = BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {color});
+                self.fill_tesselator.tessellate_path(
                     translated.as_slice(),
                     &FillOptions::DEFAULT,
                     &mut buffers_builder,

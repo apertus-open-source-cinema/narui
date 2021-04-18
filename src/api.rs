@@ -8,6 +8,7 @@ use derivative::Derivative;
 use lyon::path::Path;
 use std::sync::Arc;
 use stretch::{geometry::Size, style::Style};
+use crate::types::Color;
 
 #[derive(Debug, Clone)]
 pub struct Widget {
@@ -25,7 +26,7 @@ pub enum Children {
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub enum RenderObject {
-    Path(#[derivative(Debug = "ignore")] Arc<dyn Fn(Size<f32>) -> Path>),
+    Path { #[derivative(Debug = "ignore")] path: Arc<dyn Fn(Size<f32>) -> Path>, color: Color},
     Text { text: String, size: f32 },
     InputSurface, /* this is nothing that gets rendered but instead it gets interpreted by the
                    * input handling logic */
