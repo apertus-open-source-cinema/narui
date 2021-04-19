@@ -1,3 +1,4 @@
+pub mod input_handler;
 pub mod lyon_render;
 pub mod text_render;
 
@@ -39,7 +40,11 @@ use crate::{
     fps_report::FPSReporter,
     hooks::Context,
     layout::do_layout,
-    vulkano_render::{lyon_render::LyonRenderer, text_render::TextRenderer},
+    vulkano_render::{
+        input_handler::InputHandler,
+        lyon_render::LyonRenderer,
+        text_render::TextRenderer,
+    },
 };
 
 #[derive(Clone)]
@@ -156,6 +161,7 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
     let context: Context = Default::default();
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
+    let mut input_handler = InputHandler::new();
 
     event_loop.run_return(move |event, _, control_flow| match event {
         Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
@@ -163,6 +169,14 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
         }
         Event::WindowEvent { event: WindowEvent::Resized(_), .. } => {
             recreate_swapchain = true;
+        }
+        Event::WindowEvent { event: window_event, .. } => {
+            let layouted = do_layout(
+                top_node(context.clone()),
+                Size { width: dimensions[0] as f32, height: dimensions[1] as f32 },
+            )
+            .unwrap();
+            input_handler.handle_input(window_event, layouted);
         }
         Event::RedrawEventsCleared => {
             previous_frame_end.as_mut().unwrap().cleanup_finished();

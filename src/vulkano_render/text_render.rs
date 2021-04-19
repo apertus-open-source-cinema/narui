@@ -11,6 +11,7 @@ use glyph_brush::{
     GlyphBrush,
     GlyphBrushBuilder,
     GlyphVertex,
+    Layout,
     Section,
     Text,
 };
@@ -254,8 +255,8 @@ impl TextRenderer {
                         .add_text(
                             Text::new(&*text).with_color(color).with_scale(PxScale::from(size)),
                         )
-                        .with_screen_position((render_object.position.x, render_object.position.y))
-                        .with_bounds((render_object.size.width, render_object.size.height)),
+                        .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
+                        .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size)),
                 );
             }
         }

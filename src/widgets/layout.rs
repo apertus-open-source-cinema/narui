@@ -5,7 +5,6 @@ use crate::{
 };
 use narui_derive::{hook, rsx, widget};
 
-use crate::api::LayoutBox;
 use stretch::{
     geometry::{Rect, Size},
     style::{
@@ -38,7 +37,7 @@ pub fn column(
         align_items,
         ..Default::default()
     };
-    Widget::LayoutBox(LayoutBox { style, children })
+    Widget::layout_block(style, children)
 }
 
 #[widget(justify_content = Default::default(), align_items = Default::default(), fill_parent = true)]
@@ -59,7 +58,7 @@ pub fn row(
         align_items,
         ..Default::default()
     };
-    Widget::LayoutBox(LayoutBox { style, children })
+    Widget::layout_block(style, children)
 }
 
 #[widget(all=Default::default(), top_bottom=Default::default(), left_right=Default::default(), top=Default::default(), bottom=Default::default(), left=Default::default(), right=Default::default())]
@@ -97,5 +96,5 @@ pub fn padding(
 
     let style =
         Style { padding: Rect { start: l, end: r, top: t, bottom: b }, ..Default::default() };
-    Widget::LayoutBox(LayoutBox { style, children })
+    Widget::layout_block(style, children)
 }

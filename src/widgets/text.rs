@@ -6,7 +6,6 @@ use crate::{
 };
 use narui_derive::{hook, rsx, widget};
 
-use crate::api::LayoutBox;
 use glyph_brush::{
     ab_glyph::{Font, FontRef, ScaleFont},
     FontId,
@@ -17,48 +16,58 @@ use glyph_brush::{
     SectionText,
 };
 use notosans::REGULAR_TTF as FONT;
+use std::any::Any;
 use stretch::{
     geometry::Size,
+    number::Number,
     style::{Dimension, Style},
 };
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
-#[widget(size = 24.0, color = Color::black(), width = f32::INFINITY, height = f32::INFINITY)]
-pub fn text(size: f32, children: String, color: Color, width: f32, height: f32) -> Widget {
-    let droid_sans = FontRef::try_from_slice(FONT).unwrap();
-    let fonts = &[droid_sans];
-    let glyphs = Layout::default().calculate_glyphs(
-        fonts,
-        &SectionGeometry { screen_position: (0.0, 0.0), bounds: (width, f32::INFINITY) },
-        &[SectionText { text: &children, scale: size.into(), font_id: FontId(0) }],
-    );
+#[widget(size = 24.0, color = Color::black(), width = Default::default(), height = Default::default())]
+pub fn text(
+    size: f32,
+    children: String,
+    color: Color,
+    width: Dimension,
+    height: Dimension,
+) -> Widget {
+    let style = Style { size: Size { width, height }, ..Default::default() };
+    let children_ = children.clone();
+    let measurement_function = move |bounds: Size<Number>| -> Result<Size<f32>, Box<Any>> {
+        let font = FontRef::try_from_slice(FONT).unwrap();
+        let fonts = &[font];
+        let sfont = fonts[0].as_scaled(size);
+        let map_number = |number| match number {
+            Number::Undefined => f32::INFINITY,
+            Number::Defined(v) => v,
+        };
+        let glyphs = Layout::default().calculate_glyphs(
+            fonts,
+            &SectionGeometry {
+                screen_position: (0.0, -sfont.descent()),
+                bounds: (map_number(bounds.width), map_number(bounds.height)),
+            },
+            &[SectionText { text: &children_, scale: size.into(), font_id: FontId(0) }],
+        );
 
-    let mut calculated_width: f32 = 0.0;
-    let mut calculated_height: f32 = 0.0;
-    for glyph in glyphs {
-        let sfont = fonts[glyph.font_id].as_scaled(glyph.glyph.scale);
-        let h_advance = sfont.h_advance(glyph.glyph.id);
-        let h_side_bearing = sfont.h_side_bearing(glyph.glyph.id);
-        let height = sfont.height();
+        let mut calculated_width: f32 = 0.0;
+        let mut calculated_height: f32 = 0.0;
+        for glyph in glyphs {
+            let h_advance = sfont.h_advance(glyph.glyph.id);
+            calculated_width = calculated_width.max(glyph.glyph.position.x + h_advance);
+            calculated_height = calculated_height.max(glyph.glyph.position.y);
+        }
 
-        calculated_width = calculated_height.max(glyph.glyph.position.x + h_advance);
-        calculated_height = calculated_height.max(height);
+        Ok(Size { width: calculated_width, height: size })
+    };
+
+    let primitive_text = RenderObject::Text { text: children, size, color };
+
+    Widget::Leaf {
+        style,
+        measure_function: Box::new((measurement_function)),
+        render_objects: vec![primitive_text],
     }
-    let style = Style {
-        size: Size {
-            width: Dimension::Points(if width == f32::INFINITY { calculated_width } else { width }),
-            height: Dimension::Points(
-                if height == f32::INFINITY { calculated_height } else { height },
-            ),
-        },
-        ..Default::default()
-    };
-
-    let primitive_text = Widget::RenderObject(RenderObject::Text { text: children, size, color });
-    let debug_box = rsx! {
-        <rounded_rect color=Color::apertus_orange() border_radius=0.0 />
-    };
-
-    Widget::LayoutBox(LayoutBox { style, children: vec![primitive_text /* debug_box */] })
 }

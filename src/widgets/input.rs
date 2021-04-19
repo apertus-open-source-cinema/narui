@@ -1,11 +1,15 @@
 use crate::{
     api::{RenderObject, Widget},
-    hooks::{state, Context},
+    hooks::{state, Context, StateValue},
 };
 use narui_derive::{hook, rsx, widget};
+use std::sync::Arc;
 
-#[widget(on_click = (|| {}))]
-pub fn gesture_detector(mut on_click: impl FnMut() -> ()) -> Widget {
-    on_click();
-    Widget::RenderObject(RenderObject::InputSurface)
+#[widget(click = None, hover = None)]
+pub fn input(
+    click: Option<StateValue<bool>>,
+    hover: Option<StateValue<bool>>,
+    children: Vec<Widget>,
+) -> Widget {
+    Widget::render_object(RenderObject::Input { hover, click }, children)
 }

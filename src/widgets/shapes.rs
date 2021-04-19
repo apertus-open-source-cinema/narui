@@ -13,11 +13,12 @@ use lyon::{
 use std::sync::Arc;
 use stretch::{
     geometry::Size,
+    node::MeasureFunc,
     style::{Dimension, Style},
 };
 
 #[widget(border_radius = 7.5, color = Color::grey())]
-pub fn rounded_rect(border_radius: f32, color: Color) -> Widget {
+pub fn rounded_rect(border_radius: f32, color: Color, children: Vec<Widget>) -> Widget {
     let path_gen = Arc::new(move |size: Size<f32>| {
         let mut builder = Builder::new();
         builder.add_rounded_rectangle(
@@ -32,5 +33,5 @@ pub fn rounded_rect(border_radius: f32, color: Color) -> Widget {
         );
         builder.build()
     });
-    Widget::RenderObject(RenderObject::Path { path_gen, color })
+    Widget::render_object(RenderObject::Path { path_gen, color }, children)
 }

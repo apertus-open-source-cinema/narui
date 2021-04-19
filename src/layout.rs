@@ -2,8 +2,11 @@
 of primitive PositionedPrimitiveWidget s that can then be handled to the rendering Backend.
  */
 
-use crate::api::{LayoutBox, RenderObject, Widget};
-use std::{collections::HashMap, ops::Deref};
+use crate::{
+    api::{RenderObject, Widget},
+    types::{Rect, Vec2},
+};
+use std::collections::HashMap;
 use stretch::{
     geometry::{Point, Size},
     node::Node,
@@ -16,8 +19,7 @@ use stretch::{
 #[derive(Debug, Clone)]
 pub struct PositionedRenderObject {
     pub render_object: RenderObject,
-    pub position: Point<f32>,
-    pub size: Size<f32>,
+    pub rect: Rect,
     pub z_index: i32,
 }
 
@@ -27,11 +29,7 @@ pub fn do_layout(
 ) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
     let mut stretch = stretch::node::Stretch::new();
     let mut map = HashMap::new();
-    let top_node = if let Widget::LayoutBox(top) = top {
-        add_widget_to_stretch(top, &mut stretch, &mut map)?
-    } else {
-        unimplemented!()
-    };
+    let top_node = add_widget_to_stretch(top, &mut stretch, &mut map)?;
 
     stretch.compute_layout(
         top_node,
@@ -39,37 +37,30 @@ pub fn do_layout(
     )?;
 
     let mut to_return = Vec::with_capacity(map.len());
-    get_absolute_positions(
-        &mut stretch,
-        top_node,
-        Point { x: 0., y: 0. },
-        &mut map,
-        &mut to_return,
-    );
-
-    print!("{}", print_layout(&stretch, top_node));
+    get_absolute_positions(&mut stretch, top_node, Vec2::zero(), &mut map, &mut to_return);
 
     Ok(to_return)
 }
 fn add_widget_to_stretch(
-    layout_box: LayoutBox,
+    widget: Widget,
     stretch: &mut Stretch,
     map: &mut HashMap<Node, Vec<RenderObject>>,
 ) -> Result<Node, Error> {
-    let mut render_objects = Vec::new();
-    let mut layout_boxes = Vec::new();
-    for child in layout_box.children {
-        match child {
-            Widget::LayoutBox(layout_box) => layout_boxes.push(layout_box),
-            Widget::RenderObject(render_object) => render_objects.push(render_object),
+    let (node, render_objects) = match widget {
+        Widget::Node { style, children, render_objects } => {
+            let mut node_children = Vec::with_capacity(children.len());
+            for child in children {
+                node_children.push(add_widget_to_stretch(child, stretch, map)?);
+            }
+            let node = stretch.new_node(style, node_children)?;
+            (node, render_objects)
         }
-    }
-    let mut child_nodes = Vec::new();
-    for layout_box in layout_boxes {
-        child_nodes.push(add_widget_to_stretch(layout_box, stretch, map)?);
-    }
+        Widget::Leaf { style, measure_function, render_objects } => {
+            let node = stretch.new_leaf(style, measure_function)?;
+            (node, render_objects)
+        }
+    };
 
-    let node = stretch.new_node(layout_box.style, child_nodes)?;
     if render_objects.len() > 0 {
         map.insert(node, render_objects);
     }
@@ -79,27 +70,23 @@ fn add_widget_to_stretch(
 fn get_absolute_positions(
     stretch: &mut Stretch,
     node: Node,
-    parent_position: Point<f32>,
+    parent_position: Vec2,
     map: &mut HashMap<Node, Vec<RenderObject>>,
     positioned_widgets: &mut Vec<PositionedRenderObject>,
 ) {
     let layout = stretch.layout(node).unwrap();
-    let absolute_position = Point {
-        x: parent_position.x + layout.location.x,
-        y: parent_position.y + layout.location.y,
-    };
+    let pos = parent_position + layout.location.into();
     if map.contains_key(&node) {
         for render_object in map.remove(&node).unwrap() {
             positioned_widgets.push(PositionedRenderObject {
                 render_object,
-                position: absolute_position.clone(),
-                size: layout.size,
+                rect: Rect { pos, size: layout.size.into() },
                 z_index: 0,
             })
         }
     }
     for child in stretch.children(node).unwrap() {
-        get_absolute_positions(stretch, child, absolute_position, map, positioned_widgets);
+        get_absolute_positions(stretch, child, pos, map, positioned_widgets);
     }
 }
 
@@ -108,7 +95,7 @@ fn indent(text: String, indent_str: String) -> String {
     text.lines().into_iter().map(|line| format!("{}{}\n", indent_str, line)).collect()
 }
 pub fn print_layout(stretch: &Stretch, top_node: Node) -> String {
-    let mut to_return = format!("{:?}\n", stretch.layout(top_node).unwrap());
+    let mut to_return = format!("{:?}\n", stretch.layout(top_node));
     for child in stretch.children(top_node).unwrap() {
         to_return += indent(print_layout(&stretch, child), "    ".to_owned()).as_str();
     }

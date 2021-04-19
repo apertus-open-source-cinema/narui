@@ -1,20 +1,27 @@
 use crate::{
     api::{RenderObject, Widget},
-    hooks::{state, Context},
+    hooks::{state, Context, StateValue},
     types::Color,
     widgets::*,
 };
 use narui_derive::{hook, rsx, widget};
+use std::sync::Arc;
 use stretch::style::Dimension;
 
-#[widget(on_click = (|| {}))]
+
+#[widget(on_click = || {})]
 pub fn button(on_click: impl FnMut() -> (), children: Widget) -> Widget {
+    let is_hovered = hook!(state(false));
+    let color = if *is_hovered { Color::apertus_orange() } else { Color::grey() };
+
     rsx! {
-        <padding all=Dimension::Points(10.)>
-            <gesture_detector on_click={on_click} />
-            <rounded_rect />
-            <text>{"Hallo.".to_string()}</text>
-        </padding>
+        <input hover=Some(is_hovered)>
+            <rounded_rect color=color>
+                <padding all=Dimension::Points(10.)>
+                    {children}
+                </padding>
+            </rounded_rect>
+        </input>
     }
 }
 

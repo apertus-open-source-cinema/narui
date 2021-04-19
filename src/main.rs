@@ -1,6 +1,12 @@
-use narui::{api::Widget, hooks::Context, types::Color, vulkano_render::render, widgets::*};
+use narui::{
+    api::Widget,
+    hooks::{Context, StateValue},
+    types::Color,
+    vulkano_render::render,
+    widgets::*,
+};
 use narui_derive::{rsx, toplevel_rsx};
-use stretch::style::{Dimension, JustifyContent};
+use stretch::style::{AlignItems, Dimension, JustifyContent};
 
 fn main() {
     /*render(toplevel_rsx! {
@@ -17,14 +23,11 @@ fn main() {
     render(toplevel_rsx! {
         <row justify_content={JustifyContent::SpaceEvenly} fill_parent=true>
             {(0..5).map(|x| rsx!{
-                <column justify_content={JustifyContent::SpaceEvenly} fill_parent=true>
+                <column justify_content={JustifyContent::SpaceEvenly} align_items={AlignItems::Center} fill_parent=true key=x>
                     {(0..5).map(|y| rsx!{
-                        <padding all=Dimension::Points(10.)>
-                            <padding all=Dimension::Points(10.)>
-                                <rounded_rect />
-                                <text>{format!("({},{})", x, y)}</text>
-                            </padding>
-                        </padding>
+                        <button key=y>
+                            <text size=24.0>{format!("({},{})", x, y)}</text>
+                        </button>
                     }).collect::<Vec<_>>()}
                 </column>
             }).collect::<Vec<_>>()}
