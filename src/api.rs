@@ -1,9 +1,3 @@
-/* The API to the UI library mimics React ergonomics with hooks. There are two types of widgets:
-Primitive and Composed Widgets. Primitive Widgets are the variants of the `PrimitiveWidget` Enum.
-Composed Widgets are functions that return either other Composed Widgets or Primitive Widgets.
-For layout we create `TreeNodes` with stretch Style attributes.
-*/
-
 use crate::types::Color;
 use derivative::Derivative;
 use lyon::path::Path;
@@ -11,24 +5,26 @@ use std::sync::Arc;
 use stretch::{geometry::Size, style::Style};
 
 #[derive(Debug, Clone)]
-pub struct Widget {
-    pub style: Style,
-    pub children: Children,
+pub enum Widget {
+    LayoutBox(LayoutBox),
+    RenderObject(RenderObject),
 }
 impl Into<Vec<Widget>> for Widget {
     fn into(self) -> Vec<Widget> { vec![self] }
 }
+
+
 #[derive(Debug, Clone)]
-pub enum Children {
-    Composed(Vec<Widget>),
-    RenderObject(RenderObject),
+pub struct LayoutBox {
+    pub style: Style,
+    pub children: Vec<Widget>,
 }
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub enum RenderObject {
     Path {
         #[derivative(Debug = "ignore")]
-        path: Arc<dyn Fn(Size<f32>) -> Path>,
+        path_gen: Arc<dyn Fn(Size<f32>) -> Path>,
         color: Color,
     },
     Text {

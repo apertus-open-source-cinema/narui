@@ -113,8 +113,8 @@ impl LyonRenderer {
     ) {
         let mut lyon_vertex_buffer: VertexBuffers<Vertex, u16> = VertexBuffers::new();
         for render_object in render_objects {
-            if let RenderObject::Path { path, color } = render_object.render_object {
-                let untranslated: Path = path(render_object.size);
+            if let RenderObject::Path { path_gen, color } = render_object.render_object {
+                let untranslated: Path = path_gen(render_object.size);
                 let translated = untranslated.transformed(&Translation::new(
                     render_object.position.x,
                     render_object.position.y,
