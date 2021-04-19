@@ -5,7 +5,7 @@ use crate::{
     vulkano_render::VulkanContext,
 };
 use glyph_brush::{
-    ab_glyph::FontArc,
+    ab_glyph::{FontArc, PxScale},
     BrushAction,
     BrushError,
     GlyphBrush,
@@ -15,7 +15,7 @@ use glyph_brush::{
     Text,
 };
 use notosans::REGULAR_TTF as FONT;
-use std::sync::Arc;
+use std::{iter::repeat, sync::Arc};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState},
@@ -108,10 +108,10 @@ mod fragment_shader {
             void main() {
                 float alpha = texture(tex, tex_frag).r;
                 if (alpha <= 0.0) {
-                    //discard;
+                    discard;
                 }
                 f_color = color_frag;
-                f_color.a *= (alpha + 0.5);
+                f_color.a *= alpha;
             }
         "
     }
@@ -245,15 +245,25 @@ impl TextRenderer {
         buffer_builder: &mut AutoCommandBufferBuilder,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
+        render_objects: Vec<PositionedRenderObject>,
     ) {
-        self.glyph_brush.queue(Section::default().add_text(
-            Text::new("Hello glyph_brush").with_color(Color::apertus_orange()).with_scale(200.),
-        ));
+        for render_object in render_objects {
+            if let RenderObject::Text { text, size, color } = render_object.render_object {
+                self.glyph_brush.queue(
+                    Section::default()
+                        .add_text(
+                            Text::new(&*text).with_color(color).with_scale(PxScale::from(size)),
+                        )
+                        .with_screen_position((render_object.position.x, render_object.position.y))
+                        .with_bounds((render_object.size.width, render_object.size.height)),
+                );
+            }
+        }
 
         let mut texture_upload = None;
         match self.glyph_brush.process_queued(
             |rect, tex_data| {
-                texture_upload = Some((tex_data.to_vec(), rect.width(), rect.height()));
+                texture_upload = Some((tex_data.to_vec(), rect));
             },
             |vertex_data| InstanceData {
                 pos_min: [vertex_data.pixel_coords.min.x, vertex_data.pixel_coords.min.y],
@@ -279,7 +289,12 @@ impl TextRenderer {
                 self.glyph_brush.resize_texture(w, h);
             }
         }
-        if let Some((tex_data, width, height)) = texture_upload {
+        if let Some((mut tex_data, rect)) = texture_upload {
+            dbg!(rect);
+            let (width, height) = self.glyph_brush.texture_dimensions();
+            tex_data.append(
+                &mut repeat(0u8).take((width * height) as usize - tex_data.len()).collect(),
+            );
             let (image, future) = ImmutableImage::from_iter(
                 tex_data.iter().cloned(),
                 ImageDimensions::Dim2d { width, height, array_layers: 1 },

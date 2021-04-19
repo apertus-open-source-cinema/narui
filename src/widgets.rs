@@ -125,7 +125,7 @@ pub fn row(
 
 
 #[widget(on_click = (|| {}))]
-fn gesture_detector(mut on_click: impl FnMut() -> ()) -> Widget {
+pub fn gesture_detector(mut on_click: impl FnMut() -> ()) -> Widget {
     on_click();
 
     let style = Style {
@@ -136,12 +136,12 @@ fn gesture_detector(mut on_click: impl FnMut() -> ()) -> Widget {
     Widget { style, children: Children::RenderObject(RenderObject::InputSurface) }
 }
 
-#[widget(size = 12.0, color = Color::grey())]
-fn text(size: f32, children: String, color: Color) -> Widget {
+#[widget(size = 16.0, color = Color::grey())]
+pub fn text(size: f32, children: String, color: Color) -> Widget {
     Widget {
         style: Style {
             size: Size {
-                height: Dimension::Points(size),
+                height: Dimension::Points(size * 10.0),
                 width: Dimension::Points(size * children.len() as f32),
             },
             ..Default::default()
@@ -151,11 +151,11 @@ fn text(size: f32, children: String, color: Color) -> Widget {
 }
 
 #[widget(on_click = (|| {}))]
-fn button(on_click: impl FnMut() -> (), children: Widget) -> Widget {
+pub fn button(on_click: impl FnMut() -> (), children: Widget) -> Widget {
     rsx! {
         <stacked>
             <gesture_detector on_click={on_click} />
-            <rounded_rect/>
+            <rounded_rect color=Color::apertus_orange()/>
             {children}
         </stacked>
     }
@@ -163,7 +163,7 @@ fn button(on_click: impl FnMut() -> (), children: Widget) -> Widget {
 
 
 #[widget(initial_value = 0, step_size = 1)]
-fn counter(initial_value: i32, step_size: i32) -> Widget {
+pub fn counter(initial_value: i32, step_size: i32) -> Widget {
     let count = hook!(state(initial_value));
 
     rsx! {

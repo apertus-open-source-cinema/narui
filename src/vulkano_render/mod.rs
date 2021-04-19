@@ -216,8 +216,8 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
             )
             .unwrap();
 
-            lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted);
-            text_render.render(&mut builder, &dynamic_state, &dimensions);
+            lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
+            text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
 
             builder.end_render_pass().unwrap();
             let command_buffer = builder.build().unwrap();
