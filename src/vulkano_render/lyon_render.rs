@@ -1,14 +1,11 @@
-use crate::{
-    api::RenderObject,
-    layout::PositionedRenderObject,
-    types::Color,
-    vulkano_render::VulkanContext,
-};
+use super::VulkanContext;
+use crate::heart::*;
 use lyon::{
     lyon_algorithms::path::geom::Translation,
     lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers},
     tessellation::{path::Path, FillVertexConstructor},
 };
+use palette::Pixel;
 use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
@@ -66,7 +63,10 @@ struct VertexConstructor {
 }
 impl FillVertexConstructor<Vertex> for VertexConstructor {
     fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
-        Vertex { position: [vertex.position().x, vertex.position().y], color: self.color.into() }
+        Vertex {
+            position: [vertex.position().x, vertex.position().y],
+            color: self.color.into_format().into_raw(),
+        }
     }
 }
 

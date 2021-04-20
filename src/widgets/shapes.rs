@@ -1,8 +1,4 @@
-use crate::{
-    api::{RenderObject, Widget},
-    hooks::{state, Context},
-    types::Color,
-};
+use crate::heart::*;
 use narui_derive::{hook, rsx, widget};
 
 use lyon::{
@@ -17,7 +13,7 @@ use stretch::{
     style::{Dimension, Style},
 };
 
-#[widget(border_radius = 7.5, color = Color::grey())]
+#[widget(border_radius = 7.5, color = crate::theme::BG_LIGHT)]
 pub fn rounded_rect(border_radius: f32, color: Color, children: Vec<Widget>) -> Widget {
     let path_gen = Arc::new(move |size: Size<f32>| {
         let mut builder = Builder::new();

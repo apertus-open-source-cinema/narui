@@ -1,9 +1,5 @@
-use crate::{
-    api::RenderObject,
-    layout::PositionedRenderObject,
-    types::Color,
-    vulkano_render::VulkanContext,
-};
+use super::VulkanContext;
+use crate::heart::*;
 use glyph_brush::{
     ab_glyph::{FontArc, PxScale},
     BrushAction,
@@ -15,7 +11,9 @@ use glyph_brush::{
     Section,
     Text,
 };
-use notosans::REGULAR_TTF as FONT;
+
+use lazy_static::lazy_static;
+use palette::Pixel;
 use std::{iter::repeat, sync::Arc};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
@@ -46,6 +44,10 @@ use vulkano::{
     },
     sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
 };
+
+lazy_static! {
+    pub static ref FONT: FontArc = FontArc::try_from_slice(notosans::REGULAR_TTF).unwrap();
+}
 
 mod vertex_shader {
     vulkano_shaders::shader! {
@@ -154,6 +156,7 @@ pub struct TextRenderer {
             PersistentDescriptorSetSampler,
         )>,
     >,
+    texture_bytes: Vec<u8>,
 }
 impl TextRenderer {
     pub fn new(render_pass: Arc<dyn RenderPassAbstract + Send + Sync>, queue: Arc<Queue>) -> Self {
@@ -175,8 +178,7 @@ impl TextRenderer {
                 .unwrap(),
         );
 
-        let droid_sans = FontArc::try_from_slice(FONT).unwrap();
-        let glyph_brush = GlyphBrushBuilder::using_font(droid_sans).build();
+        let glyph_brush = GlyphBrushBuilder::using_font(FONT.clone()).build();
 
         let quad_vertex_buffer = CpuAccessibleBuffer::from_iter(
             device.clone(),
@@ -229,6 +231,8 @@ impl TextRenderer {
                 .build()
                 .unwrap(),
         );
+        let (w, h) = glyph_brush.texture_dimensions();
+        let texture_bytes = vec![0u8; (w * h) as usize];
 
         Self {
             pipeline,
@@ -239,6 +243,7 @@ impl TextRenderer {
             descriptor_set,
             sampler,
             queue,
+            texture_bytes,
         }
     }
     pub fn render(
@@ -253,7 +258,9 @@ impl TextRenderer {
                 self.glyph_brush.queue(
                     Section::default()
                         .add_text(
-                            Text::new(&*text).with_color(color).with_scale(PxScale::from(size)),
+                            Text::new(&*text)
+                                .with_color(color.into_format().into_raw::<[f32; 4]>())
+                                .with_scale(PxScale::from(size)),
                         )
                         .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
                         .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size)),
@@ -285,19 +292,23 @@ impl TextRenderer {
             }
             Ok(BrushAction::ReDraw) => {}
             Err(BrushError::TextureTooSmall { suggested: (w, h) }) => {
-                // we always create a new texture so we do not need to handle this case in a
-                // special way
+                self.texture_bytes = vec![0u8; (w * h) as usize];
                 self.glyph_brush.resize_texture(w, h);
             }
         }
         if let Some((mut tex_data, rect)) = texture_upload {
-            dbg!(rect);
             let (width, height) = self.glyph_brush.texture_dimensions();
-            tex_data.append(
-                &mut repeat(0u8).take((width * height) as usize - tex_data.len()).collect(),
-            );
+            let patch_width = (rect.max[0] - rect.min[0]) as usize;
+            for (y, line) in tex_data.chunks(patch_width).enumerate() {
+                let line_offset =
+                    (y + rect.min[1] as usize) * width as usize + rect.min[0] as usize;
+                for (i, x) in (line_offset..line_offset + patch_width).enumerate() {
+                    self.texture_bytes[x] = line[i];
+                }
+            }
+
             let (image, future) = ImmutableImage::from_iter(
-                tex_data.iter().cloned(),
+                self.texture_bytes.iter().cloned(),
                 ImageDimensions::Dim2d { width, height, array_layers: 1 },
                 MipmapsCount::One,
                 Format::R8Unorm,

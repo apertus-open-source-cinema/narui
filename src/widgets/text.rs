@@ -1,11 +1,7 @@
-use crate::{
-    api::{RenderObject, Widget},
-    hooks::{state, Context},
-    types::Color,
-    widgets::*,
-};
+use crate::{heart::*, widgets::*};
 use narui_derive::{hook, rsx, widget};
 
+use crate::vulkano_render::text_render::FONT;
 use glyph_brush::{
     ab_glyph::{Font, FontRef, ScaleFont},
     FontId,
@@ -15,7 +11,6 @@ use glyph_brush::{
     SectionGeometry,
     SectionText,
 };
-use notosans::REGULAR_TTF as FONT;
 use std::any::Any;
 use stretch::{
     geometry::Size,
@@ -25,7 +20,7 @@ use stretch::{
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
-#[widget(size = 24.0, color = Color::black(), width = Default::default(), height = Default::default())]
+#[widget(size = 24.0, color = crate::theme::TEXT_WHITE, width = Default::default(), height = Default::default())]
 pub fn text(
     size: f32,
     children: String,
@@ -35,9 +30,8 @@ pub fn text(
 ) -> Widget {
     let style = Style { size: Size { width, height }, ..Default::default() };
     let children_ = children.clone();
-    let measurement_function = move |bounds: Size<Number>| -> Result<Size<f32>, Box<Any>> {
-        let font = FontRef::try_from_slice(FONT).unwrap();
-        let fonts = &[font];
+    let measurement_function = move |bounds: Size<Number>| -> Result<Size<f32>, Box<dyn Any>> {
+        let fonts = &[FONT.clone()];
         let sfont = fonts[0].as_scaled(size);
         let map_number = |number| match number {
             Number::Undefined => f32::INFINITY,
@@ -60,7 +54,7 @@ pub fn text(
             calculated_height = calculated_height.max(glyph.glyph.position.y);
         }
 
-        Ok(Size { width: calculated_width, height: size })
+        Ok(Size { width: calculated_width, height: calculated_height })
     };
 
     let primitive_text = RenderObject::Text { text: children, size, color };

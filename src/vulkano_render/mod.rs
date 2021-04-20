@@ -35,17 +35,11 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use crate::{
-    api::Widget,
-    fps_report::FPSReporter,
-    hooks::Context,
-    layout::do_layout,
-    vulkano_render::{
-        input_handler::InputHandler,
-        lyon_render::LyonRenderer,
-        text_render::TextRenderer,
-    },
-};
+use crate::{heart::*, theme};
+use input_handler::InputHandler;
+use lyon_render::LyonRenderer;
+use palette::Pixel;
+use text_render::TextRenderer;
 
 #[derive(Clone)]
 pub struct VulkanContext {
@@ -76,13 +70,10 @@ impl VulkanContext {
     pub fn get() -> Self { VULKAN_CONTEXT.clone() }
 }
 
-pub fn render(top_node: impl Fn(Context) -> Widget) {
-    let mut event_loop: EventLoop<()> = EventLoopExtUnix::new_any_thread();
+pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widget + 'static) {
+    let event_loop: EventLoop<()> = EventLoop::new();
     let device = VulkanContext::get().device;
-    let surface = WindowBuilder::new()
-        .with_title("axiom converter vulkan output")
-        .build_vk_surface(&event_loop, device.instance().clone())
-        .unwrap();
+    let surface = window_builder.build_vk_surface(&event_loop, device.instance().clone()).unwrap();
     let queue = VulkanContext::get()
         .queues
         .iter()
@@ -162,8 +153,9 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
+    let mut layouted: Vec<PositionedRenderObject> = vec![];
 
-    event_loop.run_return(move |event, _, control_flow| match event {
+    event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
             *control_flow = ControlFlow::Exit;
         }
@@ -171,12 +163,7 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
             recreate_swapchain = true;
         }
         Event::WindowEvent { event: window_event, .. } => {
-            let layouted = do_layout(
-                top_node(context.clone()),
-                Size { width: dimensions[0] as f32, height: dimensions[1] as f32 },
-            )
-            .unwrap();
-            input_handler.handle_input(window_event, layouted);
+            input_handler.handle_input(window_event, layouted.clone());
         }
         Event::RedrawEventsCleared => {
             previous_frame_end.as_mut().unwrap().cleanup_finished();
@@ -212,7 +199,8 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
                 recreate_swapchain = true;
             }
 
-            let clear_values = vec![[0.0, 0.0, 0.0, 1.0].into(), ClearValue::None];
+            let clear_values =
+                vec![theme::BG.into_format().into_raw::<[f32; 4]>().into(), ClearValue::None];
             let mut builder =
                 AutoCommandBufferBuilder::primary_one_time_submit(device.clone(), queue.family())
                     .unwrap();
@@ -224,7 +212,7 @@ pub fn render(top_node: impl Fn(Context) -> Widget) {
                 )
                 .unwrap();
 
-            let layouted = do_layout(
+            layouted = do_layout(
                 top_node(context.clone()),
                 Size { width: dimensions[0] as f32, height: dimensions[1] as f32 },
             )

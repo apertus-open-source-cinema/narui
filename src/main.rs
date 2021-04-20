@@ -1,12 +1,7 @@
-use narui::{
-    api::Widget,
-    hooks::{Context, StateValue},
-    types::Color,
-    vulkano_render::render,
-    widgets::*,
-};
-use narui_derive::{rsx, toplevel_rsx};
+use narui::{heart::*, theme, vulkano_render::render, widgets::*};
+use narui_derive::{hook, rsx, toplevel_rsx, widget};
 use stretch::style::{AlignItems, Dimension, JustifyContent};
+use winit::window::WindowBuilder;
 
 fn main() {
     /*render(toplevel_rsx! {
@@ -20,17 +15,11 @@ fn main() {
             }).collect()}
         </row>
     });*/
-    render(toplevel_rsx! {
-        <row justify_content={JustifyContent::SpaceEvenly} fill_parent=true>
-            {(0..5).map(|x| rsx!{
-                <column justify_content={JustifyContent::SpaceEvenly} align_items={AlignItems::Center} fill_parent=true key=x>
-                    {(0..5).map(|y| rsx!{
-                        <button key=y>
-                            <text size=24.0>{format!("({},{})", x, y)}</text>
-                        </button>
-                    }).collect::<Vec<_>>()}
-                </column>
-            }).collect::<Vec<_>>()}
-        </row>
-    });
+    let window_builder = WindowBuilder::new().with_title("narui counter demo");
+    render(
+        window_builder,
+        toplevel_rsx! {
+            <counter />
+        },
+    );
 }
