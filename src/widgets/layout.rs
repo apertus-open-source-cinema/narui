@@ -11,7 +11,7 @@ pub fn container(style: Style, children: Vec<Widget>) -> Widget {
     Widget::layout_block(style, children)
 }
 
-#[widget(justify_content = Default::default(), align_items = Default::default(), style = Default::default, fill_parent = true)]
+#[widget(justify_content = Default::default(), align_items = Default::default(), style = Default::default(), fill_parent = true)]
 pub fn column(
     justify_content: JustifyContent,
     align_items: AlignItems,

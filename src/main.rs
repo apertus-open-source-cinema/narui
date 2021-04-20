@@ -20,7 +20,7 @@ fn main() {
         window_builder,
         toplevel_rsx! {
             <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
-                <slider />
+                <slider_demo />
             </row>
         },
     );

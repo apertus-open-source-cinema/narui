@@ -255,10 +255,20 @@ impl TextRenderer {
             }
         }
 
-        let mut texture_upload = None;
+        let (width, height) = self.glyph_brush.texture_dimensions();
+        let texture_bytes = &mut self.texture_bytes;
+        let mut texture_upload = false;
         match self.glyph_brush.process_queued(
-            |rect, tex_data| {
-                texture_upload = Some((tex_data.to_vec(), rect));
+            |patch_rect, patch_data| {
+                let patch_width = (patch_rect.max[0] - patch_rect.min[0]) as usize;
+                for (y, line) in patch_data.chunks(patch_width).enumerate() {
+                    let line_offset = (y + patch_rect.min[1] as usize) * width as usize
+                        + patch_rect.min[0] as usize;
+                    for (i, x) in (line_offset..line_offset + patch_width).enumerate() {
+                        texture_bytes[x] = line[i];
+                    }
+                }
+                texture_upload = true;
             },
             |vertex_data| InstanceData {
                 pos_min: [vertex_data.pixel_coords.min.x, vertex_data.pixel_coords.min.y],
@@ -269,6 +279,16 @@ impl TextRenderer {
             },
         ) {
             Ok(BrushAction::Draw(vertices)) => {
+                /* //draw texture:
+                vertices.push(InstanceData {
+                    pos_min: [100., 100.],
+                    pos_max: [500., 500.],
+                    tex_min: [0., 0.],
+                    tex_max: [1., 1.],
+                    color: [1., 1., 1., 1.]
+                });
+                 */
+
                 self.instance_data_buffer = CpuAccessibleBuffer::<[InstanceData]>::from_iter(
                     self.device.clone(),
                     BufferUsage::all(),
@@ -283,17 +303,8 @@ impl TextRenderer {
                 self.glyph_brush.resize_texture(w, h);
             }
         }
-        if let Some((tex_data, rect)) = texture_upload {
-            let (width, height) = self.glyph_brush.texture_dimensions();
-            let patch_width = (rect.max[0] - rect.min[0]) as usize;
-            for (y, line) in tex_data.chunks(patch_width).enumerate() {
-                let line_offset =
-                    (y + rect.min[1] as usize) * width as usize + rect.min[0] as usize;
-                for (i, x) in (line_offset..line_offset + patch_width).enumerate() {
-                    self.texture_bytes[x] = line[i];
-                }
-            }
 
+        if texture_upload {
             let (image, _) = ImmutableImage::from_iter(
                 self.texture_bytes.iter().cloned(),
                 ImageDimensions::Dim2d { width, height, array_layers: 1 },

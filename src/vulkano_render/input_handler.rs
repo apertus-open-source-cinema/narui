@@ -47,7 +47,7 @@ impl InputHandler {
             if let Input { hover, position, click } = render_object.clone().render_object {
                 hover.set(render_object.rect.contains(self.cursor_position.into()));
 
-                if *hover || *click {
+                if hover.get() || click.get() {
                     position.set(Some(self.cursor_position - render_object.rect.pos))
                 } else {
                     position.set(None)
