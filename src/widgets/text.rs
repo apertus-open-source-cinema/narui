@@ -1,11 +1,10 @@
 use crate::{heart::*, widgets::*};
-use narui_derive::{hook, rsx, widget};
+use narui_derive::widget;
 
 use crate::vulkano_render::text_render::FONT;
 use glyph_brush::{
-    ab_glyph::{Font, FontRef, ScaleFont},
+    ab_glyph::{Font, ScaleFont},
     FontId,
-    GlyphBrushBuilder,
     GlyphPositioner,
     Layout,
     SectionGeometry,
@@ -61,7 +60,7 @@ pub fn text(
 
     Widget::Leaf {
         style,
-        measure_function: Box::new((measurement_function)),
+        measure_function: Box::new(measurement_function),
         render_objects: vec![primitive_text],
     }
 }

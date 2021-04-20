@@ -15,3 +15,16 @@ where
     }
     state_value
 }
+
+
+pub fn rise_detector(
+    to_probe: StateValue<bool>,
+    callback: impl Fn() -> (),
+    state_value: StateValue<bool>,
+) {
+    let last = state(false, state_value);
+    if *to_probe && !*last {
+        callback();
+    }
+    last.set(*to_probe);
+}

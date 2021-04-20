@@ -26,8 +26,8 @@ pub enum Widget {
     },
 }
 impl Widget {
-    pub fn render_object(render_object: RenderObject, children: Vec<Widget>) -> Self {
-        Widget::Node { style: Default::default(), children, render_objects: vec![render_object] }
+    pub fn render_object(render_object: RenderObject, children: Vec<Widget>, style: Style) -> Self {
+        Widget::Node { style, children, render_objects: vec![render_object] }
     }
     pub fn layout_block(style: Style, children: Vec<Widget>) -> Self {
         Widget::Node { style, children, render_objects: vec![] }
@@ -52,7 +52,8 @@ pub enum RenderObject {
     Input {
         // this is nothing that gets rendered but instead it gets interpreted by the input handling
         // logic
-        hover: Option<StateValue<bool>>,
-        click: Option<StateValue<bool>>,
+        hover: StateValue<bool>,
+        click: StateValue<bool>,
+        position: StateValue<Option<Vec2>>,
     },
 }

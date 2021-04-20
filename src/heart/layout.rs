@@ -27,6 +27,8 @@ pub fn do_layout(
         Size { width: Number::Defined(size.width), height: Number::Defined(size.height) },
     )?;
 
+    //println!("{}", print_layout(&stretch, top_node));
+
     let mut to_return = Vec::with_capacity(map.len());
     get_absolute_positions(&mut stretch, top_node, Vec2::zero(), &mut map, &mut to_return);
 
@@ -86,7 +88,7 @@ fn indent(text: String, indent_str: String) -> String {
     text.lines().into_iter().map(|line| format!("{}{}\n", indent_str, line)).collect()
 }
 pub fn print_layout(stretch: &Stretch, top_node: Node) -> String {
-    let mut to_return = format!("{:?}\n", stretch.layout(top_node));
+    let mut to_return = format!("{:?}\n", stretch.layout(top_node).unwrap());
     for child in stretch.children(top_node).unwrap() {
         to_return += indent(print_layout(&stretch, child), "    ".to_owned()).as_str();
     }

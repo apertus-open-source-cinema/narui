@@ -6,15 +6,13 @@ use glyph_brush::{
     BrushError,
     GlyphBrush,
     GlyphBrushBuilder,
-    GlyphVertex,
-    Layout,
     Section,
     Text,
 };
 
 use lazy_static::lazy_static;
 use palette::Pixel;
-use std::{iter::repeat, sync::Arc};
+use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState},
@@ -29,19 +27,8 @@ use vulkano::{
     device::{Device, Queue},
     format::Format,
     framebuffer::{RenderPassAbstract, Subpass},
-    image::{
-        view::ImageView,
-        ImageCreateFlags,
-        ImageDimensions,
-        ImageLayout,
-        ImageUsage,
-        ImmutableImage,
-        MipmapsCount,
-    },
-    pipeline::{
-        vertex::{OneVertexOneInstanceDefinition, SingleBufferDefinition},
-        GraphicsPipeline,
-    },
+    image::{view::ImageView, ImageDimensions, ImmutableImage, MipmapsCount},
+    pipeline::{vertex::OneVertexOneInstanceDefinition, GraphicsPipeline},
     sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
 };
 
@@ -198,7 +185,7 @@ impl TextRenderer {
         )
         .unwrap();
 
-        let (image, future) = ImmutableImage::from_iter(
+        let (image, _) = ImmutableImage::from_iter(
             vec![0u8].into_iter(),
             ImageDimensions::Dim2d { width: 1, height: 1, array_layers: 1 },
             MipmapsCount::One,
@@ -296,7 +283,7 @@ impl TextRenderer {
                 self.glyph_brush.resize_texture(w, h);
             }
         }
-        if let Some((mut tex_data, rect)) = texture_upload {
+        if let Some((tex_data, rect)) = texture_upload {
             let (width, height) = self.glyph_brush.texture_dimensions();
             let patch_width = (rect.max[0] - rect.min[0]) as usize;
             for (y, line) in tex_data.chunks(patch_width).enumerate() {
@@ -307,7 +294,7 @@ impl TextRenderer {
                 }
             }
 
-            let (image, future) = ImmutableImage::from_iter(
+            let (image, _) = ImmutableImage::from_iter(
                 self.texture_bytes.iter().cloned(),
                 ImageDimensions::Dim2d { width, height, array_layers: 1 },
                 MipmapsCount::One,

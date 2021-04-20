@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::ops::{Add, Sub};
 use stretch::geometry::{Point, Size};
 use winit::dpi::PhysicalPosition;
 
@@ -17,6 +17,11 @@ impl Add for Vec2 {
     type Output = Vec2;
 
     fn add(self, rhs: Self) -> Self::Output { Vec2 { x: self.x + rhs.x, y: self.y + rhs.y } }
+}
+impl Sub for Vec2 {
+    type Output = Vec2;
+
+    fn sub(self, rhs: Self) -> Self::Output { Vec2 { x: self.x - rhs.x, y: self.y - rhs.y } }
 }
 impl From<PhysicalPosition<f64>> for Vec2 {
     fn from(p: PhysicalPosition<f64>) -> Self { Vec2 { x: p.x as f32, y: p.y as f32 } }

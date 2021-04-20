@@ -1,19 +1,13 @@
-use crate::heart::*;
+use crate::heart::{RenderObject::Input, *};
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
 pub struct InputHandler {
     left_mouse: bool,
     cursor_position: Vec2,
-    click_start_position: Vec2,
 }
+
 impl InputHandler {
-    pub fn new() -> Self {
-        InputHandler {
-            left_mouse: false,
-            cursor_position: Vec2::zero(),
-            click_start_position: Vec2::zero(),
-        }
-    }
+    pub fn new() -> Self { InputHandler { left_mouse: false, cursor_position: Vec2::zero() } }
     pub fn handle_input(
         &mut self,
         event: WindowEvent,
@@ -25,10 +19,23 @@ impl InputHandler {
             }
             WindowEvent::MouseInput { state, button, .. } => match button {
                 MouseButton::Left => {
-                    let state = matches!(state, ElementState::Pressed);
-                    if state {
-                        self.click_start_position = self.cursor_position;
+                    match state {
+                        ElementState::Pressed => {
+                            for render_object in render_objects.clone() {
+                                if let Input { click, .. } = render_object.clone().render_object {
+                                    click.set(render_object.rect.contains(self.cursor_position));
+                                }
+                            }
+                        }
+                        ElementState::Released => {
+                            for render_object in render_objects.clone() {
+                                if let Input { click, .. } = render_object.clone().render_object {
+                                    click.set(false);
+                                }
+                            }
+                        }
                     }
+                    let state = matches!(state, ElementState::Pressed);
                     self.left_mouse = state
                 }
                 _ => {}
@@ -36,19 +43,15 @@ impl InputHandler {
             _ => {}
         }
 
-        for render_object in render_objects {
-            if let RenderObject::Input { hover: Some(hover), .. } =
-                render_object.clone().render_object
-            {
+        for render_object in render_objects.clone() {
+            if let Input { hover, position, click } = render_object.clone().render_object {
                 hover.set(render_object.rect.contains(self.cursor_position.into()));
-            }
-            if let RenderObject::Input { click: Some(click), .. } =
-                render_object.clone().render_object
-            {
-                click.set(
-                    render_object.rect.contains(self.click_start_position.into())
-                        && self.left_mouse,
-                );
+
+                if *hover || *click {
+                    position.set(Some(self.cursor_position - render_object.rect.pos))
+                } else {
+                    position.set(None)
+                }
             }
         }
     }

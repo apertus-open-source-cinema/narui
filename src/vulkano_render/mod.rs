@@ -31,7 +31,6 @@ use vulkano_win::VkSurfaceBuild;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    platform::{run_return::EventLoopExtRunReturn, unix::EventLoopExtUnix},
     window::{Window, WindowBuilder},
 };
 

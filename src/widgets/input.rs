@@ -1,12 +1,18 @@
 use crate::heart::*;
-use narui_derive::widget;
-use std::sync::Arc;
+use narui_derive::{hook, widget};
+use stretch::style::Style;
 
-#[widget(click = None, hover = None)]
+#[widget(click = Default::default(), hover = Default::default(), position = Default::default(), style = Default::default())]
 pub fn input(
     click: Option<StateValue<bool>>,
     hover: Option<StateValue<bool>>,
+    position: Option<StateValue<Option<Vec2>>>,
+    style: Style,
     children: Vec<Widget>,
 ) -> Widget {
-    Widget::render_object(RenderObject::Input { hover, click }, children)
+    let click = if let Some(v) = click { v } else { hook!(state(Default::default())) };
+    let hover = if let Some(v) = hover { v } else { hook!(state(Default::default())) };
+    let position = if let Some(v) = position { v } else { hook!(state(Default::default())) };
+
+    Widget::render_object(RenderObject::Input { hover, click, position }, children, style)
 }

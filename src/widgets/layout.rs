@@ -1,25 +1,22 @@
 use crate::heart::*;
-use narui_derive::{hook, rsx, widget};
+use narui_derive::widget;
 
 use stretch::{
     geometry::{Rect, Size},
-    style::{
-        AlignContent,
-        AlignItems,
-        Dimension,
-        FlexDirection,
-        FlexWrap,
-        JustifyContent,
-        PositionType,
-        Style,
-    },
+    style::{AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, Style},
 };
 
-#[widget(justify_content = Default::default(), align_items = Default::default(), fill_parent = true)]
+#[widget(style = Default::default())]
+pub fn container(style: Style, children: Vec<Widget>) -> Widget {
+    Widget::layout_block(style, children)
+}
+
+#[widget(justify_content = Default::default(), align_items = Default::default(), style = Default::default, fill_parent = true)]
 pub fn column(
     justify_content: JustifyContent,
     align_items: AlignItems,
     fill_parent: bool,
+    style: Style,
     children: Vec<Widget>,
 ) -> Widget {
     let style = Style {
@@ -31,16 +28,17 @@ pub fn column(
         },
         justify_content,
         align_items,
-        ..Default::default()
+        ..style
     };
     Widget::layout_block(style, children)
 }
 
-#[widget(justify_content = Default::default(), align_items = Default::default(), fill_parent = true)]
+#[widget(justify_content = Default::default(), align_items = Default::default(), fill_parent = true, style = Default::default())]
 pub fn row(
     justify_content: JustifyContent,
     align_items: AlignItems,
     fill_parent: bool,
+    style: Style,
     children: Vec<Widget>,
 ) -> Widget {
     let style = Style {
@@ -52,12 +50,12 @@ pub fn row(
         },
         justify_content,
         align_items,
-        ..Default::default()
+        ..style
     };
     Widget::layout_block(style, children)
 }
 
-#[widget(all=Default::default(), top_bottom=Default::default(), left_right=Default::default(), top=Default::default(), bottom=Default::default(), left=Default::default(), right=Default::default())]
+#[widget(all=Default::default(), top_bottom=Default::default(), left_right=Default::default(), top=Default::default(), bottom=Default::default(), left=Default::default(), right=Default::default(), style = Default::default())]
 pub fn padding(
     all: Dimension,
     top_bottom: Dimension,
@@ -66,6 +64,7 @@ pub fn padding(
     bottom: Dimension,
     left: Dimension,
     right: Dimension,
+    style: Style,
     children: Vec<Widget>,
 ) -> Widget {
     let (mut t, mut b, mut l, mut r) = (all, all, all, all);
@@ -90,7 +89,6 @@ pub fn padding(
         r = right
     }
 
-    let style =
-        Style { padding: Rect { start: l, end: r, top: t, bottom: b }, ..Default::default() };
+    let style = Style { padding: Rect { start: l, end: r, top: t, bottom: b }, ..style };
     Widget::layout_block(style, children)
 }

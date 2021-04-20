@@ -1,6 +1,6 @@
-use narui::{heart::*, theme, vulkano_render::render, widgets::*};
-use narui_derive::{hook, rsx, toplevel_rsx, widget};
-use stretch::style::{AlignItems, Dimension, JustifyContent};
+use narui::{heart::*, vulkano_render::render, widgets::*};
+use narui_derive::toplevel_rsx;
+use stretch::style::{AlignItems, JustifyContent};
 use winit::window::WindowBuilder;
 
 fn main() {
@@ -19,7 +19,9 @@ fn main() {
     render(
         window_builder,
         toplevel_rsx! {
-            <counter />
+            <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
+                <slider />
+            </row>
         },
     );
 }
