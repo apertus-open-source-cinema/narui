@@ -10,7 +10,7 @@ use glyph_brush::{
     SectionGeometry,
     SectionText,
 };
-use std::{any::Any, sync::Arc};
+use std::any::Any;
 use stretch::{
     geometry::Size,
     number::Number,
@@ -26,7 +26,7 @@ pub fn text(
     color: Color,
     width: Dimension,
     height: Dimension,
-) -> Widget {
+) -> WidgetInner {
     let style = Style { size: Size { width, height }, ..Default::default() };
     let children_ = children.clone();
     let measurement_function = move |bounds: Size<Number>| -> Result<Size<f32>, Box<dyn Any>> {
@@ -58,9 +58,9 @@ pub fn text(
 
     let primitive_text = RenderObject::Text { text: children, size, color };
 
-    Widget::Leaf {
+    WidgetInner::Leaf {
         style,
-        measure_function: Arc::new(measurement_function),
-        render_objects: vec![Arc::new(primitive_text)],
+        measure_function: Box::new(measurement_function),
+        render_objects: vec![primitive_text],
     }
 }

@@ -22,15 +22,15 @@ where
     T: 'static + Sync + Send,
 {
     pub fn is_present(&self) -> bool {
-        self.context.tree.0.read().unwrap().contains_key(&self.context.path)
+        self.context.tree.0.read().unwrap().contains_key(&self.context.key)
     }
     pub fn set(&self, new_value: T) {
-        self.context.tree.0.write().unwrap().insert(self.context.path.clone(), Box::new(new_value));
+        self.context.tree.0.write().unwrap().insert(self.context.key.clone(), Box::new(new_value));
     }
     pub fn get_ref(&self) -> StateValueGuard<T> {
         StateValueGuard {
             rw_lock_guard: self.context.tree.0.read().unwrap(),
-            path: self.context.path.clone(),
+            path: self.context.key.clone(),
             phantom: Default::default(),
         }
     }
@@ -40,7 +40,7 @@ where
     T: Clone + 'static + Sync + Send,
 {
     pub fn get(&self) -> T {
-        self.context.tree.0.read().unwrap()[&self.context.path].downcast_ref::<T>().unwrap().clone()
+        self.context.tree.0.read().unwrap()[&self.context.key].downcast_ref::<T>().unwrap().clone()
     }
 }
 

@@ -241,7 +241,7 @@ impl TextRenderer {
         render_objects: Vec<PositionedRenderObject>,
     ) {
         for render_object in render_objects {
-            if let RenderObject::Text { text, size, color } = &*render_object.render_object {
+            if let RenderObject::Text { text, size, color } = render_object.render_object {
                 self.glyph_brush.queue(
                     Section::default()
                         .add_text(

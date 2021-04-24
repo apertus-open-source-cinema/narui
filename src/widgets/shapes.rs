@@ -7,10 +7,7 @@ use lyon::{
     tessellation::path::{builder::BorderRadii, path::Builder},
 };
 use std::sync::Arc;
-use stretch::{
-    geometry::Size,
-    style::{Dimension, Style},
-};
+use stretch::{geometry::Size, style::Style};
 
 #[widget(border_radius = 7.5, color = crate::theme::BG_LIGHT, style = Default::default())]
 pub fn rounded_rect(
@@ -18,7 +15,7 @@ pub fn rounded_rect(
     color: Color,
     style: Style,
     children: Vec<Widget>,
-) -> Widget {
+) -> WidgetInner {
     let path_gen = Arc::new(move |size: Size<f32>| {
         let mut builder = Builder::new();
         builder.add_rounded_rectangle(
@@ -33,5 +30,5 @@ pub fn rounded_rect(
         );
         builder.build()
     });
-    Widget::render_object(RenderObject::Path { path_gen, color }, children, style)
+    WidgetInner::render_object(RenderObject::Path { path_gen, color }, children, style)
 }

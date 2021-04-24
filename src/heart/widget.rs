@@ -7,46 +7,45 @@ For layout we create `TreeNodes` with stretch Style attributes.
 use crate::heart::*;
 use derivative::Derivative;
 use lyon::path::Path;
-use std::{any::Any, sync::Arc};
-use stretch::{geometry::Size, node::MeasureFunc, number::Number, style::Style};
+use std::sync::Arc;
+use stretch::{geometry::Size, node::MeasureFunc, style::Style};
 
-#[derive(Derivative, Clone)]
+
+#[derive(Clone, Debug)]
+pub struct Widget {
+    pub key: String,
+    pub name: String,
+    pub inner: Arc<WidgetInner>,
+}
+impl Into<Vec<Widget>> for Widget {
+    fn into(self) -> Vec<Widget> { vec![self] }
+}
+
+#[derive(Derivative)]
 #[derivative(Debug)]
-pub enum Widget {
+pub enum WidgetInner {
     Composed {
-        widget: Arc<Widget>,
-        name: String,
+        widget: Widget,
     },
     Node {
         style: Style,
-        children: Vec<Arc<Widget>>,
-        render_objects: Vec<Arc<RenderObject>>,
+        children: Vec<Widget>,
+        render_objects: Vec<RenderObject>,
     },
     Leaf {
         style: Style,
         #[derivative(Debug = "ignore")]
-        measure_function: Arc<dyn Fn(Size<Number>) -> Result<Size<f32>, Box<dyn Any>>>,
-        render_objects: Vec<Arc<RenderObject>>,
+        measure_function: MeasureFunc,
+        render_objects: Vec<RenderObject>,
     },
 }
-impl Widget {
+impl WidgetInner {
     pub fn render_object(render_object: RenderObject, children: Vec<Widget>, style: Style) -> Self {
-        Widget::Node {
-            style,
-            children: children.into_iter().map(|x| Arc::new(x)).collect(),
-            render_objects: vec![Arc::new(render_object)],
-        }
+        WidgetInner::Node { style, children, render_objects: vec![render_object] }
     }
     pub fn layout_block(style: Style, children: Vec<Widget>) -> Self {
-        Widget::Node {
-            style,
-            children: children.into_iter().map(|x| Arc::new(x)).collect::<Vec<_>>(),
-            render_objects: vec![],
-        }
+        WidgetInner::Node { style, children, render_objects: vec![] }
     }
-}
-impl Into<Vec<Widget>> for Widget {
-    fn into(self) -> Vec<Widget> { vec![self] }
 }
 
 #[derive(Derivative, Clone)]

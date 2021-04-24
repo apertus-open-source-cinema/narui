@@ -21,14 +21,14 @@ impl InputHandler {
                     match state {
                         ElementState::Pressed => {
                             for render_object in render_objects.clone() {
-                                if let Input { click, .. } = &*render_object.clone().render_object {
+                                if let Input { click, .. } = render_object.clone().render_object {
                                     click.set(render_object.rect.contains(self.cursor_position));
                                 }
                             }
                         }
                         ElementState::Released => {
                             for render_object in render_objects.clone() {
-                                if let Input { click, .. } = &*render_object.clone().render_object {
+                                if let Input { click, .. } = render_object.clone().render_object {
                                     click.set(false);
                                 }
                             }
@@ -39,11 +39,11 @@ impl InputHandler {
                 }
                 _ => {}
             },
-            e => { /*dbg!(e);*/ }
+            _e => { /*dbg!(_e);*/ }
         }
 
         for render_object in render_objects.clone() {
-            if let Input { hover, position, click } = &*render_object.clone().render_object {
+            if let Input { hover, position, click } = render_object.clone().render_object {
                 hover.set(render_object.rect.contains(self.cursor_position.into()));
 
                 if hover.get() || click.get() {
