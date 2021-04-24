@@ -92,3 +92,14 @@ pub fn padding(
     let style = Style { padding: Rect { start: l, end: r, top: t, bottom: b }, ..style };
     Widget::layout_block(style, children)
 }
+
+#[widget(width = Default::default(), height = Default::default(), style = Default::default())]
+pub fn min_size(
+    width: Dimension,
+    height: Dimension,
+    style: Style,
+    children: Vec<Widget>,
+) -> Widget {
+    let style = Style { min_size: Size { height, width }, ..style };
+    Widget::layout_block(style, children)
+}

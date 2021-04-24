@@ -10,7 +10,7 @@ use glyph_brush::{
     SectionGeometry,
     SectionText,
 };
-use std::any::Any;
+use std::{any::Any, sync::Arc};
 use stretch::{
     geometry::Size,
     number::Number,
@@ -60,7 +60,7 @@ pub fn text(
 
     Widget::Leaf {
         style,
-        measure_function: Box::new(measurement_function),
-        render_objects: vec![primitive_text],
+        measure_function: Arc::new(measurement_function),
+        render_objects: vec![Arc::new(primitive_text)],
     }
 }

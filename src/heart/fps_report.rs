@@ -22,7 +22,11 @@ impl FPSReporter {
                 let current_time = SystemTime::now();
                 let elapsed_ms = current_time.duration_since(time).unwrap().as_millis();
                 if elapsed_ms > 1000 {
-                    println!("{}: {}fps", name, (frames as f64 / elapsed_ms as f64 * 1000f64));
+                    println!(
+                        "{}: {:.0} fps",
+                        name,
+                        (frames as f64 / elapsed_ms as f64 * 1000f64).round()
+                    );
                     time = current_time;
                     frames = 0;
                 }

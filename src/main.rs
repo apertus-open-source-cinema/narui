@@ -1,7 +1,7 @@
 use narui::{heart::*, vulkano_render::render, widgets::*};
 use narui_derive::toplevel_rsx;
 use stretch::style::{AlignItems, JustifyContent};
-use winit::window::WindowBuilder;
+use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 fn main() {
     /*render(toplevel_rsx! {
@@ -15,7 +15,9 @@ fn main() {
             }).collect()}
         </row>
     });*/
-    let window_builder = WindowBuilder::new().with_title("narui counter demo");
+    let window_builder = WindowBuilder::new()
+        .with_title("narui counter demo")
+        .with_gtk_theme_variant("dark".parse().unwrap());
     render(
         window_builder,
         toplevel_rsx! {

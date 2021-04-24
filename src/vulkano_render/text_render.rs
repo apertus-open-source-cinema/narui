@@ -241,16 +241,18 @@ impl TextRenderer {
         render_objects: Vec<PositionedRenderObject>,
     ) {
         for render_object in render_objects {
-            if let RenderObject::Text { text, size, color } = render_object.render_object {
+            if let RenderObject::Text { text, size, color } = &*render_object.render_object {
                 self.glyph_brush.queue(
                     Section::default()
                         .add_text(
                             Text::new(&*text)
                                 .with_color(color.into_format().into_raw::<[f32; 4]>())
-                                .with_scale(PxScale::from(size)),
+                                .with_scale(PxScale::from(size.clone())),
                         )
                         .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
-                        .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size)),
+                        .with_bounds(Into::<(f32, f32)>::into(
+                            render_object.rect.size + Vec2::new(1., 1.),
+                        )), // we seem to have some numerical instability issues here
                 );
             }
         }

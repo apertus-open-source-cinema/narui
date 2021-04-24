@@ -3,19 +3,19 @@ of primitive PositionedPrimitiveWidget s that can then be handled to the renderi
  */
 
 use crate::heart::*;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use stretch::{geometry::Size, node::Node, number::Number, Error, Stretch};
 
 
 #[derive(Debug, Clone)]
 pub struct PositionedRenderObject {
-    pub render_object: RenderObject,
+    pub render_object: Arc<RenderObject>,
     pub rect: Rect,
     pub z_index: i32,
 }
 
 pub fn do_layout(
-    top: Widget,
+    top: Arc<Widget>,
     size: Size<f32>,
 ) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
     let mut stretch = stretch::node::Stretch::new();
@@ -35,22 +35,28 @@ pub fn do_layout(
     Ok(to_return)
 }
 fn add_widget_to_stretch(
-    widget: Widget,
+    widget: Arc<Widget>,
     stretch: &mut Stretch,
-    map: &mut HashMap<Node, Vec<RenderObject>>,
+    map: &mut HashMap<Node, Vec<Arc<RenderObject>>>,
 ) -> Result<Node, Error> {
-    let (node, render_objects) = match widget {
+    let (node, render_objects) = match &*widget {
+        Widget::Composed { name, widget } => {
+            let node = add_widget_to_stretch(widget.clone(), stretch, map)?;
+            (node, vec![])
+        }
         Widget::Node { style, children, render_objects } => {
             let mut node_children = Vec::with_capacity(children.len());
             for child in children {
-                node_children.push(add_widget_to_stretch(child, stretch, map)?);
+                node_children.push(add_widget_to_stretch(child.clone(), stretch, map)?);
             }
-            let node = stretch.new_node(style, node_children)?;
-            (node, render_objects)
+            let node = stretch.new_node(style.clone(), node_children)?;
+            (node, render_objects.clone())
         }
         Widget::Leaf { style, measure_function, render_objects } => {
-            let node = stretch.new_leaf(style, measure_function)?;
-            (node, render_objects)
+            let real_measure_function = measure_function.clone();
+            let measure_function = Box::new(move |size| real_measure_function(size));
+            let node = stretch.new_leaf(style.clone(), measure_function)?;
+            (node, render_objects.clone())
         }
     };
 
@@ -64,7 +70,7 @@ fn get_absolute_positions(
     stretch: &mut Stretch,
     node: Node,
     parent_position: Vec2,
-    map: &mut HashMap<Node, Vec<RenderObject>>,
+    map: &mut HashMap<Node, Vec<Arc<RenderObject>>>,
     positioned_widgets: &mut Vec<PositionedRenderObject>,
 ) {
     let layout = stretch.layout(node).unwrap();

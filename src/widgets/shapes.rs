@@ -7,7 +7,10 @@ use lyon::{
     tessellation::path::{builder::BorderRadii, path::Builder},
 };
 use std::sync::Arc;
-use stretch::{geometry::Size, style::Style};
+use stretch::{
+    geometry::Size,
+    style::{Dimension, Style},
+};
 
 #[widget(border_radius = 7.5, color = crate::theme::BG_LIGHT, style = Default::default())]
 pub fn rounded_rect(

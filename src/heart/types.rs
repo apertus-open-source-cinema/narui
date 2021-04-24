@@ -5,13 +5,14 @@ use winit::dpi::PhysicalPosition;
 pub use palette::LinSrgba as Color;
 
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
 impl Vec2 {
     pub fn zero() -> Self { Vec2 { x: 0.0, y: 0.0 } }
+    pub fn new(x: f32, y: f32) -> Self { Vec2 { x, y } }
 }
 impl Add for Vec2 {
     type Output = Vec2;
