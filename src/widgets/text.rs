@@ -10,7 +10,6 @@ use glyph_brush::{
     SectionGeometry,
     SectionText,
 };
-use std::any::Any;
 use stretch::{
     geometry::Size,
     number::Number,
@@ -29,7 +28,7 @@ pub fn text(
 ) -> WidgetInner {
     let style = Style { size: Size { width, height }, ..Default::default() };
     let children_ = children.clone();
-    let measurement_function = move |bounds: Size<Number>| -> Result<Size<f32>, Box<dyn Any>> {
+    let measurement_function = move |bounds: Size<Number>| -> Size<f32> {
         let fonts = &[FONT.clone()];
         let sfont = fonts[0].as_scaled(size);
         let map_number = |number| match number {
@@ -53,7 +52,7 @@ pub fn text(
             calculated_height = calculated_height.max(glyph.glyph.position.y);
         }
 
-        Ok(Size { width: calculated_width, height: calculated_height })
+        Size { width: calculated_width, height: calculated_height }
     };
 
     let primitive_text = RenderObject::Text { text: children, size, color };

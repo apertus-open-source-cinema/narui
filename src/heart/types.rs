@@ -3,6 +3,7 @@ use stretch::geometry::{Point, Size};
 use winit::dpi::PhysicalPosition;
 
 pub use palette::LinSrgba as Color;
+use stretch::number::Number;
 
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
@@ -42,11 +43,19 @@ where
 impl Into<Size<f32>> for Vec2 {
     fn into(self) -> Size<f32> { Size { width: self.x, height: self.y } }
 }
+impl Into<Size<Number>> for Vec2 {
+    fn into(self) -> Size<Number> {
+        Size { width: Number::Defined(self.x), height: Number::Defined(self.y) }
+    }
+}
 impl<T> From<(T, T)> for Vec2
 where
     T: Into<f32>,
 {
     fn from((x, y): (T, T)) -> Self { Vec2 { x: x.into(), y: y.into() } }
+}
+impl From<[u32; 2]> for Vec2 {
+    fn from(arr: [u32; 2]) -> Self { Vec2 { x: arr[0] as f32, y: arr[1] as f32 } }
 }
 impl Into<(f32, f32)> for Vec2 {
     fn into(self) -> (f32, f32) { (self.x, self.y) }

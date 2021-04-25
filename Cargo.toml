@@ -10,7 +10,7 @@ name = "narui"
 [dependencies]
 narui_derive = { path = "../narui_derive" }
 lyon = "0.17.5"
-stretch = "0.3.2"
+stretch = { git = "https://github.com/vislyhq/stretch" }
 winit = "0.24.0"
 anyhow = "1.0.40"
 lazy_static = "1.4.0"

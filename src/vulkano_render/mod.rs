@@ -5,7 +5,6 @@ pub mod text_render;
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use std::sync::Arc;
-use stretch::geometry::Size;
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, SubpassContents},
     device::{Device, DeviceExtensions, Queue},
@@ -152,6 +151,7 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
+    let mut layouter = Layouter::new();
     let mut layouted: Vec<PositionedRenderObject> = vec![];
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -211,11 +211,7 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
                 )
                 .unwrap();
 
-            layouted = do_layout(
-                top_node(context.clone()),
-                Size { width: dimensions[0] as f32, height: dimensions[1] as f32 },
-            )
-            .unwrap();
+            layouted = layouter.do_layout(top_node(context.clone()), dimensions.into()).unwrap();
 
             lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
             text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());

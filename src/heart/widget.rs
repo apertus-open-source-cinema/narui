@@ -8,7 +8,7 @@ use crate::heart::*;
 use derivative::Derivative;
 use lyon::path::Path;
 use std::sync::Arc;
-use stretch::{geometry::Size, node::MeasureFunc, style::Style};
+use stretch::{geometry::Size, number::Number, style::Style};
 
 
 #[derive(Clone, Debug)]
@@ -35,7 +35,7 @@ pub enum WidgetInner {
     Leaf {
         style: Style,
         #[derivative(Debug = "ignore")]
-        measure_function: MeasureFunc,
+        measure_function: Box<dyn Fn(Size<Number>) -> Size<f32>>,
         render_objects: Vec<RenderObject>,
     },
 }
