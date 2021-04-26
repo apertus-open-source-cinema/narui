@@ -1,5 +1,5 @@
 use crate::heart::*;
-use narui_derive::widget;
+use narui_derive::{hook, widget};
 
 use lyon::{
     math::rect,
@@ -16,19 +16,26 @@ pub fn rounded_rect(
     style: Style,
     children: Vec<Widget>,
 ) -> WidgetInner {
-    let path_gen = Arc::new(move |size: Size<f32>| {
-        let mut builder = Builder::new();
-        builder.add_rounded_rectangle(
-            &rect(0.0, 0.0, size.width, size.height),
-            &BorderRadii {
-                top_left: border_radius,
-                top_right: border_radius,
-                bottom_left: border_radius,
-                bottom_right: border_radius,
-            },
-            Winding::Positive,
-        );
-        builder.build()
-    });
+    let path_gen = hook!(cache_non_hierarchical(
+        || {
+            let closure: PathGenInner = Arc::new(move |size: Size<f32>| {
+                let mut builder = Builder::new();
+                builder.add_rounded_rectangle(
+                    &rect(0.0, 0.0, size.width, size.height),
+                    &BorderRadii {
+                        top_left: border_radius,
+                        top_right: border_radius,
+                        bottom_left: border_radius,
+                        bottom_right: border_radius,
+                    },
+                    Winding::Positive,
+                );
+                builder.build()
+            });
+            closure
+        },
+        border_radius,
+        "rounded_rect_cache"
+    ));
     WidgetInner::render_object(RenderObject::Path { path_gen, color }, children, style)
 }

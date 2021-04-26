@@ -3,7 +3,7 @@ of primitive PositionedPrimitiveWidget s that can then be handled to the renderi
  */
 
 use crate::heart::*;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use stretch::{
     node::{MeasureFunc, Node},
     Error,
@@ -20,17 +20,21 @@ pub struct PositionedRenderObject {
 
 pub struct Layouter {
     stretch: Stretch,
-    key_node_map: HashMap<String, Node>,
+    key_node_map: HashMap<Key, Node>,
+    last_map_size: usize,
 }
 impl Layouter {
-    pub fn new() -> Self { Layouter { stretch: Stretch::new(), key_node_map: HashMap::new() } }
+    pub fn new() -> Self {
+        Layouter { stretch: Stretch::new(), key_node_map: HashMap::new(), last_map_size: 0 }
+    }
     pub fn do_layout(
         &mut self,
         top: Widget,
         size: Vec2,
     ) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
-        let mut map = HashMap::new();
+        let mut map = HashMap::with_capacity(self.last_map_size);
         let top_node = self.add_widget_to_stretch(&top, &mut map)?;
+        self.last_map_size = map.len();
         self.stretch.compute_layout(top_node, size.into())?;
 
         // println!("{}", self.layout_repr(top_node));

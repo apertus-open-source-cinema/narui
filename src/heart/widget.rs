@@ -13,7 +13,7 @@ use stretch::{geometry::Size, number::Number, style::Style};
 
 #[derive(Clone, Debug)]
 pub struct Widget {
-    pub key: String,
+    pub key: Key,
     pub name: String,
     pub inner: Arc<WidgetInner>,
 }
@@ -48,12 +48,15 @@ impl WidgetInner {
     }
 }
 
+pub type PathGenInner = Arc<dyn (Fn(Size<f32>) -> Path) + Send + Sync>;
+pub type PathGen = StateValue<PathGenInner>;
+
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub enum RenderObject {
     Path {
         #[derivative(Debug = "ignore")]
-        path_gen: Arc<dyn Fn(Size<f32>) -> Path>,
+        path_gen: PathGen,
         color: Color,
     },
     Text {

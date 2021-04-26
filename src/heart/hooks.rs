@@ -3,64 +3,9 @@ the GUI application. For implementing them a few nice hacks are employed:
  */
 
 use super::state::*;
-use crate::heart::TreeStateInner;
-use std::{fmt::Debug, marker::PhantomData, ops::Deref, sync::RwLockReadGuard};
+use std::fmt::Debug;
 
-
-#[derive(Clone, Debug)]
-pub struct StateValue<T> {
-    context: Context,
-    phantom: PhantomData<T>,
-}
-impl<T> StateValue<T> {
-    pub fn new(context: Context, key: &str) -> Self {
-        StateValue { context: context.enter(key), phantom: PhantomData::default() }
-    }
-}
-impl<T> StateValue<T>
-where
-    T: 'static + Sync + Send,
-{
-    pub fn is_present(&self) -> bool {
-        self.context.tree.0.read().unwrap().contains_key(&self.context.key)
-    }
-    pub fn set(&self, new_value: T) {
-        self.context.tree.0.write().unwrap().insert(self.context.key.clone(), Box::new(new_value));
-    }
-    pub fn get_ref(&self) -> StateValueGuard<T> {
-        StateValueGuard {
-            rw_lock_guard: self.context.tree.0.read().unwrap(),
-            path: self.context.key.clone(),
-            phantom: Default::default(),
-        }
-    }
-}
-impl<T> StateValue<T>
-where
-    T: Clone + 'static + Sync + Send,
-{
-    pub fn get(&self) -> T {
-        self.context.tree.0.read().unwrap()[&self.context.key].downcast_ref::<T>().unwrap().clone()
-    }
-}
-
-pub struct StateValueGuard<'l, T> {
-    rw_lock_guard: RwLockReadGuard<'l, TreeStateInner>,
-    phantom: PhantomData<T>,
-    path: String,
-}
-impl<'l, T> Deref for StateValueGuard<'l, T>
-where
-    T: 'static,
-{
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target { self.rw_lock_guard[&self.path].downcast_ref().unwrap() }
-}
-pub fn state<T>(initial: T, context: Context) -> StateValue<T>
-where
-    T: 'static + Sync + Send + Debug,
-{
+pub fn state<T: 'static + Sync + Send + Debug>(initial: T, context: Context) -> StateValue<T> {
     let state_value: StateValue<T> = StateValue::new(context, "state");
     if !state_value.is_present() {
         state_value.set(initial)
@@ -68,11 +13,37 @@ where
     state_value
 }
 
-
 pub fn rise_detector(to_probe: StateValue<bool>, callback: impl Fn() -> (), context: Context) {
     let last = state(false, context);
     if to_probe.get() && !last.get() {
         callback();
     }
     last.set(to_probe.get());
+}
+
+pub fn cache<T: Sync + Send + 'static>(
+    val: impl Fn() -> T,
+    deps: impl PartialEq + Sync + Send + 'static,
+    context: Context,
+) -> StateValue<T> {
+    let value = StateValue::new(context.clone(), "value");
+    let key = StateValue::new(context.clone(), "deps");
+    if !value.is_present() {
+        value.set(val());
+        key.set(deps);
+    } else if *key.get_ref() != deps {
+        value.set(val());
+        key.set(deps);
+    }
+    value
+}
+
+pub fn cache_non_hierarchical<T: Sync + Send + 'static>(
+    val: impl Fn() -> T,
+    deps: impl PartialEq + Sync + Send + 'static,
+    key: &str,
+    context: Context,
+) -> StateValue<T> {
+    let context = Context { key: Key::new(key), tree: context.tree };
+    cache(val, deps, context)
 }

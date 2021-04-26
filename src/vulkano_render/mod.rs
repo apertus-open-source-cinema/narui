@@ -211,6 +211,7 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
                 )
                 .unwrap();
 
+            // dbg!(context.clone());
             layouted = layouter.do_layout(top_node(context.clone()), dimensions.into()).unwrap();
 
             lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());

@@ -1,11 +1,10 @@
 use super::VulkanContext;
 use crate::heart::*;
+use hashbrown::HashMap;
 use lyon::{
-    lyon_algorithms::path::geom::Translation,
     lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers},
     tessellation::{path::Path, FillVertexConstructor},
 };
-use palette::Pixel;
 use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
@@ -15,6 +14,7 @@ use vulkano::{
     framebuffer::{RenderPassAbstract, Subpass},
     pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline},
 };
+
 
 mod vertex_shader {
     vulkano_shaders::shader! {
@@ -51,35 +51,25 @@ mod fragment_shader {
     }
 }
 
-
 #[derive(Default, Debug, Clone)]
 struct Vertex {
     position: [f32; 2],
     color: [f32; 4],
 }
 vulkano::impl_vertex!(Vertex, position, color);
-struct VertexConstructor {
-    color: Color,
-}
-impl FillVertexConstructor<Vertex> for VertexConstructor {
-    fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
-        Vertex {
-            position: [vertex.position().x, vertex.position().y],
-            color: self.color.into_format().into_raw(),
-        }
-    }
-}
+
 
 pub struct LyonRenderer {
     device: Arc<Device>,
-    pipeline: std::sync::Arc<
+    pipeline: Arc<
         GraphicsPipeline<
             SingleBufferDefinition<Vertex>,
             Box<dyn PipelineLayoutAbstract + Send + Sync>,
-            std::sync::Arc<dyn RenderPassAbstract + Send + Sync>,
+            Arc<dyn RenderPassAbstract + Send + Sync>,
         >,
     >,
     fill_tesselator: FillTessellator,
+    cache: HashMap<(PathGen, Vec2), VertexBuffers<Vec2, u16>>,
 }
 impl LyonRenderer {
     pub fn new(render_pass: Arc<dyn RenderPassAbstract + Send + Sync>) -> Self {
@@ -102,7 +92,7 @@ impl LyonRenderer {
         );
         let fill_tesselator = FillTessellator::new();
 
-        Self { pipeline, device, fill_tesselator }
+        Self { pipeline, device, fill_tesselator, cache: HashMap::new() }
     }
     pub fn render(
         &mut self,
@@ -111,25 +101,24 @@ impl LyonRenderer {
         dimensions: &[u32; 2],
         render_objects: Vec<PositionedRenderObject>,
     ) {
-        let mut lyon_vertex_buffer: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+        let mut last_index = 0;
+
         for render_object in render_objects {
             if let RenderObject::Path { path_gen, color } = render_object.render_object {
-                let untranslated: Path = path_gen(render_object.rect.size.into());
-                let translated = untranslated.transformed(&Translation::new(
-                    render_object.rect.pos.x,
-                    render_object.rect.pos.y,
-                ));
-                let mut buffers_builder = BuffersBuilder::new(
-                    &mut lyon_vertex_buffer,
-                    VertexConstructor { color: color.clone() },
-                );
-                self.fill_tesselator
-                    .tessellate_path(
-                        translated.as_slice(),
-                        &FillOptions::DEFAULT,
-                        &mut buffers_builder,
-                    )
-                    .unwrap();
+                let color = [color.red, color.green, color.blue, color.alpha];
+                let buffer = self.tesselate_with_cache(path_gen, render_object.rect.size);
+                for point in &buffer.vertices {
+                    vertices.push(Vertex {
+                        position: (point.clone() + render_object.rect.pos).into(),
+                        color,
+                    })
+                }
+                for index in &buffer.indices {
+                    indices.push(index + last_index);
+                }
+                last_index += buffer.vertices.len() as u16;
             }
         }
 
@@ -137,7 +126,7 @@ impl LyonRenderer {
             self.device.clone(),
             BufferUsage::all(),
             false,
-            lyon_vertex_buffer.vertices.into_iter(),
+            vertices.into_iter(),
         )
         .unwrap();
 
@@ -145,7 +134,7 @@ impl LyonRenderer {
             self.device.clone(),
             BufferUsage::all(),
             false,
-            lyon_vertex_buffer.indices.into_iter(),
+            indices.into_iter(),
         )
         .unwrap();
 
@@ -162,5 +151,28 @@ impl LyonRenderer {
                 vec![],
             )
             .unwrap();
+    }
+    pub fn tesselate_with_cache(
+        &mut self,
+        path_gen: PathGen,
+        size: Vec2,
+    ) -> &VertexBuffers<Vec2, u16> {
+        struct VertexConstructor {}
+        impl FillVertexConstructor<Vec2> for VertexConstructor {
+            fn new_vertex(&mut self, vertex: FillVertex) -> Vec2 { vertex.position().into() }
+        }
+
+        let mut lyon_vertex_buffer: VertexBuffers<Vec2, u16> = VertexBuffers::new();
+        let cache_key = (path_gen.clone(), size);
+        if let None = self.cache.get(&cache_key) {
+            let path: Path = path_gen.clone().get()(size.into());
+            let mut buffers_builder =
+                BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {});
+            self.fill_tesselator
+                .tessellate_path(path.as_slice(), &FillOptions::DEFAULT, &mut buffers_builder)
+                .unwrap();
+            self.cache.insert(cache_key.clone(), lyon_vertex_buffer);
+        }
+        self.cache.get(&cache_key).unwrap()
     }
 }
