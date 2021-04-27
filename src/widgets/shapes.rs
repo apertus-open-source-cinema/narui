@@ -16,7 +16,7 @@ pub fn rounded_rect(
     style: Style,
     children: Vec<Widget>,
 ) -> WidgetInner {
-    let path_gen = hook!(cache_non_hierarchical(
+    let path_gen = hook!(effect_flat(
         || {
             let closure: PathGenInner = Arc::new(move |size: Size<f32>| {
                 let mut builder = Builder::new();

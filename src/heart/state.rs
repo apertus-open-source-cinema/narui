@@ -7,26 +7,40 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-// TODO: this seems to be not permant... Investigate
-#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct KeyInner {
-    parent: Option<Key>,
-    own: String,
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+pub enum KeyInner {
+    Root,
+    Sideband { key: String },
+    StateValue { parent: Key, key: String },
+    Widget { parent: Key, name: &'static str, loc: &'static str },
+    WidgetKey { parent: Key, name: &'static str, loc: &'static str, key: String },
+    Hook { parent: Key, name: &'static str, loc: &'static str },
+}
+impl Default for KeyInner {
+    fn default() -> Self { Self::Root }
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Key(Arc<KeyInner>);
 impl Key {
-    pub fn new(s: &str) -> Self { Key(Arc::new(KeyInner { parent: None, own: s.to_string() })) }
+    pub fn sideband(key: String) -> Self { Key(Arc::new(KeyInner::Sideband { key })) }
 
-    pub fn enter(&self, s: &str) -> Self {
-        Key(Arc::new(KeyInner { parent: Some(self.clone()), own: s.to_string() }))
+    pub fn enter_state_value(&self, key: String) -> Self {
+        Key(Arc::new(KeyInner::StateValue { parent: self.clone(), key }))
+    }
+    pub fn enter_widget(&self, name: &'static str, loc: &'static str) -> Self {
+        Key(Arc::new(KeyInner::Widget { parent: self.clone(), name, loc }))
+    }
+    pub fn enter_widget_key(&self, name: &'static str, loc: &'static str, key: String) -> Self {
+        Key(Arc::new(KeyInner::WidgetKey { parent: self.clone(), name, loc, key }))
+    }
+    pub fn enter_hook(&self, name: &'static str, loc: &'static str) -> Self {
+        Key(Arc::new(KeyInner::Hook { parent: self.clone(), name, loc }))
     }
 }
 
-pub type TreeStateInner = HashMap<Key, Box<dyn Any>>;
-#[derive(Clone, Debug, Default)]
-pub struct TreeState(pub Arc<RwLock<TreeStateInner>>);
+type TreeStateInner = HashMap<Key, Box<dyn Any>>;
+type TreeState = Arc<RwLock<TreeStateInner>>;
 
 #[derive(Clone, Debug, Default)]
 pub struct Context {
@@ -34,12 +48,26 @@ pub struct Context {
     pub tree: TreeState,
 }
 impl Context {
-    pub fn enter(&self, key: &str) -> Context {
-        Context { key: self.key.enter(key), tree: self.tree.clone() }
+    pub fn sideband(&self, key: String) -> Self {
+        Context { key: Key(Arc::new(KeyInner::Sideband { key })), tree: self.tree.clone() }
     }
+    pub fn enter_state_value(&self, key: String) -> Self {
+        Context { key: self.key.enter_state_value(key), tree: self.tree.clone() }
+    }
+    pub fn enter_widget(&self, name: &'static str, loc: &'static str) -> Self {
+        Context { key: self.key.enter_widget(name, loc), tree: self.tree.clone() }
+    }
+    pub fn enter_widget_key(&self, name: &'static str, loc: &'static str, key: String) -> Self {
+        Context { key: self.key.enter_widget_key(name, loc, key), tree: self.tree.clone() }
+    }
+    pub fn enter_hook(&self, name: &'static str, loc: &'static str) -> Self {
+        Context { key: self.key.enter_hook(name, loc), tree: self.tree.clone() }
+    }
+
     pub fn ident(&self) -> *const Box<dyn Any> {
-        &self.tree.0.read().unwrap()[&self.key] as *const Box<dyn Any>
+        &self.tree.read().unwrap()[&self.key] as *const Box<dyn Any>
     }
+    pub fn is_present(&self) -> bool { self.tree.read().unwrap().contains_key(&self.key) }
 }
 
 #[derive(Clone, Debug)]
@@ -49,19 +77,19 @@ pub struct StateValue<T> {
 }
 impl<T> StateValue<T> {
     pub fn new(context: Context, key: &str) -> Self {
-        StateValue { context: context.enter(key), phantom: PhantomData::default() }
+        StateValue {
+            context: context.enter_state_value(key.to_string()),
+            phantom: PhantomData::default(),
+        }
     }
 }
 impl<T: 'static + Sync + Send> StateValue<T> {
-    pub fn is_present(&self) -> bool {
-        self.context.tree.0.read().unwrap().contains_key(&self.context.key)
-    }
     pub fn set(&self, new_value: T) {
-        self.context.tree.0.write().unwrap().insert(self.context.key.clone(), Box::new(new_value));
+        self.context.tree.write().unwrap().insert(self.context.key.clone(), Box::new(new_value));
     }
     pub fn get_ref(&self) -> StateValueGuard<T> {
         StateValueGuard {
-            rw_lock_guard: self.context.tree.0.read().unwrap(),
+            rw_lock_guard: self.context.tree.read().unwrap(),
             path: self.context.key.clone(),
             phantom: Default::default(),
         }
@@ -69,7 +97,7 @@ impl<T: 'static + Sync + Send> StateValue<T> {
 }
 impl<T: Clone + 'static> StateValue<T> {
     pub fn get(&self) -> T {
-        self.context.tree.0.read().unwrap()[&self.context.key].downcast_ref::<T>().unwrap().clone()
+        self.context.tree.read().unwrap()[&self.context.key].downcast_ref::<T>().unwrap().clone()
     }
 }
 

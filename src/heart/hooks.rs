@@ -7,7 +7,7 @@ use std::fmt::Debug;
 
 pub fn state<T: 'static + Sync + Send + Debug>(initial: T, context: Context) -> StateValue<T> {
     let state_value: StateValue<T> = StateValue::new(context, "state");
-    if !state_value.is_present() {
+    if !state_value.context.is_present() {
         state_value.set(initial)
     }
     state_value
@@ -21,14 +21,14 @@ pub fn rise_detector(to_probe: StateValue<bool>, callback: impl Fn() -> (), cont
     last.set(to_probe.get());
 }
 
-pub fn cache<T: Sync + Send + 'static>(
+pub fn effect<T: Sync + Send + 'static>(
     val: impl Fn() -> T,
     deps: impl PartialEq + Sync + Send + 'static,
     context: Context,
 ) -> StateValue<T> {
     let value = StateValue::new(context.clone(), "value");
     let key = StateValue::new(context.clone(), "deps");
-    if !value.is_present() {
+    if !value.context.is_present() {
         value.set(val());
         key.set(deps);
     } else if *key.get_ref() != deps {
@@ -38,12 +38,12 @@ pub fn cache<T: Sync + Send + 'static>(
     value
 }
 
-pub fn cache_non_hierarchical<T: Sync + Send + 'static>(
+pub fn effect_flat<T: Sync + Send + 'static>(
     val: impl Fn() -> T,
     deps: impl PartialEq + Sync + Send + 'static,
-    key: &str,
+    flat_key: &str,
     context: Context,
 ) -> StateValue<T> {
-    let context = Context { key: Key::new(key), tree: context.tree };
-    cache(val, deps, context)
+    let context = Context { key: Key::sideband(flat_key.to_string()), tree: context.tree };
+    effect(val, deps, context)
 }
