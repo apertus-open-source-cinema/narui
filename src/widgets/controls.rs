@@ -126,15 +126,17 @@ pub fn slider(
 pub fn counter(initial_value: i32, step_size: i32) -> Widget {
     let count = hook!(state(initial_value));
 
+    let count1 = count.clone();
+    let count2 = count.clone();
     rsx! {
          <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
-            <button on_click={|| count.set(count.get() - step_size)}>
+            <button on_click={move || count1.set(count1.get() - step_size)}>
                 <text>" - "</text>
             </button>
             <padding all=Dimension::Points(10.)>
                 <text>{format!("{}", count.get())}</text>
             </padding>
-            <button on_click={|| count.set(count.get() + step_size)}>
+            <button on_click={move || count2.set(count2.get() + step_size)}>
                 <text>" + "</text>
             </button>
          </row>

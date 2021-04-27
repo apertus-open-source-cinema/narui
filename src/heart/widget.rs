@@ -7,15 +7,48 @@ For layout we create `TreeNodes` with stretch Style attributes.
 use crate::heart::*;
 use derivative::Derivative;
 use lyon::path::Path;
-use std::sync::Arc;
+use std::{
+    fmt::Debug,
+    mem::replace,
+    sync::{Arc, Mutex},
+};
 use stretch::{geometry::Size, number::Number, style::Style};
 
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub enum LazyValInner<T> {
+    Unevaluated(#[derivative(Debug = "ignore")] Box<dyn FnOnce() -> T>),
+    Evaluated(Arc<T>),
+    Unavailable,
+}
+#[derive(Debug)]
+pub struct LazyVal<T>(Mutex<LazyValInner<T>>);
+impl<T> LazyVal<T> {
+    pub fn new(gen: impl FnOnce() -> T + 'static) -> Self {
+        LazyVal(Mutex::new(LazyValInner::Unevaluated(Box::new(gen))))
+    }
+    pub fn get(&self) -> Arc<T> {
+        let mut lock = self.0.lock().unwrap();
+        let val = replace(&mut *lock, LazyValInner::Unavailable);
+        match val {
+            LazyValInner::Unevaluated(f) => {
+                let v = Arc::new(f());
+                *lock = LazyValInner::Evaluated(v.clone());
+                v
+            }
+            LazyValInner::Evaluated(v) => v.clone(),
+            _ => unimplemented!(),
+        }
+    }
+}
+impl<T> Clone for LazyVal<T> {
+    fn clone(&self) -> Self { LazyVal(Mutex::new(LazyValInner::Evaluated(self.get()))) }
+}
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Widget {
     pub key: Key,
-    pub name: String,
-    pub inner: Arc<WidgetInner>,
+    pub inner: LazyVal<WidgetInner>,
 }
 impl Into<Vec<Widget>> for Widget {
     fn into(self) -> Vec<Widget> { vec![self] }

@@ -48,15 +48,15 @@ impl Layouter {
         widget: &Widget,
         map: &mut HashMap<Node, Vec<RenderObject>>,
     ) -> Result<Node, Error> {
-        let (node, render_objects) = match &*widget.inner {
+        let (node, render_objects) = match &*widget.inner.get() {
             WidgetInner::Composed { widget } => {
-                let node = self.add_widget_to_stretch(widget, map)?;
+                let node = self.add_widget_to_stretch(&widget, map)?;
                 (node, vec![])
             }
             WidgetInner::Node { style, children, render_objects } => {
                 let mut node_children = Vec::with_capacity(children.len());
                 for child in children {
-                    node_children.push(self.add_widget_to_stretch(child, map)?);
+                    node_children.push(self.add_widget_to_stretch(&child, map)?);
                 }
                 match self.key_node_map.get(&widget.key) {
                     Some(node) => {
@@ -82,7 +82,7 @@ impl Layouter {
             WidgetInner::Leaf { style, render_objects, .. } => {
                 let closure_widget = widget.clone();
                 let measure_function =
-                    MeasureFunc::Boxed(Box::new(move |size| match &*closure_widget.inner {
+                    MeasureFunc::Boxed(Box::new(move |size| match &*closure_widget.inner.get() {
                         WidgetInner::Leaf { measure_function, .. } => measure_function(size),
                         _ => unimplemented!(),
                     }));
