@@ -1,7 +1,7 @@
 use hashbrown::HashMap;
 use std::{
     any::Any,
-    hash::{Hash, Hasher},
+    hash::Hash,
     marker::PhantomData,
     ops::Deref,
     sync::{Arc, RwLock, RwLockReadGuard},
@@ -37,11 +37,14 @@ impl Context {
     pub fn enter(&self, key: &str) -> Context {
         Context { key: self.key.enter(key), tree: self.tree.clone() }
     }
+    pub fn ident(&self) -> *const Box<dyn Any> {
+        &self.tree.0.read().unwrap()[&self.key] as *const Box<dyn Any>
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct StateValue<T> {
-    context: Context,
+    pub context: Context,
     phantom: PhantomData<T>,
 }
 impl<T> StateValue<T> {
@@ -69,22 +72,6 @@ impl<T: Clone + 'static> StateValue<T> {
         self.context.tree.0.read().unwrap()[&self.context.key].downcast_ref::<T>().unwrap().clone()
     }
 }
-impl<T> Hash for StateValue<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        ((&*self.context.tree.0.read().unwrap().get(&self.context.key).unwrap())
-            as *const Box<dyn Any>)
-            .hash(state)
-    }
-}
-impl<T> PartialEq for StateValue<T> {
-    fn eq(&self, other: &Self) -> bool {
-        ((&*self.context.tree.0.read().unwrap().get(&self.context.key).unwrap())
-            as *const Box<dyn Any>)
-            == ((&*other.context.tree.0.read().unwrap().get(&other.context.key).unwrap())
-                as *const Box<dyn Any>)
-    }
-}
-impl<T> Eq for StateValue<T> {}
 
 pub struct StateValueGuard<'l, T> {
     rw_lock_guard: RwLockReadGuard<'l, TreeStateInner>,

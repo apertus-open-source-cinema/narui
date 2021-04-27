@@ -5,7 +5,7 @@ use lyon::{
     lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers},
     tessellation::{path::Path, FillVertexConstructor},
 };
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState},
@@ -69,7 +69,7 @@ pub struct LyonRenderer {
         >,
     >,
     fill_tesselator: FillTessellator,
-    cache: HashMap<(PathGen, Vec2), VertexBuffers<Vec2, u16>>,
+    cache: HashMap<(*const Box<dyn Any>, Vec2), VertexBuffers<Vec2, u16>>,
 }
 impl LyonRenderer {
     pub fn new(render_pass: Arc<dyn RenderPassAbstract + Send + Sync>) -> Self {
@@ -163,7 +163,7 @@ impl LyonRenderer {
         }
 
         let mut lyon_vertex_buffer: VertexBuffers<Vec2, u16> = VertexBuffers::new();
-        let cache_key = (path_gen.clone(), size);
+        let cache_key = (path_gen.context.ident(), size);
         if let None = self.cache.get(&cache_key) {
             let path: Path = path_gen.clone().get()(size.into());
             let mut buffers_builder =
