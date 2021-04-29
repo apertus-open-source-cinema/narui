@@ -9,23 +9,23 @@ use derivative::Derivative;
 use lyon::path::Path;
 use std::{
     fmt::Debug,
+    hash::{Hash, Hasher},
     mem::replace,
     sync::{Arc, Mutex},
 };
 use stretch::{geometry::Size, number::Number, style::Style};
-use std::hash::{Hash, Hasher};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub enum LazyValInner<T> {
-    Unevaluated(#[derivative(Debug = "ignore")] Box<dyn FnOnce() -> T>),
+    Unevaluated(#[derivative(Debug = "ignore")] Box<dyn FnOnce() -> T + Send>),
     Evaluated(Arc<T>),
     Unavailable,
 }
 #[derive(Debug)]
 pub struct LazyVal<T>(Mutex<LazyValInner<T>>);
 impl<T> LazyVal<T> {
-    pub fn new(gen: impl FnOnce() -> T + 'static) -> Self {
+    pub fn new(gen: impl FnOnce() -> T + 'static + Send) -> Self {
         LazyVal(Mutex::new(LazyValInner::Unevaluated(Box::new(gen))))
     }
     pub fn get(&self) -> Arc<T> {
@@ -37,8 +37,11 @@ impl<T> LazyVal<T> {
                 *lock = LazyValInner::Evaluated(v.clone());
                 v
             }
-            LazyValInner::Evaluated(v) => v.clone(),
-            _ => unimplemented!(),
+            LazyValInner::Evaluated(v) => {
+                *lock = LazyValInner::Evaluated(v.clone());
+                v
+            }
+            _ => panic!(),
         }
     }
 }
@@ -51,10 +54,8 @@ pub struct Widget {
     pub key: Key,
     pub inner: LazyVal<WidgetInner>,
 }
-impl Hash for Widget {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.key.hash(state);
-    }
+impl PartialEq for Widget {
+    fn eq(&self, other: &Self) -> bool { self.key == other.key }
 }
 impl Into<Vec<Widget>> for Widget {
     fn into(self) -> Vec<Widget> { vec![self] }
@@ -74,7 +75,7 @@ pub enum WidgetInner {
     Leaf {
         style: Style,
         #[derivative(Debug = "ignore")]
-        measure_function: Box<dyn Fn(Size<Number>) -> Size<f32>>,
+        measure_function: Box<dyn Fn(Size<Number>) -> Size<f32> + Send + Sync>,
         render_objects: Vec<RenderObject>,
     },
 }

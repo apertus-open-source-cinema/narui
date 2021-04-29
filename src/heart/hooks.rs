@@ -52,6 +52,11 @@ pub fn effect_flat<T: Sync + Send + 'static>(
     flat_key: &str,
     context: Context,
 ) -> StateValue<T> {
-    let context = Context { key: Key::sideband(flat_key.to_string()), tree: context.tree, touched: context.touched, used: context.used };
+    let context = Context {
+        key: Key::sideband(flat_key.to_string()),
+        tree: context.tree,
+        touched: context.touched,
+        used: context.used,
+    };
     effect(val, deps, context)
 }

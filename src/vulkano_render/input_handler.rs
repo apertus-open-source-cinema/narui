@@ -16,24 +16,22 @@ impl InputHandler {
                 self.cursor_position = position.into();
             }
             WindowEvent::MouseInput { state, button, .. } => match button {
-                MouseButton::Left => {
-                    match state {
-                        ElementState::Pressed => {
-                            for render_object in render_objects.clone() {
-                                if let Input { click, .. } = render_object.clone().render_object {
-                                    click.set(render_object.rect.contains(self.cursor_position));
-                                }
-                            }
-                        }
-                        ElementState::Released => {
-                            for render_object in render_objects.clone() {
-                                if let Input { click, .. } = render_object.clone().render_object {
-                                    click.set(false);
-                                }
+                MouseButton::Left => match state {
+                    ElementState::Pressed => {
+                        for render_object in render_objects.clone() {
+                            if let Input { click, .. } = render_object.clone().render_object {
+                                click.set(render_object.rect.contains(self.cursor_position));
                             }
                         }
                     }
-                }
+                    ElementState::Released => {
+                        for render_object in render_objects.clone() {
+                            if let Input { click, .. } = render_object.clone().render_object {
+                                click.set(false);
+                            }
+                        }
+                    }
+                },
                 _ => {}
             },
             _e => { /*dbg!(_e);*/ }

@@ -1,8 +1,13 @@
 use hashbrown::{HashMap, HashSet};
-use std::{any::Any, hash::Hash, marker::PhantomData, ops::Deref, sync::{Arc, RwLock, RwLockReadGuard}, fmt};
-use std::fmt::{Debug, Formatter};
-use std::sync::Mutex;
-use std::hash::Hasher;
+use std::{
+    any::Any,
+    fmt,
+    fmt::{Debug, Formatter},
+    hash::Hash,
+    marker::PhantomData,
+    ops::Deref,
+    sync::{Arc, Mutex, RwLock, RwLockReadGuard},
+};
 
 #[derive(Hash, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum KeyInner {
@@ -86,7 +91,7 @@ impl Key {
     }
 }
 
-type TreeStateInner = HashMap<Key, Box<dyn Any>>;
+type TreeStateInner = HashMap<Key, Box<dyn Any + Send + Sync>>;
 type TreeState = Arc<RwLock<TreeStateInner>>;
 
 #[derive(Clone, Debug, Default)]
@@ -98,40 +103,61 @@ pub struct Context {
 }
 impl Context {
     pub fn sideband(&self, key: String) -> Self {
-        Context { key: Key(Arc::new(KeyInner::Sideband { key })), tree: self.tree.clone(), used: self.used.clone(), touched: self.touched.clone() }
+        Context {
+            key: Key(Arc::new(KeyInner::Sideband { key })),
+            tree: self.tree.clone(),
+            used: self.used.clone(),
+            touched: self.touched.clone(),
+        }
     }
     pub fn enter_state_value(&self, key: String) -> Self {
-        Context { key: self.key.enter_state_value(key), tree: self.tree.clone(), used: self.used.clone(), touched: self.touched.clone() }
+        Context {
+            key: self.key.enter_state_value(key),
+            tree: self.tree.clone(),
+            used: self.used.clone(),
+            touched: self.touched.clone(),
+        }
     }
     pub fn enter_widget(&self, name: &'static str, loc: &'static str) -> Self {
-        Context { key: self.key.enter_widget(name, loc), tree: self.tree.clone(), used: Default::default(), touched: self.touched.clone() }
+        Context {
+            key: self.key.enter_widget(name, loc),
+            tree: self.tree.clone(),
+            used: Default::default(),
+            touched: self.touched.clone(),
+        }
     }
     pub fn enter_widget_key(&self, name: &'static str, loc: &'static str, key: String) -> Self {
-        Context { key: self.key.enter_widget_key(name, loc, key), tree: self.tree.clone(), used: Default::default(), touched: self.touched.clone() }
+        Context {
+            key: self.key.enter_widget_key(name, loc, key),
+            tree: self.tree.clone(),
+            used: Default::default(),
+            touched: self.touched.clone(),
+        }
     }
     pub fn enter_hook(&self, name: &'static str, loc: &'static str) -> Self {
-        Context { key: self.key.enter_hook(name, loc), tree: self.tree.clone(), used: self.used.clone(), touched: self.touched.clone() }
+        Context {
+            key: self.key.enter_hook(name, loc),
+            tree: self.tree.clone(),
+            used: self.used.clone(),
+            touched: self.touched.clone(),
+        }
     }
-    pub fn mark_used(&self) {
-        self.used.lock().unwrap().insert(self.key.clone());
-    }
-    pub fn touch(&self) {
-        self.touched.lock().unwrap().insert(self.key.clone());
-    }
+    pub fn mark_used(&self) { self.used.lock().unwrap().insert(self.key.clone()); }
+    pub fn touch(&self) { self.touched.lock().unwrap().insert(self.key.clone()); }
     pub fn finish_touched(&mut self) -> Arc<Mutex<HashSet<Key>>> {
         let old_touched = self.touched.clone();
         self.touched = Default::default();
         old_touched
     }
 
-    pub fn ident(&self) -> *const Box<dyn Any> {
-        &self.tree.read().unwrap()[&self.key] as *const Box<dyn Any>
+    pub fn ident(&self) -> *const Box<dyn Any + Send + Sync> {
+        &self.tree.read().unwrap()[&self.key] as *const Box<dyn Any + Send + Sync>
     }
     pub fn is_present(&self) -> bool { self.tree.read().unwrap().contains_key(&self.key) }
 }
-impl Hash for Context {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.key.hash(state);
+impl PartialEq for Context {
+    fn eq(&self, other: &Self) -> bool {
+        (self.key == other.key) && Arc::ptr_eq(&self.tree, &other.tree)
     }
 }
 
@@ -148,10 +174,8 @@ impl<T> StateValue<T> {
         }
     }
 }
-impl<T> Hash for StateValue<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.context.hash(state);
-    }
+impl<T> PartialEq for StateValue<T> {
+    fn eq(&self, other: &Self) -> bool { self.context == other.context }
 }
 impl<T: 'static + Sync + Send> StateValue<T> {
     pub fn set(&self, new_value: T) {
@@ -180,7 +204,7 @@ impl<T: Clone + 'static> StateValue<T> {
         self.context.mark_used();
         match self.context.tree.read().unwrap().get(&self.context.key) {
             Some(v) => v.downcast_ref::<T>().unwrap().clone(),
-            None => default
+            None => default,
         }
     }
 }

@@ -69,7 +69,7 @@ pub struct LyonRenderer {
         >,
     >,
     fill_tesselator: FillTessellator,
-    cache: HashMap<(*const Box<dyn Any>, Vec2), VertexBuffers<Vec2, u16>>,
+    cache: HashMap<(*const Box<dyn Any + Send + Sync>, Vec2), VertexBuffers<Vec2, u16>>,
 }
 impl LyonRenderer {
     pub fn new(render_pass: Arc<dyn RenderPassAbstract + Send + Sync>) -> Self {
