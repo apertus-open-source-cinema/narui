@@ -34,8 +34,8 @@ pub fn rounded_rect(
             });
             closure
         },
-        border_radius,
-        "rounded_rect_cache"
+        (),
+        &format!("rounded_rect_cache_{}", border_radius)
     ));
     WidgetInner::render_object(RenderObject::Path { path_gen, color }, children, style)
 }

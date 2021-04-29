@@ -16,18 +16,13 @@ pub fn frame_counter() -> Widget {
 }
 
 
-#[widget(on_click = || {}, color = crate::theme::BG)]
-pub fn button(mut on_click: impl FnMut() -> (), color: Color, children: Widget) -> Widget {
-    let is_clicked = hook!(state(false));
-    let was_clicked = hook!(state(false));
-    if is_clicked.get() && !was_clicked.get() {
-        on_click()
-    }
-    was_clicked.set(is_clicked.get());
+#[widget(click = None, color = crate::theme::BG)]
+pub fn button(click: Option<StateValue<bool>>, color: Color, children: Widget) -> Widget {
+    let click = if let Some(click) = click { click } else { hook!(state(false)) };
 
-    let color = if is_clicked.get() { color.lighten(0.1) } else { color };
+    let color = if click.get() { color.lighten(0.1) } else { color };
     rsx! {
-        <input click=is_clicked.into()>
+        <input click=Some(click)>
             <rounded_rect color={color}>
                 <padding all=Dimension::Points(10.)>
                     {children}
@@ -126,17 +121,15 @@ pub fn slider(
 pub fn counter(initial_value: i32, step_size: i32) -> Widget {
     let count = hook!(state(initial_value));
 
-    let count1 = count.clone();
-    let count2 = count.clone();
     rsx! {
          <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
-            <button on_click={move || count1.set(count1.get() - step_size)}>
+            <button click={hook!(on(|| count.set(count.get() - step_size)))}>
                 <text>" - "</text>
             </button>
             <padding all=Dimension::Points(10.)>
                 <text>{format!("{}", count.get())}</text>
             </padding>
-            <button on_click={move || count2.set(count2.get() + step_size)}>
+            <button click={hook!(on(|| count.set(count.get() + step_size)))}>
                 <text>" + "</text>
             </button>
          </row>

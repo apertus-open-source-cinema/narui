@@ -1,6 +1,6 @@
 use narui::{heart::*, theme, vulkano_render::render, widgets::*};
 use narui_derive::{rsx, toplevel_rsx};
-use stretch::style::{AlignItems, Dimension, JustifyContent};
+use stretch::style::{AlignItems, Dimension, JustifyContent, Style};
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 fn main() {
@@ -9,7 +9,7 @@ fn main() {
         .with_gtk_theme_variant("dark".parse().unwrap());
 
 
-    render(
+    /*render(
         window_builder,
         toplevel_rsx! {
             <row justify_content={JustifyContent::SpaceEvenly} fill_parent=true>
@@ -26,13 +26,13 @@ fn main() {
                 }).collect::<Vec<_>>()}
             </row>
         },
-    );
-    /*render(
+    );*/
+    render(
         window_builder,
         toplevel_rsx! {
             <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
                 <slider_demo />
             </row>
         },
-    );*/
+    );
 }

@@ -13,6 +13,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use stretch::{geometry::Size, number::Number, style::Style};
+use std::hash::{Hash, Hasher};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -49,6 +50,11 @@ impl<T> Clone for LazyVal<T> {
 pub struct Widget {
     pub key: Key,
     pub inner: LazyVal<WidgetInner>,
+}
+impl Hash for Widget {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
 }
 impl Into<Vec<Widget>> for Widget {
     fn into(self) -> Vec<Widget> { vec![self] }

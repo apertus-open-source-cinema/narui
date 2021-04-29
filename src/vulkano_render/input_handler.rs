@@ -2,11 +2,10 @@ use crate::heart::{RenderObject::Input, *};
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
 pub struct InputHandler {
-    left_mouse: bool,
     cursor_position: Vec2,
 }
 impl InputHandler {
-    pub fn new() -> Self { InputHandler { left_mouse: false, cursor_position: Vec2::zero() } }
+    pub fn new() -> Self { InputHandler { cursor_position: Vec2::zero() } }
     pub fn handle_input(
         &mut self,
         event: WindowEvent,
@@ -34,8 +33,6 @@ impl InputHandler {
                             }
                         }
                     }
-                    let state = matches!(state, ElementState::Pressed);
-                    self.left_mouse = state
                 }
                 _ => {}
             },

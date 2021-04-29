@@ -1,13 +1,10 @@
-use hashbrown::HashMap;
-use std::{
-    any::Any,
-    hash::Hash,
-    marker::PhantomData,
-    ops::Deref,
-    sync::{Arc, RwLock, RwLockReadGuard},
-};
+use hashbrown::{HashMap, HashSet};
+use std::{any::Any, hash::Hash, marker::PhantomData, ops::Deref, sync::{Arc, RwLock, RwLockReadGuard}, fmt};
+use std::fmt::{Debug, Formatter};
+use std::sync::Mutex;
+use std::hash::Hasher;
 
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(Hash, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum KeyInner {
     Root,
     Sideband { key: String },
@@ -19,9 +16,59 @@ pub enum KeyInner {
 impl Default for KeyInner {
     fn default() -> Self { Self::Root }
 }
+impl Debug for KeyInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            KeyInner::Root => {}
+            KeyInner::Sideband { key } => {
+                f.write_str("[sideband:")?;
+                f.write_str(key)?;
+                f.write_str("] ")?;
+            }
+            KeyInner::StateValue { parent, key } => {
+                parent.0.fmt(f)?;
+                f.write_str("[state_value:")?;
+                f.write_str(key)?;
+                f.write_str("] ")?;
+            }
+            KeyInner::Widget { parent, name, loc } => {
+                parent.0.fmt(f)?;
+                f.write_str("[widget:")?;
+                f.write_str(name)?;
+                f.write_str("@")?;
+                f.write_str(loc)?;
+                f.write_str("] ")?;
+            }
+            KeyInner::WidgetKey { parent, name, loc, key } => {
+                parent.0.fmt(f)?;
+                f.write_str("[widget:")?;
+                f.write_str(name)?;
+                f.write_str("@")?;
+                f.write_str(loc)?;
+                f.write_str("(")?;
+                f.write_str(key)?;
+                f.write_str(")")?;
+                f.write_str("] ")?;
+            }
+            KeyInner::Hook { parent, name, loc } => {
+                parent.0.fmt(f)?;
+                f.write_str("[hook:")?;
+                f.write_str(name)?;
+                f.write_str("@")?;
+                f.write_str(loc)?;
+                f.write_str("] ")?;
+            }
+        }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
+        Ok(())
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Key(Arc<KeyInner>);
+impl Debug for Key {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result { self.0.fmt(f) }
+}
 impl Key {
     pub fn sideband(key: String) -> Self { Key(Arc::new(KeyInner::Sideband { key })) }
 
@@ -46,28 +93,46 @@ type TreeState = Arc<RwLock<TreeStateInner>>;
 pub struct Context {
     pub key: Key,
     pub tree: TreeState,
+    pub used: Arc<Mutex<HashSet<Key>>>,
+    pub touched: Arc<Mutex<HashSet<Key>>>,
 }
 impl Context {
     pub fn sideband(&self, key: String) -> Self {
-        Context { key: Key(Arc::new(KeyInner::Sideband { key })), tree: self.tree.clone() }
+        Context { key: Key(Arc::new(KeyInner::Sideband { key })), tree: self.tree.clone(), used: self.used.clone(), touched: self.touched.clone() }
     }
     pub fn enter_state_value(&self, key: String) -> Self {
-        Context { key: self.key.enter_state_value(key), tree: self.tree.clone() }
+        Context { key: self.key.enter_state_value(key), tree: self.tree.clone(), used: self.used.clone(), touched: self.touched.clone() }
     }
     pub fn enter_widget(&self, name: &'static str, loc: &'static str) -> Self {
-        Context { key: self.key.enter_widget(name, loc), tree: self.tree.clone() }
+        Context { key: self.key.enter_widget(name, loc), tree: self.tree.clone(), used: Default::default(), touched: self.touched.clone() }
     }
     pub fn enter_widget_key(&self, name: &'static str, loc: &'static str, key: String) -> Self {
-        Context { key: self.key.enter_widget_key(name, loc, key), tree: self.tree.clone() }
+        Context { key: self.key.enter_widget_key(name, loc, key), tree: self.tree.clone(), used: Default::default(), touched: self.touched.clone() }
     }
     pub fn enter_hook(&self, name: &'static str, loc: &'static str) -> Self {
-        Context { key: self.key.enter_hook(name, loc), tree: self.tree.clone() }
+        Context { key: self.key.enter_hook(name, loc), tree: self.tree.clone(), used: self.used.clone(), touched: self.touched.clone() }
+    }
+    pub fn mark_used(&self) {
+        self.used.lock().unwrap().insert(self.key.clone());
+    }
+    pub fn touch(&self) {
+        self.touched.lock().unwrap().insert(self.key.clone());
+    }
+    pub fn finish_touched(&mut self) -> Arc<Mutex<HashSet<Key>>> {
+        let old_touched = self.touched.clone();
+        self.touched = Default::default();
+        old_touched
     }
 
     pub fn ident(&self) -> *const Box<dyn Any> {
         &self.tree.read().unwrap()[&self.key] as *const Box<dyn Any>
     }
     pub fn is_present(&self) -> bool { self.tree.read().unwrap().contains_key(&self.key) }
+}
+impl Hash for Context {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -83,11 +148,21 @@ impl<T> StateValue<T> {
         }
     }
 }
+impl<T> Hash for StateValue<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.context.hash(state);
+    }
+}
 impl<T: 'static + Sync + Send> StateValue<T> {
     pub fn set(&self, new_value: T) {
+        self.context.touch();
+        self.set_sneaky(new_value)
+    }
+    pub fn set_sneaky(&self, new_value: T) {
         self.context.tree.write().unwrap().insert(self.context.key.clone(), Box::new(new_value));
     }
     pub fn get_ref(&self) -> StateValueGuard<T> {
+        self.context.mark_used();
         StateValueGuard {
             rw_lock_guard: self.context.tree.read().unwrap(),
             path: self.context.key.clone(),
@@ -97,7 +172,16 @@ impl<T: 'static + Sync + Send> StateValue<T> {
 }
 impl<T: Clone + 'static> StateValue<T> {
     pub fn get(&self) -> T {
+        self.context.mark_used();
         self.context.tree.read().unwrap()[&self.context.key].downcast_ref::<T>().unwrap().clone()
+    }
+
+    pub fn get_default(&self, default: T) -> T {
+        self.context.mark_used();
+        match self.context.tree.read().unwrap().get(&self.context.key) {
+            Some(v) => v.downcast_ref::<T>().unwrap().clone(),
+            None => default
+        }
     }
 }
 
