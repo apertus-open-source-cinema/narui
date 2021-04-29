@@ -150,6 +150,15 @@ impl Context {
         old_touched
     }
 
+    pub fn with_key(&self, key: Key) -> Context {
+        Context {
+            key,
+            tree: self.tree.clone(),
+            used: self.used.clone(),
+            touched: self.touched.clone(),
+        }
+    }
+
     pub fn ident(&self) -> *const Box<dyn Any + Send + Sync> {
         &self.tree.read().unwrap()[&self.key] as *const Box<dyn Any + Send + Sync>
     }

@@ -23,13 +23,14 @@ pub struct Layouter {
     key_node_map: HashMap<Key, Node>,
     last_map_size: usize,
 }
+
 impl Layouter {
     pub fn new() -> Self {
         Layouter { stretch: Stretch::new(), key_node_map: HashMap::new(), last_map_size: 0 }
     }
     pub fn do_layout(
         &mut self,
-        top: Widget,
+        top: EvaluatedWidget,
         size: Vec2,
     ) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
         let mut map = HashMap::with_capacity(self.last_map_size);
@@ -45,10 +46,10 @@ impl Layouter {
     }
     fn add_widget_to_stretch(
         &mut self,
-        widget: &Widget,
+        widget: &EvaluatedWidget,
         map: &mut HashMap<Node, Vec<RenderObject>>,
     ) -> Result<Node, Error> {
-        let (node, render_objects) = match &*widget.inner.get() {
+        let (node, render_objects) = match &*widget.inner {
             WidgetInner::Composed { widget } => {
                 let node = self.add_widget_to_stretch(&widget, map)?;
                 (node, vec![])
@@ -60,15 +61,17 @@ impl Layouter {
                 }
                 match self.key_node_map.get(&widget.key) {
                     Some(node) => {
-                        if self.stretch.style(node.clone())? != style {
-                            self.stretch.set_style(node.clone(), style.clone()).unwrap();
-                        }
-                        let prev_children = self.stretch.children(node.clone()).unwrap();
-                        if prev_children != node_children {
-                            for child in prev_children {
-                                self.stretch.remove_child(node.clone(), child)?;
+                        if widget.updated {
+                            if self.stretch.style(node.clone())? != style {
+                                self.stretch.set_style(node.clone(), style.clone()).unwrap();
                             }
-                            self.stretch.set_children(node.clone(), &node_children).unwrap();
+                            let prev_children = self.stretch.children(node.clone()).unwrap();
+                            if prev_children != node_children {
+                                for child in prev_children {
+                                    self.stretch.remove_child(node.clone(), child)?;
+                                }
+                                self.stretch.set_children(node.clone(), &node_children).unwrap();
+                            }
                         }
                         (node.clone(), render_objects.clone())
                     }
@@ -80,20 +83,24 @@ impl Layouter {
                 }
             }
             WidgetInner::Leaf { style, render_objects, .. } => {
-                let closure_widget = widget.clone();
-                let measure_function =
-                    MeasureFunc::Boxed(Box::new(move |size| match &*closure_widget.inner.get() {
+                let measure_function = || {
+                    let closure_widget = widget.clone();
+                    MeasureFunc::Boxed(Box::new(move |size| match &*closure_widget.inner {
                         WidgetInner::Leaf { measure_function, .. } => measure_function(size),
                         _ => unimplemented!(),
-                    }));
+                    }))
+                };
+
 
                 let node = match self.key_node_map.get(&widget.key) {
                     Some(node) => {
-                        self.stretch.set_measure(node.clone(), Some(measure_function))?;
+                        if widget.updated {
+                            self.stretch.set_measure(node.clone(), Some(measure_function()))?;
+                        }
                         node.clone()
                     }
                     None => {
-                        let node = self.stretch.new_leaf(style.clone(), measure_function)?;
+                        let node = self.stretch.new_leaf(style.clone(), measure_function())?;
                         self.key_node_map.insert(widget.key.clone(), node);
                         node
                     }

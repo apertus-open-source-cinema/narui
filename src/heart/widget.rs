@@ -10,49 +10,30 @@ use lyon::path::Path;
 use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
+    marker::PhantomData,
     mem::replace,
     sync::{Arc, Mutex},
 };
 use stretch::{geometry::Size, number::Number, style::Style};
 
+pub struct Unevaluated();
+pub struct Evaluated();
+
+
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub enum LazyValInner<T> {
-    Unevaluated(#[derivative(Debug = "ignore")] Box<dyn FnOnce() -> T + Send>),
-    Evaluated(Arc<T>),
-    Unavailable,
-}
-#[derive(Debug)]
-pub struct LazyVal<T>(Mutex<LazyValInner<T>>);
-impl<T> LazyVal<T> {
-    pub fn new(gen: impl FnOnce() -> T + 'static + Send) -> Self {
-        LazyVal(Mutex::new(LazyValInner::Unevaluated(Box::new(gen))))
-    }
-    pub fn get(&self) -> Arc<T> {
-        let mut lock = self.0.lock().unwrap();
-        let val = replace(&mut *lock, LazyValInner::Unavailable);
-        match val {
-            LazyValInner::Unevaluated(f) => {
-                let v = Arc::new(f());
-                *lock = LazyValInner::Evaluated(v.clone());
-                v
-            }
-            LazyValInner::Evaluated(v) => {
-                *lock = LazyValInner::Evaluated(v.clone());
-                v
-            }
-            _ => panic!(),
-        }
-    }
-}
-impl<T> Clone for LazyVal<T> {
-    fn clone(&self) -> Self { LazyVal(Mutex::new(LazyValInner::Evaluated(self.get()))) }
-}
-
-#[derive(Debug, Clone)]
 pub struct Widget {
     pub key: Key,
-    pub inner: LazyVal<WidgetInner>,
+    #[derivative(Debug = "ignore")]
+    pub inner: Box<dyn FnOnce() -> WidgetInner<Widget> + Send + Sync>,
+}
+impl Clone for Widget {
+    fn clone(&self) -> Self {
+        Widget {
+            key: self.key.clone(),
+            inner: Box::new((|| panic!("Clones of Widgets are worthless"))),
+        }
+    }
 }
 impl PartialEq for Widget {
     fn eq(&self, other: &Self) -> bool { self.key == other.key }
@@ -61,15 +42,22 @@ impl Into<Vec<Widget>> for Widget {
     fn into(self) -> Vec<Widget> { vec![self] }
 }
 
+#[derive(Clone, Debug)]
+pub struct EvaluatedWidget {
+    pub key: Key,
+    pub updated: bool,
+    pub inner: Arc<WidgetInner<EvaluatedWidget>>,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub enum WidgetInner {
+pub enum WidgetInner<T> {
     Composed {
-        widget: Widget,
+        widget: T,
     },
     Node {
         style: Style,
-        children: Vec<Widget>,
+        children: Vec<T>,
         render_objects: Vec<RenderObject>,
     },
     Leaf {
@@ -79,11 +67,15 @@ pub enum WidgetInner {
         render_objects: Vec<RenderObject>,
     },
 }
-impl WidgetInner {
-    pub fn render_object(render_object: RenderObject, children: Vec<Widget>, style: Style) -> Self {
+impl WidgetInner<Widget> {
+    pub fn render_object(
+        render_object: RenderObject,
+        children: Vec<Widget>,
+        style: Style,
+    ) -> WidgetInner<Widget> {
         WidgetInner::Node { style, children, render_objects: vec![render_object] }
     }
-    pub fn layout_block(style: Style, children: Vec<Widget>) -> Self {
+    pub fn layout_block(style: Style, children: Vec<Widget>) -> WidgetInner<Widget> {
         WidgetInner::Node { style, children, render_objects: vec![] }
     }
 }

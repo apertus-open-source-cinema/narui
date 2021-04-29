@@ -147,12 +147,12 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
 
     let mut fps_report = FPSReporter::new("gui");
-    let mut context: Context = Default::default();
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
     let mut layouter = Layouter::new();
     let mut layouted: Vec<PositionedRenderObject> = vec![];
+    let mut evaluator = Evaluator::new(top_node);
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
@@ -211,8 +211,8 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
                 )
                 .unwrap();
 
-            dbg!(context.finish_touched());
-            layouted = layouter.do_layout(top_node(context.clone()), dimensions.into()).unwrap();
+            let evaluated = evaluator.update();
+            layouted = layouter.do_layout(evaluated, dimensions.into()).unwrap();
 
             lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
             text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
