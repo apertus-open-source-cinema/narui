@@ -12,52 +12,79 @@ use std::{
     hash::{Hash, Hasher},
     marker::PhantomData,
     mem::replace,
-    sync::{Arc, Mutex},
+    sync::{Arc},
 };
+use parking_lot::Mutex;
 use stretch::{geometry::Size, number::Number, style::Style};
 
-pub struct Unevaluated();
-pub struct Evaluated();
+pub type WidgetGen = Arc<dyn Fn() -> WidgetInner + Send + Sync>;
 
-
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct Widget {
-    pub key: Key,
-    #[derivative(Debug = "ignore")]
-    pub inner: Box<dyn FnOnce() -> WidgetInner<Widget> + Send + Sync>,
+#[derive(Debug, Clone, PartialEq)]
+pub enum Widget {
+    Unevaluated(UnevaluatedWidget),
+    Evaluated(EvaluatedWidget),
+    None,
 }
-impl Clone for Widget {
-    fn clone(&self) -> Self {
-        Widget {
-            key: self.key.clone(),
-            inner: Box::new((|| panic!("Clones of Widgets are worthless"))),
+impl Widget {
+    pub fn is_evaluated(&self) -> bool {
+        match self {
+            Widget::Evaluated(_) => { true }
+            _ => { false }
         }
     }
-}
-impl PartialEq for Widget {
-    fn eq(&self, other: &Self) -> bool { self.key == other.key }
+    pub fn evaluated(&self) -> &EvaluatedWidget {
+        match self {
+            Widget::Unevaluated(_) => { panic!("Evaluate your widgets before continuing! Widget is {:?}", self) }
+            Widget::Evaluated(evaluated) => { evaluated }
+            _ => { panic!("None widgets should never occur") }
+        }
+    }
+    pub fn key(&self) -> Key {
+        match self {
+            Widget::Unevaluated(u) => {u.key.clone()}
+            Widget::Evaluated(e) => {e.key.clone()}
+            _ => { panic!("None widgets should never occur") }
+        }
+    }
 }
 impl Into<Vec<Widget>> for Widget {
     fn into(self) -> Vec<Widget> { vec![self] }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+pub struct UnevaluatedWidget {
+    pub key: Key,
+    #[derivative(Debug = "ignore")]
+    pub gen: WidgetGen,
+}
+impl PartialEq for UnevaluatedWidget {
+    fn eq(&self, other: &Self) -> bool { self.key == other.key }
+}
+
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct EvaluatedWidget {
     pub key: Key,
     pub updated: bool,
-    pub inner: Arc<WidgetInner<EvaluatedWidget>>,
+    pub inner: Arc<WidgetInner>,
+    #[derivative(Debug = "ignore")]
+    pub gen: WidgetGen,
+}
+impl PartialEq for EvaluatedWidget {
+    fn eq(&self, other: &Self) -> bool { self.key == other.key }
 }
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub enum WidgetInner<T> {
+pub enum WidgetInner {
     Composed {
-        widget: T,
+        widget: Mutex<Widget>,
     },
     Node {
         style: Style,
-        children: Vec<T>,
+        children: Mutex<Vec<Widget>>,
         render_objects: Vec<RenderObject>,
     },
     Leaf {
@@ -67,16 +94,16 @@ pub enum WidgetInner<T> {
         render_objects: Vec<RenderObject>,
     },
 }
-impl WidgetInner<Widget> {
+impl WidgetInner {
     pub fn render_object(
         render_object: RenderObject,
         children: Vec<Widget>,
         style: Style,
-    ) -> WidgetInner<Widget> {
-        WidgetInner::Node { style, children, render_objects: vec![render_object] }
+    ) -> WidgetInner {
+        WidgetInner::Node { style, children: Mutex::new(children), render_objects: vec![render_object] }
     }
-    pub fn layout_block(style: Style, children: Vec<Widget>) -> WidgetInner<Widget> {
-        WidgetInner::Node { style, children, render_objects: vec![] }
+    pub fn layout_block(style: Style, children: Vec<Widget>) -> WidgetInner {
+        WidgetInner::Node { style, children: Mutex::new(children), render_objects: vec![] }
     }
 }
 

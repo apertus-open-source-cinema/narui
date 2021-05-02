@@ -27,6 +27,7 @@ fn main() {
             </row>
         },
     );*/
+
     render(
         window_builder,
         toplevel_rsx! {

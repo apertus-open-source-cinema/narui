@@ -6,8 +6,9 @@ use std::{
     hash::Hash,
     marker::PhantomData,
     ops::Deref,
-    sync::{Arc, Mutex, RwLock, RwLockReadGuard},
+    sync::{Arc},
 };
+use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 
 #[derive(Hash, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum KeyInner {
@@ -142,12 +143,12 @@ impl Context {
             touched: self.touched.clone(),
         }
     }
-    pub fn mark_used(&self) { self.used.lock().unwrap().insert(self.key.clone()); }
-    pub fn touch(&self) { self.touched.lock().unwrap().insert(self.key.clone()); }
-    pub fn finish_touched(&mut self) -> Arc<Mutex<HashSet<Key>>> {
-        let old_touched = self.touched.clone();
-        self.touched = Default::default();
-        old_touched
+    pub fn mark_used(&self) { self.used.lock().insert(self.key.clone()); }
+    pub fn touch(&self) {
+        self.touched.lock().insert(self.key.clone());
+    }
+    pub fn finish_touched(&mut self) -> HashSet<Key> {
+        self.touched.lock().drain().collect()
     }
 
     pub fn with_key(&self, key: Key) -> Context {
@@ -160,9 +161,9 @@ impl Context {
     }
 
     pub fn ident(&self) -> *const Box<dyn Any + Send + Sync> {
-        &self.tree.read().unwrap()[&self.key] as *const Box<dyn Any + Send + Sync>
+        &self.tree.read()[&self.key] as *const Box<dyn Any + Send + Sync>
     }
-    pub fn is_present(&self) -> bool { self.tree.read().unwrap().contains_key(&self.key) }
+    pub fn is_present(&self) -> bool { self.tree.read().contains_key(&self.key) }
 }
 impl PartialEq for Context {
     fn eq(&self, other: &Self) -> bool {
@@ -170,10 +171,18 @@ impl PartialEq for Context {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct StateValue<T> {
     pub context: Context,
     phantom: PhantomData<T>,
+}
+impl<T: 'static + Sync + Send + Debug> Debug for StateValue<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StateValue")
+            .field("key", &self.context.key)
+            .field("value", &*self.get_ref())
+            .finish()
+    }
 }
 impl<T> StateValue<T> {
     pub fn new(context: Context, key: &str) -> Self {
@@ -192,12 +201,12 @@ impl<T: 'static + Sync + Send> StateValue<T> {
         self.set_sneaky(new_value)
     }
     pub fn set_sneaky(&self, new_value: T) {
-        self.context.tree.write().unwrap().insert(self.context.key.clone(), Box::new(new_value));
+        self.context.tree.write().insert(self.context.key.clone(), Box::new(new_value));
     }
     pub fn get_ref(&self) -> StateValueGuard<T> {
         self.context.mark_used();
         StateValueGuard {
-            rw_lock_guard: self.context.tree.read().unwrap(),
+            rw_lock_guard: self.context.tree.read(),
             path: self.context.key.clone(),
             phantom: Default::default(),
         }
@@ -206,12 +215,12 @@ impl<T: 'static + Sync + Send> StateValue<T> {
 impl<T: Clone + 'static> StateValue<T> {
     pub fn get(&self) -> T {
         self.context.mark_used();
-        self.context.tree.read().unwrap()[&self.context.key].downcast_ref::<T>().unwrap().clone()
+        self.context.tree.read()[&self.context.key].downcast_ref::<T>().unwrap().clone()
     }
 
     pub fn get_default(&self, default: T) -> T {
         self.context.mark_used();
-        match self.context.tree.read().unwrap().get(&self.context.key) {
+        match self.context.tree.read().get(&self.context.key) {
             Some(v) => v.downcast_ref::<T>().unwrap().clone(),
             None => default,
         }

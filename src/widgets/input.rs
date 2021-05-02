@@ -9,7 +9,7 @@ pub fn input(
     position: Option<StateValue<Option<Vec2>>>,
     style: Style,
     children: Vec<Widget>,
-) -> WidgetInner<Widget> {
+) -> WidgetInner {
     let click = if let Some(v) = click { v } else { hook!(state(Default::default())) };
     let hover = if let Some(v) = hover { v } else { hook!(state(Default::default())) };
     let position = if let Some(v) = position { v } else { hook!(state(Default::default())) };

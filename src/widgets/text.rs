@@ -25,7 +25,7 @@ pub fn text(
     color: Color,
     width: Dimension,
     height: Dimension,
-) -> WidgetInner<Widget> {
+) -> WidgetInner {
     let style = Style { size: Size { width, height }, ..Default::default() };
     let children_ = children.clone();
     let measurement_function = move |bounds: Size<Number>| -> Size<f32> {

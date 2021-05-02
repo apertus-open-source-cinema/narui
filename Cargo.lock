@@ -1014,6 +1014,7 @@ dependencies = [
  "narui_derive",
  "notosans",
  "palette",
+ "parking_lot",
  "smallvec",
  "stretch",
  "usvg",

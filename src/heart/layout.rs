@@ -30,11 +30,11 @@ impl Layouter {
     }
     pub fn do_layout(
         &mut self,
-        top: EvaluatedWidget,
+        top: Widget,
         size: Vec2,
     ) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
         let mut map = HashMap::with_capacity(self.last_map_size);
-        let top_node = self.add_widget_to_stretch(&top, &mut map)?;
+        let top_node = self.add_widget_to_stretch(top.evaluated(), &mut map)?;
         self.last_map_size = map.len();
         self.stretch.compute_layout(top_node, size.into())?;
 
@@ -51,19 +51,23 @@ impl Layouter {
     ) -> Result<Node, Error> {
         let (node, render_objects) = match &*widget.inner {
             WidgetInner::Composed { widget } => {
-                let node = self.add_widget_to_stretch(&widget, map)?;
+                let node = self.add_widget_to_stretch(widget.lock().evaluated(), map)?;
                 (node, vec![])
             }
             WidgetInner::Node { style, children, render_objects } => {
-                let mut node_children = Vec::with_capacity(children.len());
-                for child in children {
-                    node_children.push(self.add_widget_to_stretch(&child, map)?);
+                let mut node_children = Vec::with_capacity(children.lock().len());
+                for child in &*children.lock() {
+                    node_children.push(self.add_widget_to_stretch(child.evaluated(), map)?);
                 }
                 match self.key_node_map.get(&widget.key) {
                     Some(node) => {
                         if widget.updated {
+                            println!("re layout: {:?}", &widget.key);
                             if self.stretch.style(node.clone())? != style {
+                                println!("different style: {:?}", style);
                                 self.stretch.set_style(node.clone(), style.clone()).unwrap();
+                            } else {
+                                println!("same style: {:?}", &style);
                             }
                             let prev_children = self.stretch.children(node.clone()).unwrap();
                             if prev_children != node_children {
@@ -95,6 +99,7 @@ impl Layouter {
                 let node = match self.key_node_map.get(&widget.key) {
                     Some(node) => {
                         if widget.updated {
+                            println!("re layout: {:?}", &widget.key);
                             self.stretch.set_measure(node.clone(), Some(measure_function()))?;
                         }
                         node.clone()

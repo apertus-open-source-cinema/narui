@@ -95,6 +95,7 @@ pub fn slider(
         },
         ..Default::default()
     };
+    //dbg!(handle_input_style);
     let handle_rect_style = Style {
         size: Size { width: Dimension::Points(20.0), height: Dimension::Points(20.0) },
         position: stretch::geometry::Rect { start: Dimension::Points(-10.), ..Default::default() },

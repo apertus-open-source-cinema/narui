@@ -7,7 +7,7 @@ use stretch::{
 };
 
 #[widget(style = Default::default())]
-pub fn container(style: Style, children: Vec<Widget>) -> WidgetInner<Widget> {
+pub fn container(style: Style, children: Vec<Widget>) -> WidgetInner {
     WidgetInner::layout_block(style, children)
 }
 
@@ -18,7 +18,7 @@ pub fn column(
     fill_parent: bool,
     style: Style,
     children: Vec<Widget>,
-) -> WidgetInner<Widget> {
+) -> WidgetInner {
     let style = Style {
         flex_direction: FlexDirection::Column,
         flex_wrap: FlexWrap::NoWrap,
@@ -40,7 +40,7 @@ pub fn row(
     fill_parent: bool,
     style: Style,
     children: Vec<Widget>,
-) -> WidgetInner<Widget> {
+) -> WidgetInner {
     let style = Style {
         flex_direction: FlexDirection::Row,
         flex_wrap: FlexWrap::NoWrap,
@@ -66,7 +66,7 @@ pub fn padding(
     right: Dimension,
     style: Style,
     children: Vec<Widget>,
-) -> WidgetInner<Widget> {
+) -> WidgetInner {
     let (mut t, mut b, mut l, mut r) = (all, all, all, all);
     if top_bottom != Dimension::default() {
         t = top_bottom;
@@ -99,7 +99,7 @@ pub fn min_size(
     height: Dimension,
     style: Style,
     children: Vec<Widget>,
-) -> WidgetInner<Widget> {
+) -> WidgetInner {
     let style = Style { min_size: Size { height, width }, ..style };
     WidgetInner::layout_block(style, children)
 }
