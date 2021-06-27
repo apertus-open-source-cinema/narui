@@ -28,17 +28,12 @@ impl Evaluator {
     pub fn update(&mut self) -> Widget {
         let new_ref = &mut self.root.clone();
         Self::eval_conditional(&mut self.root, new_ref, self.context.clone());
-        self.context.finish_touched();
-
-        dbg!(&self.root);
-
+        self.context.update_tree();
         self.root.clone()
     }
     fn should_widget_update(key: Key, context: Context) -> bool {
-        let used: StateValue<Arc<Mutex<HashSet<Key>>>> =
-            StateValue::new(context.with_key(key), "used");
-        //dbg!(&*context.touched.lock());
-        let should_update = !used.get_ref().lock().is_disjoint(&*context.touched.lock());
+        let used: StateValue<Arc<Mutex<HashSet<Key>>>> = StateValue::new(context.with_key(key), "used");
+        let should_update = !used.get_ref_sneaky().lock().is_disjoint(&*context.touched.lock());
         should_update
     }
     fn eval_conditional(
@@ -107,7 +102,7 @@ impl Evaluator {
                             let mut old_children = old_children.lock();
 
                             (&mut *old_children).resize(children.len(), Widget::None);
-                            for (old, new) in (&mut *children).into_iter().zip(&mut *old_children) {
+                            for (old, new) in (&mut *old_children).into_iter().zip(&mut *children) {
                                 Self::eval_conditional(old, new, context.clone());
                             }
 

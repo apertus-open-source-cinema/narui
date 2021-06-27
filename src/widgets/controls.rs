@@ -1,5 +1,5 @@
 use crate::{heart::*, widgets::*};
-use narui_derive::{hook, rsx, widget};
+use narui_derive::{hook, rsx, widget, get};
 use palette::Shade;
 use stretch::{
     geometry::Size,
@@ -9,9 +9,9 @@ use stretch::{
 #[widget]
 pub fn frame_counter() -> Widget {
     let counter = hook!(state(0));
-    counter.set(counter.get() + 1);
+    counter.set(get!(counter) + 1);
     rsx! {
-        <text>{format!("{:.3}", counter.get())}</text>
+        <text>{format!("{:.3}", get!(counter))}</text>
     }
 }
 
@@ -20,7 +20,7 @@ pub fn frame_counter() -> Widget {
 pub fn button(click: Option<StateValue<bool>>, color: Color, children: Widget) -> Widget {
     let click = if let Some(click) = click { click } else { hook!(state(false)) };
 
-    let color = if click.get() { color.lighten(0.1) } else { color };
+    let color = if get!(click) { color.lighten(0.1) } else { color };
     rsx! {
         <input click=Some(click)>
             <rounded_rect color={color}>
@@ -34,15 +34,15 @@ pub fn button(click: Option<StateValue<bool>>, color: Color, children: Widget) -
 
 #[widget]
 pub fn slider_demo() -> Widget {
-    let value = hook!(state(24.0));
+    let slider_value = hook!(state(24.0));
 
     let style = Style { align_items: AlignItems::FlexEnd, ..Default::default() };
     rsx! {
         <column fill_parent=false align_items=AlignItems::Center>
             <min_size height=Dimension::Points(300.0) style=style>
-                <text size={value.get()}>{format!("{:.1} px", value.get())}</text>
+                <text size={get!(slider_value)}>{format!("{:.1} px", get!(slider_value))}</text>
             </min_size>
-            <slider val=value min=12.0 max=300.0/>
+            <slider val=slider_value.clone() min=12.0 max=300.0/>
         </column>
     }
 }
@@ -56,49 +56,51 @@ pub fn slider(
     slide_color: Color,
     knob_color: Color,
 ) -> Widget {
-    let last_value = hook!(state(val.get()));
-
     let position: StateValue<Option<Vec2>> = hook!(state(None));
     let last_position = hook!(state(Vec2::zero()));
-
     let click = hook!(state(false));
+
     let update_last = || {
-        if let Some(position) = position.get() {
-            last_position.set(position)
+        if let Some(position) = get!(position) {
+            last_position.set_now(position)
         }
-        last_value.set(val.get());
     };
     hook!(rise_detector(click.clone(), update_last));
 
-    if click.get() {
-        if let Some(position) = position.get() {
-            let position_delta = position - last_position.get();
+    let current_value = if get!(click) {
+        if let Some(position) = get!(position) {
+            let position_delta = position - get!(last_position);
             let distance = (position.y - 10.).abs();
             let distance_factor = if distance < 15.0 { 1. } else { 1. + distance / 50. };
-            let new_val =
-                position_delta.x / width * (max - min) / (distance_factor) + last_value.get();
-            val.set(new_val.clamp(min, max));
+            let new_val = position_delta.x / width * (max - min) / (distance_factor) + get!(val);
+            let current_value = new_val.clamp(min, max);
+            val.set(current_value);
             update_last();
+            current_value
+        } else {
+            get!(val)
         }
-    }
+    } else { get!(val) };
 
     let slide_style = Style {
         size: Size { width: Dimension::Percent(1.0), height: Dimension::Points(5.0) },
         ..Default::default()
     };
-    let handle_input_style = Style {
+    let handle_container_style = Style {
         position_type: PositionType::Absolute,
         position: stretch::geometry::Rect {
             top: Dimension::Points(0.0),
-            start: Dimension::Percent((val.get() - min) / (max - min)),
+            start: Dimension::Percent((current_value - min) / (max - min)),
             ..Default::default()
         },
         ..Default::default()
     };
-    //dbg!(handle_input_style);
+    let handle_input_style = Style {
+        position: stretch::geometry::Rect { start: Dimension::Points(-10.), ..Default::default() },
+        ..Default::default()
+    };
     let handle_rect_style = Style {
         size: Size { width: Dimension::Points(20.0), height: Dimension::Points(20.0) },
-        position: stretch::geometry::Rect { start: Dimension::Points(-10.), ..Default::default() },
         ..Default::default()
     };
     let top_style = Style {
@@ -111,9 +113,11 @@ pub fn slider(
     rsx! {
          <input position=position.clone().into() style=top_style>
             <rounded_rect style=slide_style color=slide_color>{vec![]}</rounded_rect>
-            <input click=click.into() style=handle_input_style>
-                <rounded_rect border_radius=10.0 style=handle_rect_style color=knob_color>{vec![]}</rounded_rect>
-            </input>
+            <container style=handle_container_style>
+                <input click=click.into() style=handle_input_style>
+                    <rounded_rect border_radius=10.0 style=handle_rect_style color=knob_color>{vec![]}</rounded_rect>
+                </input>
+            </container>
          </input>
     }
 }
@@ -124,13 +128,13 @@ pub fn counter(initial_value: i32, step_size: i32) -> Widget {
 
     rsx! {
          <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
-            <button click={hook!(on(|| count.set(count.get() - step_size)))}>
+            <button click={hook!(on(|| count.set(get!(count) - step_size)))}>
                 <text>" - "</text>
             </button>
             <padding all=Dimension::Points(10.)>
-                <text>{format!("{}", count.get())}</text>
+                <text>{format!("{}", get!(count))}</text>
             </padding>
-            <button click={hook!(on(|| count.set(count.get() + step_size)))}>
+            <button click={hook!(on(|| count.set(get!(count) + step_size)))}>
                 <text>" + "</text>
             </button>
          </row>

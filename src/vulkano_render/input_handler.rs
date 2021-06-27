@@ -1,5 +1,6 @@
 use crate::heart::{RenderObject::Input, *};
 use winit::event::{ElementState, MouseButton, WindowEvent};
+use narui_derive::get;
 
 pub struct InputHandler {
     cursor_position: Vec2,
@@ -20,14 +21,14 @@ impl InputHandler {
                     ElementState::Pressed => {
                         for render_object in render_objects.clone() {
                             if let Input { click, .. } = render_object.clone().render_object {
-                                click.set(render_object.rect.contains(self.cursor_position));
+                                click.update(render_object.rect.contains(self.cursor_position));
                             }
                         }
                     }
                     ElementState::Released => {
                         for render_object in render_objects.clone() {
                             if let Input { click, .. } = render_object.clone().render_object {
-                                click.set(false);
+                                click.update(false);
                             }
                         }
                     }
@@ -39,12 +40,12 @@ impl InputHandler {
 
         for render_object in render_objects.clone() {
             if let Input { hover, position, click } = render_object.clone().render_object {
-                hover.set(render_object.rect.contains(self.cursor_position.into()));
+                hover.update(render_object.rect.contains(self.cursor_position.into()));
 
-                if hover.get() || click.get() {
-                    position.set(Some(self.cursor_position - render_object.rect.pos))
+                if hover.get_sneaky() || click.get_sneaky() {
+                    position.update(Some(self.cursor_position - render_object.rect.pos))
                 } else {
-                    position.set(None)
+                    position.update(None)
                 }
             }
         }

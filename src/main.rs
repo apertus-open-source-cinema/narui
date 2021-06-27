@@ -1,7 +1,8 @@
 use narui::{heart::*, theme, vulkano_render::render, widgets::*};
-use narui_derive::{rsx, toplevel_rsx};
+use narui_derive::{rsx, toplevel_rsx, get};
 use stretch::style::{AlignItems, Dimension, JustifyContent, Style};
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
+
 
 fn main() {
     let window_builder = WindowBuilder::new()

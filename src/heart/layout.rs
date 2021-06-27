@@ -62,12 +62,12 @@ impl Layouter {
                 match self.key_node_map.get(&widget.key) {
                     Some(node) => {
                         if widget.updated {
-                            println!("re layout: {:?}", &widget.key);
+                            //println!("re layout: {:?}", &widget.key);
                             if self.stretch.style(node.clone())? != style {
-                                println!("different style: {:?}", style);
+                                //println!("different style: {:?}", style);
                                 self.stretch.set_style(node.clone(), style.clone()).unwrap();
                             } else {
-                                println!("same style: {:?}", &style);
+                                //println!("same style: {:?}", &style);
                             }
                             let prev_children = self.stretch.children(node.clone()).unwrap();
                             if prev_children != node_children {
@@ -99,7 +99,7 @@ impl Layouter {
                 let node = match self.key_node_map.get(&widget.key) {
                     Some(node) => {
                         if widget.updated {
-                            println!("re layout: {:?}", &widget.key);
+                            //println!("re layout: {:?}", &widget.key);
                             self.stretch.set_measure(node.clone(), Some(measure_function()))?;
                         }
                         node.clone()
