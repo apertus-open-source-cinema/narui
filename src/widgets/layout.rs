@@ -6,9 +6,20 @@ use stretch::{
     style::{AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, Style},
 };
 
+fn layout_block(style: Style, children: Widget) -> Widget {
+    Widget {
+        children: children.into(),
+        layout_object: Some(LayoutObject {
+            style,
+            measure_function: None,
+            render_objects: vec![]
+        })
+    }
+}
+
 #[widget(style = Default::default())]
-pub fn container(style: Style, children: Vec<Widget>) -> WidgetInner {
-    WidgetInner::layout_block(style, children)
+pub fn container(style: Style, children: Widget, context: Context) -> Widget {
+    layout_block(style, children)
 }
 
 #[widget(justify_content = Default::default(), align_items = Default::default(), style = Default::default(), fill_parent = true)]
@@ -17,8 +28,9 @@ pub fn column(
     align_items: AlignItems,
     fill_parent: bool,
     style: Style,
-    children: Vec<Widget>,
-) -> WidgetInner {
+    children: Widget,
+    context: Context,
+) -> Widget {
     let style = Style {
         flex_direction: FlexDirection::Column,
         flex_wrap: FlexWrap::NoWrap,
@@ -30,7 +42,7 @@ pub fn column(
         align_items,
         ..style
     };
-    WidgetInner::layout_block(style, children)
+    layout_block(style, children)
 }
 
 #[widget(justify_content = Default::default(), align_items = Default::default(), fill_parent = true, style = Default::default())]
@@ -39,8 +51,9 @@ pub fn row(
     align_items: AlignItems,
     fill_parent: bool,
     style: Style,
-    children: Vec<Widget>,
-) -> WidgetInner {
+    children: Widget,
+    context: Context,
+) -> Widget {
     let style = Style {
         flex_direction: FlexDirection::Row,
         flex_wrap: FlexWrap::NoWrap,
@@ -52,7 +65,7 @@ pub fn row(
         align_items,
         ..style
     };
-    WidgetInner::layout_block(style, children)
+    layout_block(style, children)
 }
 
 #[widget(all=Default::default(), top_bottom=Default::default(), left_right=Default::default(), top=Default::default(), bottom=Default::default(), left=Default::default(), right=Default::default(), style = Default::default())]
@@ -65,8 +78,9 @@ pub fn padding(
     left: Dimension,
     right: Dimension,
     style: Style,
-    children: Vec<Widget>,
-) -> WidgetInner {
+    children: Widget,
+    context: Context,
+) -> Widget {
     let (mut t, mut b, mut l, mut r) = (all, all, all, all);
     if top_bottom != Dimension::default() {
         t = top_bottom;
@@ -90,7 +104,7 @@ pub fn padding(
     }
 
     let style = Style { padding: Rect { start: l, end: r, top: t, bottom: b }, ..style };
-    WidgetInner::layout_block(style, children)
+    layout_block(style, children)
 }
 
 #[widget(width = Default::default(), height = Default::default(), style = Default::default())]
@@ -98,8 +112,9 @@ pub fn min_size(
     width: Dimension,
     height: Dimension,
     style: Style,
-    children: Vec<Widget>,
-) -> WidgetInner {
+    children: Widget,
+    context: Context,
+) -> Widget {
     let style = Style { min_size: Size { height, width }, ..style };
-    WidgetInner::layout_block(style, children)
+    layout_block(style, children)
 }

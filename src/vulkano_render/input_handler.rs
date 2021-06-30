@@ -1,6 +1,5 @@
 use crate::heart::{RenderObject::Input, *};
 use winit::event::{ElementState, MouseButton, WindowEvent};
-use narui_derive::get;
 
 pub struct InputHandler {
     cursor_position: Vec2,
@@ -11,6 +10,7 @@ impl InputHandler {
         &mut self,
         event: WindowEvent,
         render_objects: Vec<PositionedRenderObject>,
+        context: Context,
     ) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
@@ -20,15 +20,15 @@ impl InputHandler {
                 MouseButton::Left => match state {
                     ElementState::Pressed => {
                         for render_object in render_objects.clone() {
-                            if let Input { click, .. } = render_object.clone().render_object {
-                                click.update(render_object.rect.contains(self.cursor_position));
+                            if let Input { on_click, .. } = render_object.clone().render_object {
+                                on_click(context.clone(), true);
                             }
                         }
                     }
                     ElementState::Released => {
                         for render_object in render_objects.clone() {
-                            if let Input { click, .. } = render_object.clone().render_object {
-                                click.update(false);
+                            if let Input { on_click, .. } = render_object.clone().render_object {
+                                on_click(context.clone(), false);
                             }
                         }
                     }
@@ -39,13 +39,11 @@ impl InputHandler {
         }
 
         for render_object in render_objects.clone() {
-            if let Input { hover, position, click } = render_object.clone().render_object {
-                hover.update(render_object.rect.contains(self.cursor_position.into()));
-
-                if hover.get_sneaky() || click.get_sneaky() {
-                    position.update(Some(self.cursor_position - render_object.rect.pos))
-                } else {
-                    position.update(None)
+            if let Input { on_hover, on_move, on_click } = render_object.clone().render_object {
+                let is_hover = render_object.rect.contains(self.cursor_position.into());
+                on_hover(context.clone(), is_hover);
+                if is_hover {
+                    on_move(context.clone(), self.cursor_position - render_object.rect.pos);
                 }
             }
         }

@@ -162,7 +162,7 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
             recreate_swapchain = true;
         }
         Event::WindowEvent { event: window_event, .. } => {
-            input_handler.handle_input(window_event, layouted.clone());
+            input_handler.handle_input(window_event, layouted.clone(), evaluator.context.clone());
         }
         Event::RedrawEventsCleared => {
             previous_frame_end.as_mut().unwrap().cleanup_finished();
@@ -214,7 +214,7 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
             let evaluated = evaluator.update();
             layouted = layouter.do_layout(evaluated, dimensions.into()).unwrap();
 
-            lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
+            lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone(), evaluator.context);
             text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
 
             builder.end_render_pass().unwrap();

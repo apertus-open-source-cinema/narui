@@ -1,5 +1,5 @@
 use narui::{heart::*, theme, vulkano_render::render, widgets::*};
-use narui_derive::{rsx, toplevel_rsx, get};
+use narui_derive::{get, rsx, toplevel_rsx};
 use stretch::style::{AlignItems, Dimension, JustifyContent, Style};
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
@@ -32,9 +32,7 @@ fn main() {
     render(
         window_builder,
         toplevel_rsx! {
-            <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
-                <slider_demo />
-            </row>
+            <frame_counter />
         },
     );
 }

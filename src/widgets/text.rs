@@ -25,8 +25,8 @@ pub fn text(
     color: Color,
     width: Dimension,
     height: Dimension,
-) -> WidgetInner {
-    dbg!("redraw text", size);
+    context: Context,
+) -> Widget {
     let style = Style { size: Size { width, height }, ..Default::default() };
     let children_ = children.clone();
     let measurement_function = move |bounds: Size<Number>| -> Size<f32> {
@@ -58,7 +58,7 @@ pub fn text(
 
     let primitive_text = RenderObject::Text { text: children, size, color };
 
-    WidgetInner::Leaf {
+    Fragment::Leaf {
         style,
         measure_function: Box::new(measurement_function),
         render_objects: vec![primitive_text],

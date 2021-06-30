@@ -1,132 +1,114 @@
 // do partial re evaluation of the changed widget tree
 
-use crate::heart::{Context, EvaluatedWidget, Key, RenderObject, StateValue, UnevaluatedWidget, WidgetInner, WidgetGen, Widget};
+use crate::heart::{Context, EvaluatedWidget, Key, RenderObject, UnevaluatedWidget, Widget, WidgetGen, Fragment, KeyPart, ConcreteWidget, LayoutObject, WidgetLocalContext, EvalObject, LayoutTree};
 use derivative::Derivative;
 use hashbrown::HashSet;
 use itertools::Itertools;
-use std::sync::{Arc};
 use parking_lot::Mutex;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 use stretch::{geometry::Size, number::Number, prelude::Style};
-use std::ops::{Deref, DerefMut};
+use crate::hooks::{ContextListenable, Listenable};
 
-pub struct Evaluator {
-    context: Context,
-    root: Widget,
+type Deps = Set<Key>;
+// EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally contains
+// the dependencies of Node for allowing partial rebuild.
+#[derive(Clone)]
+pub struct EvaluatedEvalObject {
+    pub children: Vec<(KeyPart, EvaluatedEvalObject, Box<dyn Fn(Context) -> EvalObject + Send + Sync>, Deps)>,
+    pub layout_object: Option<LayoutObject>,
 }
 
-impl Evaluator {
-    pub fn new(top_node: impl Fn(Context) -> Widget + 'static) -> Self {
-        let context = Context::default();
+// The evaluator outputs nothing but rather communicates with the layouter with the
+// LayoutTree trait.
+pub struct Evaluator<T: LayoutTree> {
+    pub context: Context,
+    root: EvaluatedEvalObject,
+    layout_tree: T,
+}
 
-        let mut root = top_node(context.clone());
+impl<T> Evaluator<T> {
+    pub fn new(top_node: EvalObject, layout_tree: impl LayoutTree) -> Self {
+        let context = Context::default();
+        let mut root = Self::evaluate(Some(top_node), &None, context, &mut layout_tree).0;
         let new_ref = &mut root.clone();
         Self::eval_conditional(&mut root, new_ref, context.clone());
 
-        Evaluator { context: context.clone(), root, }
+        Evaluator { context: context.clone(), root, layout_tree }
+    }
+    pub fn update(&mut self) {
+        self.root = Self::evaluate(None, &Some(self.root), self.context.clone(), &mut self.layout_tree).0;
+        self.context.global.write().update_tree();
     }
 
-    pub fn update(&mut self) -> Widget {
-        let new_ref = &mut self.root.clone();
-        Self::eval_conditional(&mut self.root, new_ref, self.context.clone());
-        self.context.update_tree();
-        self.root.clone()
-    }
-    fn should_widget_update(key: Key, context: Context) -> bool {
-        let used: StateValue<Arc<Mutex<HashSet<Key>>>> = StateValue::new(context.with_key(key), "used");
-        let should_update = !used.get_ref_sneaky().lock().is_disjoint(&*context.touched.lock());
-        should_update
-    }
-    fn eval_conditional(
-        mut old: impl DerefMut<Target=Widget>,
-        new: impl DerefMut<Target=Widget>,
-        context: Context,
-    ) {
-        let should_re_eval = !old.is_evaluated() || Self::should_widget_update(new.key(), context.clone());
-        let gen = match (&*new) {
-            Widget::Unevaluated(u) => u.gen.clone(),
-            Widget::Evaluated(e) => e.gen.clone(),
-            _ => panic!("New Widget is None which should not happen"),
-        };
-        let newly_created =
-            if should_re_eval {
-                let inner = gen();
-                EvaluatedWidget { key: new.key().clone(), inner: Arc::new(inner), updated: true, gen }
-            } else {
-                let inner = match (&*old) {
-                    Widget::Evaluated(e) => e.inner.clone(),
-                    _ => panic!("can only not re_eval if there is already a eval version"),
-                };
-                EvaluatedWidget { key: new.key().clone(), inner, updated: false, gen }
+
+    pub fn evaluate(eval_obj: Option<EvalObject>, last: &Option<EvaluatedEvalObject>, context: Context, layout_tree: &mut impl LayoutTree) -> (EvaluatedEvalObject, bool) {
+        if Self::should_widget_update(&last, context) {
+            let evaluated_children: Vec<_> = children.map(|key_part, gen| {
+                let key = context.widget_local.key.with(key_part);
+                let context = Context { global: context.global.clone(), widget_local: WidgetLocalContext {
+                    key,
+                    hook_counter: Arc::new(Default::default()),
+                    used: Arc::new(Default::default())
+                }};
+
+                let last_child = last.and_then(|last| {
+                    last.children.iter().find(|child| child.0 == key_part).map(|x| x.1)
+                });
+
+                let evaluated = Self::evaluate(gen(context), &last_child, context.clone(), layout_tree);
+                let used = context.widget_local.used.lock().clone();
+
+                (key_part, evaluated, gen, used)
+            }).collect();
+
+            layout_tree.set_children(Self::get_layout_children(evaluated_children.clone()), key);
+
+            let evaluated = EvaluatedEvalObject {
+                children: evaluated_children,
+                layout_object: eval_obj.map(|x| x.layout_object).unwrap_or_else(|| last.unwrap().layout_object),
             };
+            (evaluated, true)
+        } else {
+            let mut last = last.unwrap();
 
-        let inner_old = match (&*old) {
-            Widget::Evaluated(e) => Some(e.inner.clone()),
-            _ => None,
-        };
+            let mut some_updated = false;
+            for (key_part, evaluated, gen, used) in last.children.iter_mut() {
+                let key = context.widget_local.key.with(*key_part);
+                let context = Context { global: context.global.clone(), widget_local: WidgetLocalContext {
+                    key,
+                    hook_counter: Arc::new(Default::default()),
+                    used: Arc::new(Default::default())
+                }};
 
-        match &*newly_created.inner {
-            WidgetInner::Composed { widget } => {
-                let mut widget = widget.lock();
-
-                let mut fallback = true;
-                if let Some(inner_old) = inner_old {
-                    if let WidgetInner::Composed { widget: old_widget } = &*inner_old {
-                        fallback = false;
-
-                        if !Arc::ptr_eq(&inner_old, &newly_created.inner) {
-                            let mut old_widget = old_widget.lock();
-                            Self::eval_conditional(&mut *old_widget, &mut widget.clone(), context.clone());
-                            *widget = old_widget.clone();
-                        } else {
-                            let cloned_widget = &mut widget.clone();
-                            Self::eval_conditional(&mut *widget, cloned_widget, context.clone());
-                        };
-                    }
-                }
-
-                if fallback {
-                    let new_ref = &mut widget.clone();
-                    Self::eval_conditional(widget, new_ref, context.clone());
-                }
+                let (evaluated, updated) = Self::evaluate(gen, &Some(evaluated), context, layout_tree);
+                some_updated |= updated;
+                *child = evaluated;
             }
 
-            WidgetInner::Node { children, .. } => {
-                let mut children = children.lock();
+            if some_updated {
+                layout_tree.set_children(Self::get_layout_children(evaluated_children.clone()), key);
+            }
 
-                let mut fallback = true;
-                if let Some(inner_old) = inner_old {
-                    if let WidgetInner::Node { children: old_children, .. } = &*inner_old {
-                        fallback = false;
-
-                        if !Arc::ptr_eq(&inner_old, &newly_created.inner) {
-                            let mut old_children = old_children.lock();
-
-                            (&mut *old_children).resize(children.len(), Widget::None);
-                            for (old, new) in (&mut *old_children).into_iter().zip(&mut *children) {
-                                Self::eval_conditional(old, new, context.clone());
-                            }
-
-                            *children = old_children.clone()
-                        } else {
-                            for old in &mut *children {
-                                let mut new = old.clone();
-                                Self::eval_conditional(old, &mut new, context.clone());
-                            }
-                        };
-                    }
-                }
-
-                if fallback {
-                    for child in &mut *children {
-                        let new_ref = &mut child.clone();
-                        Self::eval_conditional(child, new_ref, context.clone());
-                    }
-                }
-            },
-
-            WidgetInner::Leaf { .. } => {}
-        };
-
-        *old = Widget::Evaluated(newly_created);
+            (last, false)
+        }
+    }
+    fn get_layout_children(children: impl Iterator<Item=EvaluatedEvalObject>) -> Vec<LayoutObject> {
+        children.flat_map(|child| {
+            if let Some(layout_object) = child.layout_object {
+                return vec![layout_object];
+            }
+            Self::get_layout_children(child.children)
+        }).collect()
+    }
+    fn should_widget_update(last: &Option<EvaluatedEvalObject>, context: Context) -> bool {
+        match last {
+            Some(evaluated) => {
+                true  // todo really check
+            }
+            None => true
+        }
     }
 }

@@ -1,18 +1,28 @@
 use crate::heart::*;
-use narui_derive::{hook, widget};
+use narui_derive::{widget};
 use stretch::style::Style;
+use crate::hooks::Listenable;
+use std::sync::Arc;
 
-#[widget(click = Default::default(), hover = Default::default(), position = Default::default(), style = Default::default())]
+#[widget(on_click = (|context, clicked| {}), on_hover = (|context, hovered| {}), on_move = (|context, position| {}), style = Default::default())]
 pub fn input(
-    click: Option<StateValue<bool>>,
-    hover: Option<StateValue<bool>>,
-    position: Option<StateValue<Option<Vec2>>>,
+    on_click: impl Fn(Context, bool) -> () + 'static,
+    on_hover: impl Fn(Context, bool) -> () + 'static,
+    on_move: impl Fn(Context, Vec2) -> () + 'static,
     style: Style,
-    children: Vec<Widget>,
-) -> WidgetInner {
-    let click = if let Some(v) = click { v } else { hook!(state(Default::default())) };
-    let hover = if let Some(v) = hover { v } else { hook!(state(Default::default())) };
-    let position = if let Some(v) = position { v } else { hook!(state(Default::default())) };
-
-    WidgetInner::render_object(RenderObject::Input { hover, click, position }, children, style)
+    children: Widget,
+    context: Context,
+) -> Widget {
+    Widget {
+        children: children.into(),
+        layout_object: Some(LayoutObject {
+            style,
+            measure_function: None,
+            render_objects: vec![RenderObject::Input {
+                on_click: Arc::new(on_click),
+                on_hover: Arc::new(on_hover),
+                on_move: Arc::new(on_move),
+            }]
+        })
+    }
 }

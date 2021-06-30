@@ -7,109 +7,63 @@ For layout we create `TreeNodes` with stretch Style attributes.
 use crate::heart::*;
 use derivative::Derivative;
 use lyon::path::Path;
+use parking_lot::Mutex;
 use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
     marker::PhantomData,
     mem::replace,
-    sync::{Arc},
+    sync::Arc,
 };
-use parking_lot::Mutex;
 use stretch::{geometry::Size, number::Number, style::Style};
+use crate::hooks::Listenable;
+use std::fmt::Formatter;
 
-pub type WidgetGen = Arc<dyn Fn() -> WidgetInner + Send + Sync>;
+/*
+The general flow of a frame in narui:
+Evaluation -> Layout -> Rendering
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Widget {
-    Unevaluated(UnevaluatedWidget),
-    Evaluated(EvaluatedWidget),
-    None,
+1. Evaluation
+the output of this Stage is a tree of LayoutObjects
+
+2. Layout
+the outputs of this stage are PositionedRenderObjects
+
+3. Rendering
+the output of this stage is the visual output :). profit!
+
+ */
+
+
+pub type Widget = EvalObject;
+// The data structure that is input into the Evaluator Pass. When a EvalObject has both
+// a layout_object and children, the children are the children of the LayoutObject
+pub struct EvalObject {
+    pub children: Vec<(KeyPart, Box<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
+    pub layout_object: Option<LayoutObject>,
 }
-impl Widget {
-    pub fn is_evaluated(&self) -> bool {
-        match self {
-            Widget::Evaluated(_) => { true }
-            _ => { false }
-        }
+impl Into<Vec<(KeyPart, Box<dyn Fn(Context) -> EvalObject + Send + Sync>)>> for EvalObject {
+    fn into(self) -> Vec<(KeyPart, Box<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
+        vec![(KeyPart::Nop, Box::new(move |context| self))]
     }
-    pub fn evaluated(&self) -> &EvaluatedWidget {
-        match self {
-            Widget::Unevaluated(_) => { panic!("Evaluate your widgets before continuing! Widget is {:?}", self) }
-            Widget::Evaluated(evaluated) => { evaluated }
-            _ => { panic!("None widgets should never occur") }
-        }
-    }
-    pub fn key(&self) -> Key {
-        match self {
-            Widget::Unevaluated(u) => {u.key.clone()}
-            Widget::Evaluated(e) => {e.key.clone()}
-            _ => { panic!("None widgets should never occur") }
-        }
-    }
-}
-impl Into<Vec<Widget>> for Widget {
-    fn into(self) -> Vec<Widget> { vec![self] }
 }
 
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
-pub struct UnevaluatedWidget {
-    pub key: Key,
-    #[derivative(Debug = "ignore")]
-    pub gen: WidgetGen,
-}
-impl PartialEq for UnevaluatedWidget {
-    fn eq(&self, other: &Self) -> bool { self.key == other.key }
-}
-
-
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub struct EvaluatedWidget {
-    pub key: Key,
-    pub updated: bool,
-    pub inner: Arc<WidgetInner>,
-    #[derivative(Debug = "ignore")]
-    pub gen: WidgetGen,
-}
-impl PartialEq for EvaluatedWidget {
-    fn eq(&self, other: &Self) -> bool { self.key == other.key }
-}
-
+// A part of the layout tree additionally containing information to render the object
+// A LayoutObject is analog to a stretch Node
+// but additionally contains a list of RenderObject that can then be passed
+// to the render stage.
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub enum WidgetInner {
-    Composed {
-        widget: Mutex<Widget>,
-    },
-    Node {
-        style: Style,
-        children: Mutex<Vec<Widget>>,
-        render_objects: Vec<RenderObject>,
-    },
-    Leaf {
-        style: Style,
-        #[derivative(Debug = "ignore")]
-        measure_function: Box<dyn Fn(Size<Number>) -> Size<f32> + Send + Sync>,
-        render_objects: Vec<RenderObject>,
-    },
-}
-impl WidgetInner {
-    pub fn render_object(
-        render_object: RenderObject,
-        children: Vec<Widget>,
-        style: Style,
-    ) -> WidgetInner {
-        WidgetInner::Node { style, children: Mutex::new(children), render_objects: vec![render_object] }
-    }
-    pub fn layout_block(style: Style, children: Vec<Widget>) -> WidgetInner {
-        WidgetInner::Node { style, children: Mutex::new(children), render_objects: vec![] }
-    }
+pub struct LayoutObject {
+    pub style: Style,
+    #[derivative(Debug = "ignore")]
+    pub measure_function: Option<Arc<dyn Fn(Size<Number>) -> Size<f32> + Send + Sync>>,
+    pub render_objects: Vec<RenderObject>,
 }
 
 pub type PathGenInner = Arc<dyn (Fn(Size<f32>) -> Path) + Send + Sync>;
-pub type PathGen = StateValue<PathGenInner>;
-
+pub type PathGen = Listenable<PathGenInner>;
+// RenderObject is the data structure that really defines _what_ is rendered
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub enum RenderObject {
@@ -126,8 +80,11 @@ pub enum RenderObject {
     Input {
         // this is nothing that gets rendered but instead it gets interpreted by the input handling
         // logic
-        hover: StateValue<bool>,
-        click: StateValue<bool>,
-        position: StateValue<Option<Vec2>>,
+        #[derivative(Debug = "ignore")]
+        on_click: Arc<dyn Fn(Context, bool)>,
+        #[derivative(Debug = "ignore")]
+        on_hover: Arc<dyn Fn(Context, bool)>,
+        #[derivative(Debug = "ignore")]
+        on_move: Arc<dyn Fn(Context, Vec2)>,
     },
 }

@@ -14,6 +14,7 @@ use vulkano::{
     framebuffer::{RenderPassAbstract, Subpass},
     pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline},
 };
+use crate::hooks::ContextListenable;
 
 
 mod vertex_shader {
@@ -100,6 +101,7 @@ impl LyonRenderer {
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
         render_objects: Vec<PositionedRenderObject>,
+        context: Context,
     ) {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
@@ -108,7 +110,7 @@ impl LyonRenderer {
         for render_object in render_objects {
             if let RenderObject::Path { path_gen, color } = render_object.render_object {
                 let color = [color.red, color.green, color.blue, color.alpha];
-                let buffer = self.tesselate_with_cache(path_gen, render_object.rect.size);
+                let buffer = self.tesselate_with_cache(path_gen, render_object.rect.size, context.clone());
                 for point in &buffer.vertices {
                     vertices.push(Vertex {
                         position: (point.clone() + render_object.rect.pos).into(),
@@ -156,6 +158,7 @@ impl LyonRenderer {
         &mut self,
         path_gen: PathGen,
         size: Vec2,
+        context: Context
     ) -> &VertexBuffers<Vec2, u16> {
         struct VertexConstructor {}
         impl FillVertexConstructor<Vec2> for VertexConstructor {
@@ -163,9 +166,9 @@ impl LyonRenderer {
         }
 
         let mut lyon_vertex_buffer: VertexBuffers<Vec2, u16> = VertexBuffers::new();
-        let cache_key = (path_gen.context.ident(), size);
+        let cache_key = (Arc::as_ptr(&context.listen(&path_gen)) as *const _, size);
         if let None = self.cache.get(&cache_key) {
-            let path: Path = path_gen.clone().get_sneaky()(size.into());
+            let path: Path = context.listen(&path_gen)(size.into());
             let mut buffers_builder =
                 BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {});
             self.fill_tesselator
