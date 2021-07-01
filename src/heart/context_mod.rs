@@ -14,7 +14,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
-pub struct Key<>([Option<KeyPart>; 32]);
+pub struct Key([Option<KeyPart>; 32]);
 impl Default for Key {
     fn default() -> Self { Self([None; 32]) }
 }
@@ -36,6 +36,7 @@ impl Key {
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
 pub enum KeyPart {
     Nop,
+    Args,
     Sideband { hash: u64 },
     Widget { name: &'static str, loc: &'static str },
     WidgetKey { name: &'static str, loc: &'static str, hash: u64 },

@@ -8,9 +8,9 @@ use lyon::{
 };
 use std::sync::Arc;
 use stretch::{geometry::Size, style::Style};
-use crate::hooks::{ContextEffect, ContextMemoize};
+use crate::hooks::*;
 
-#[widget(border_radius = 7.5, color = crate::theme::BG_LIGHT, style = Default::default())]
+#[widget(border_radius = 7.5, color = crate::theme::BG_LIGHT, style = Default::default(), children = Default::default())]
 pub fn rounded_rect(
     border_radius: f32,
     color: Color,
@@ -19,7 +19,7 @@ pub fn rounded_rect(
     context: Context,
 ) -> Widget {
     let path_gen = context.memoize_key(
-        Key::default().with(KeyPart::Sideband { hash: KeyPart::calculate_hash("rounded_rect") }),
+        Key::default().with(KeyPart::Sideband { hash: KeyPart::calculate_hash(&("rounded_rect", (border_radius * 1000.0) as u64)) }),
         || {
             let closure: PathGenInner = Arc::new(move |size: Size<f32>| {
                 let mut builder = Builder::new();
@@ -38,11 +38,10 @@ pub fn rounded_rect(
             closure
         },
         (),
-        &format!("rounded_rect_cache_{}", border_radius),
     );
 
     Widget {
-        children: vec![children],
+        children: children.into(),
         layout_object: Some(LayoutObject {
             style,
             measure_function: None,

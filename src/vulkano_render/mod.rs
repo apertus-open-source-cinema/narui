@@ -4,7 +4,7 @@ pub mod text_render;
 
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use std::sync::Arc;
+use std::sync::{Arc};
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, SubpassContents},
     device::{Device, DeviceExtensions, Queue},
@@ -38,6 +38,7 @@ use input_handler::InputHandler;
 use lyon_render::LyonRenderer;
 use palette::Pixel;
 use text_render::TextRenderer;
+use parking_lot::Mutex;
 
 #[derive(Clone)]
 pub struct VulkanContext {
@@ -68,7 +69,7 @@ impl VulkanContext {
     pub fn get() -> Self { VULKAN_CONTEXT.clone() }
 }
 
-pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widget + 'static) {
+pub fn render(window_builder: WindowBuilder, top_node: Widget) {
     let event_loop: EventLoop<()> = EventLoop::new();
     let device = VulkanContext::get().device;
     let surface = window_builder.build_vk_surface(&event_loop, device.instance().clone()).unwrap();
@@ -150,9 +151,9 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
-    let mut layouter = Layouter::new();
+    let mut layouter = Arc::new(Mutex::new(Layouter::new()));
     let mut layouted: Vec<PositionedRenderObject> = vec![];
-    let mut evaluator = Evaluator::new(top_node);
+    let mut evaluator = Evaluator::new(top_node, layouter.clone());
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
@@ -212,9 +213,9 @@ pub fn render(window_builder: WindowBuilder, top_node: impl Fn(Context) -> Widge
                 .unwrap();
 
             let evaluated = evaluator.update();
-            layouted = layouter.do_layout(evaluated, dimensions.into()).unwrap();
+            layouted = layouter.lock().do_layout(dimensions.into()).unwrap();
 
-            lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone(), evaluator.context);
+            lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone(), evaluator.context.clone());
             text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
 
             builder.end_render_pass().unwrap();

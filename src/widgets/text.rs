@@ -1,4 +1,4 @@
-use crate::{heart::*, widgets::*};
+use crate::{heart::*, widgets::*, hooks::*};
 use narui_derive::widget;
 
 use crate::vulkano_render::text_render::FONT;
@@ -15,6 +15,7 @@ use stretch::{
     number::Number,
     style::{Dimension, Style},
 };
+use std::sync::Arc;
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
@@ -58,9 +59,12 @@ pub fn text(
 
     let primitive_text = RenderObject::Text { text: children, size, color };
 
-    Fragment::Leaf {
-        style,
-        measure_function: Box::new(measurement_function),
-        render_objects: vec![primitive_text],
+    Widget {
+        children: vec![],
+        layout_object: Some(LayoutObject {
+            style,
+            measure_function: Some(Arc::new(measurement_function)),
+            render_objects: vec![primitive_text]
+        })
     }
 }

@@ -38,13 +38,16 @@ the output of this stage is the visual output :). profit!
 pub type Widget = EvalObject;
 // The data structure that is input into the Evaluator Pass. When a EvalObject has both
 // a layout_object and children, the children are the children of the LayoutObject
+#[derive(Clone, Default, Derivative)]
+#[derivative(Debug)]
 pub struct EvalObject {
-    pub children: Vec<(KeyPart, Box<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
+    #[derivative(Debug = "ignore")]
+    pub children: Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
     pub layout_object: Option<LayoutObject>,
 }
-impl Into<Vec<(KeyPart, Box<dyn Fn(Context) -> EvalObject + Send + Sync>)>> for EvalObject {
-    fn into(self) -> Vec<(KeyPart, Box<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
-        vec![(KeyPart::Nop, Box::new(move |context| self))]
+impl Into<Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>> for EvalObject {
+    fn into(self) -> Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
+        vec![(KeyPart::Nop, Arc::new(move |context| self.clone()))]
     }
 }
 
@@ -52,7 +55,7 @@ impl Into<Vec<(KeyPart, Box<dyn Fn(Context) -> EvalObject + Send + Sync>)>> for 
 // A LayoutObject is analog to a stretch Node
 // but additionally contains a list of RenderObject that can then be passed
 // to the render stage.
-#[derive(Derivative)]
+#[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct LayoutObject {
     pub style: Style,
@@ -81,10 +84,10 @@ pub enum RenderObject {
         // this is nothing that gets rendered but instead it gets interpreted by the input handling
         // logic
         #[derivative(Debug = "ignore")]
-        on_click: Arc<dyn Fn(Context, bool)>,
+        on_click: Arc<dyn Fn(Context, bool) + Send + Sync>,
         #[derivative(Debug = "ignore")]
-        on_hover: Arc<dyn Fn(Context, bool)>,
+        on_hover: Arc<dyn Fn(Context, bool) + Send + Sync>,
         #[derivative(Debug = "ignore")]
-        on_move: Arc<dyn Fn(Context, Vec2)>,
+        on_move: Arc<dyn Fn(Context, Vec2) + Send + Sync>,
     },
 }

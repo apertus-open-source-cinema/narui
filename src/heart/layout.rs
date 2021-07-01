@@ -29,7 +29,7 @@ pub struct Layouter {
     top_node: Node,
 
     key_node_map: HashMap<Key, Node>,
-    render_object_map: HashMap<Node, RenderObject>,
+    render_object_map: HashMap<Node, Vec<RenderObject>>,
 
     // this is a dirty hack because stretch does not support getting this information by itself. this is a stretch deficiency
     node_has_measure: HashMap<Node, bool>,
@@ -62,9 +62,9 @@ impl Layouter {
         let layout = self.stretch.layout(node).unwrap();
         let pos = parent_position + layout.location.into();
         if self.render_object_map.contains_key(&node) {
-            for render_object in self.render_object_map.remove(&node).unwrap() {
+            for render_object in self.render_object_map.get(&node).unwrap() {
                 positioned_widgets.push(PositionedRenderObject {
-                    render_object,
+                    render_object: render_object.clone(),
                     rect: Rect { pos, size: layout.size.into() },
                     z_index: 0,
                 })
@@ -86,10 +86,11 @@ impl Layouter {
 
 impl LayoutTree for Layouter {
     fn set_children(&mut self, children: impl Iterator<Item=(Key, LayoutObject)>, parent: Key) {
-        let parent_node = self.key_node_map[parent];
+        let parent_node = self.key_node_map[&parent];
 
         let old_children = self.stretch.children(parent_node).unwrap();
         let new_children: Vec<_> = children.map(|(key, layout_object)| {
+            let has_measure_function = layout_object.measure_function.is_some();
             let mut maybe_old_node = self.key_node_map.get(&key);
             // the maybe_old_node might be invalid, so we need to check if it is still present in stretch
             if maybe_old_node.is_some() && self.stretch.style(*maybe_old_node.unwrap()).is_err() {
@@ -113,7 +114,7 @@ impl LayoutTree for Layouter {
                 }
                 Some(old_node) => {
                     let old_node = *old_node;
-                    if self.stretch.style(old_node) != layout_object.style {
+                    if self.stretch.style(old_node).unwrap() != &layout_object.style {
                         self.stretch.set_style(old_node, layout_object.style);
                     }
                     match layout_object.measure_function {
@@ -124,16 +125,17 @@ impl LayoutTree for Layouter {
                             self.stretch.mark_dirty(old_node);
                         }
                         None => {
-                            if self.node_has_measure.get(&old_node) {
+                            if *self.node_has_measure.get(&old_node).unwrap() {
                                 self.stretch.set_measure(old_node, None);
                                 self.stretch.mark_dirty(old_node);
                             }
                         }
                     }
+                    old_node
                 }
             };
-            self.render_object_map[node] = layout_object.render_objects;
-            self.node_has_measure[node] = layout_object.measure_function.is_some();
+            self.node_has_measure.insert(node, has_measure_function);
+            self.render_object_map.insert(node, layout_object.render_objects);
             node
         }).collect();
 

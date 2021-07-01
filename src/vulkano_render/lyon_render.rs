@@ -166,9 +166,9 @@ impl LyonRenderer {
         }
 
         let mut lyon_vertex_buffer: VertexBuffers<Vec2, u16> = VertexBuffers::new();
-        let cache_key = (Arc::as_ptr(&context.listen(&path_gen)) as *const _, size);
+        let cache_key = (Arc::as_ptr(&context.listen(path_gen)) as *const _, size);
         if let None = self.cache.get(&cache_key) {
-            let path: Path = context.listen(&path_gen)(size.into());
+            let path: Path = context.listen(path_gen)(size.into());
             let mut buffers_builder =
                 BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {});
             self.fill_tesselator
