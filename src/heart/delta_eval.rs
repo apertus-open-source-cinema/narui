@@ -55,7 +55,6 @@ impl<T: LayoutTree> Evaluator<T> {
         self.context.global.write().update_tree();
     }
 
-
     pub fn evaluate(
         eval_obj: Option<EvalObject>,
         last: Option<&EvaluatedEvalObject>,
@@ -88,9 +87,11 @@ impl<T: LayoutTree> Evaluator<T> {
                         last.children.iter().find(|child| child.0 == *key_part).map(|x| x.1.clone())
                     });
 
+
+
                     let (evaluated, _) = Self::evaluate(
                         Some(gen(context.clone())),
-                        Some(&last_child.unwrap()),
+                        last_child.as_ref().clone(),
                         context.clone(),
                         layout_tree.clone(),
                     );
@@ -100,17 +101,19 @@ impl<T: LayoutTree> Evaluator<T> {
                 })
                 .collect();
 
-            layout_tree.lock().set_children(
-                Self::get_layout_children(
-                    &mut evaluated_children
-                        .iter()
-                        .map(|(key_part, evaluated, gen, used)| {
-                            (*key_part, evaluated.clone())
-                        }),
+            if layout_object.is_some() {
+                layout_tree.lock().set_children(
+                    Self::get_layout_children(
+                        &mut evaluated_children
+                            .iter()
+                            .map(|(key_part, evaluated, gen, used)| {
+                                (*key_part, evaluated.clone())
+                            }),
+                        context.widget_local.key,
+                    ).into_iter(),
                     context.widget_local.key,
-                ).into_iter(),
-                context.widget_local.key,
-            );
+                );
+            }
 
             let evaluated = EvaluatedEvalObject {
                 children: evaluated_children,
@@ -133,12 +136,12 @@ impl<T: LayoutTree> Evaluator<T> {
                 };
 
                 let (new_evaluated, updated) =
-                    Self::evaluate(Some(EvalObject { children: vec![(*key_part, gen.clone())], layout_object: None }), Some(&evaluated), context, layout_tree.clone());
+                    Self::evaluate(Some(EvalObject { key_part: *key_part, children: vec![(*key_part, gen.clone())], layout_object: None }), Some(&evaluated), context, layout_tree.clone());
                 some_updated |= updated;
                 *evaluated = new_evaluated;
             }
 
-            if some_updated {
+            if some_updated  && last.layout_object.is_some() {
                 layout_tree.lock().set_children(
                     Self::get_layout_children(&mut last.children.clone().into_iter().map(|(a, b, ..)| (a, b)), context.widget_local.key).into_iter(),
                     context.widget_local.key,

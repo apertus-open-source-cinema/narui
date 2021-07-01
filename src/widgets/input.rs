@@ -14,6 +14,7 @@ pub fn input(
     context: Context,
 ) -> Widget {
     Widget {
+        key_part: context.widget_local.key.last_part(),
         children: children.into(),
         layout_object: Some(LayoutObject {
             style,

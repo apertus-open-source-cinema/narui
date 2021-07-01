@@ -1,4 +1,4 @@
-use crate::heart::{Key, Context};
+use crate::heart::{Key, Context, KeyPart};
 use crate::hooks::{ContextListenable, Listenable};
 
 pub trait ContextMemoize {
@@ -7,8 +7,8 @@ pub trait ContextMemoize {
 }
 impl ContextMemoize for Context {
     fn memoize_key<T: Send + Sync + 'static>(&self, key: Key, callback: impl Fn() -> T, deps: impl PartialEq + Send + Sync + Clone + 'static) -> Listenable<T> {
-        let last_deps = self.listenable_key(key, deps.clone());
-        let last_result = self.listenable_key(key, callback());
+        let last_deps = self.listenable_key(key.with(KeyPart::Sideband { hash: 0 }), deps.clone());
+        let last_result = self.listenable_key(key.with(KeyPart::Sideband { hash: 1 }), callback());
         if &*self.listen_ref(last_deps) != &deps {
             self.shout(last_deps, deps);
             self.shout(last_result, callback());

@@ -23,13 +23,23 @@ impl Key {
         let mut to_return = self.0.clone();
         for i in 0..(to_return.len() + 1) {
             if i == to_return.len() {
+                dbg!(&self);
                 panic!("crank up the key length limit!");
             }
             if to_return[i].is_none() {
                 to_return[i] = Some(tail);
+                break;
             }
         }
         Self(to_return)
+    }
+    pub fn last_part(&self) -> KeyPart {
+        for i in (0..(self.0.len())).rev() {
+            if let Some(part) = self.0[i] {
+                return part;
+            }
+        }
+        panic!("empty key has no last_part")
     }
 }
 
@@ -51,6 +61,11 @@ impl KeyPart {
 
     pub fn sideband<T: Hash>(t: &T) -> Self {
         Self::Sideband { hash: Self::calculate_hash(t) }
+    }
+}
+impl Default for KeyPart {
+    fn default() -> Self {
+        KeyPart::Nop
     }
 }
 

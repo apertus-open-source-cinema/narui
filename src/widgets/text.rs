@@ -60,6 +60,7 @@ pub fn text(
     let primitive_text = RenderObject::Text { text: children, size, color };
 
     Widget {
+        key_part: context.widget_local.key.last_part(),
         children: vec![],
         layout_object: Some(LayoutObject {
             style,

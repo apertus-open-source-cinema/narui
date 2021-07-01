@@ -9,7 +9,9 @@ use stretch::{
 #[widget]
 pub fn frame_counter(context: Context) -> Widget {
     let counter = context.listenable(0);
-    context.shout(counter, context.listen(counter) + 1);
+
+    let next_counter = context.listen(counter) + 1;
+    context.shout(counter, next_counter);
 
     rsx! {
         <text>{format!("{:.3}", context.listen(counter))}</text>

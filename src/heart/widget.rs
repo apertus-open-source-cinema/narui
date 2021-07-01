@@ -18,6 +18,7 @@ use std::{
 use stretch::{geometry::Size, number::Number, style::Style};
 use crate::hooks::Listenable;
 use std::fmt::Formatter;
+use std::iter::FromIterator;
 
 /*
 The general flow of a frame in narui:
@@ -41,6 +42,7 @@ pub type Widget = EvalObject;
 #[derive(Clone, Default, Derivative)]
 #[derivative(Debug)]
 pub struct EvalObject {
+    pub key_part: KeyPart,
     #[derivative(Debug = "ignore")]
     pub children: Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
     pub layout_object: Option<LayoutObject>,
@@ -48,6 +50,15 @@ pub struct EvalObject {
 impl Into<Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>> for EvalObject {
     fn into(self) -> Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
         vec![(KeyPart::Nop, Arc::new(move |context| self.clone()))]
+    }
+}
+impl FromIterator<EvalObject> for EvalObject {
+    fn from_iter<T: IntoIterator<Item=EvalObject>>(iter: T) -> Self {
+        EvalObject {
+            key_part: KeyPart::Nop,
+            children: iter.into_iter().map(|x| (x.key_part, Arc::new(move |context| x.clone()) as _)).collect(),
+            layout_object: None
+        }
     }
 }
 

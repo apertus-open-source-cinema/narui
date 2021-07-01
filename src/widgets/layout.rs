@@ -6,8 +6,9 @@ use stretch::{
     style::{AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, Style},
 };
 
-fn layout_block(style: Style, children: Widget) -> Widget {
+fn layout_block(style: Style, children: Widget, context: Context) -> Widget {
     Widget {
+        key_part: context.widget_local.key.last_part(),
         children: children.into(),
         layout_object: Some(LayoutObject {
             style,
@@ -19,7 +20,7 @@ fn layout_block(style: Style, children: Widget) -> Widget {
 
 #[widget(style = Default::default())]
 pub fn container(style: Style, children: Widget, context: Context) -> Widget {
-    layout_block(style, children)
+    layout_block(style, children, context)
 }
 
 #[widget(justify_content = Default::default(), align_items = Default::default(), style = Default::default(), fill_parent = true)]
@@ -42,7 +43,7 @@ pub fn column(
         align_items,
         ..style
     };
-    layout_block(style, children)
+    layout_block(style, children, context)
 }
 
 #[widget(justify_content = Default::default(), align_items = Default::default(), fill_parent = true, style = Default::default())]
@@ -65,7 +66,7 @@ pub fn row(
         align_items,
         ..style
     };
-    layout_block(style, children)
+    layout_block(style, children, context)
 }
 
 #[widget(all=Default::default(), top_bottom=Default::default(), left_right=Default::default(), top=Default::default(), bottom=Default::default(), left=Default::default(), right=Default::default(), style = Default::default())]
@@ -104,10 +105,10 @@ pub fn padding(
     }
 
     let style = Style { padding: Rect { start: l, end: r, top: t, bottom: b }, ..style };
-    layout_block(style, children)
+    layout_block(style, children, context)
 }
 
-#[widget(width = Default::default(), height = Default::default(), style = Default::default())]
+#[widget(width = Default::default(), height = Default::default(), style = Default::default(), children = Default::default())]
 pub fn min_size(
     width: Dimension,
     height: Dimension,
@@ -116,5 +117,5 @@ pub fn min_size(
     context: Context,
 ) -> Widget {
     let style = Style { min_size: Size { height, width }, ..style };
-    layout_block(style, children)
+    layout_block(style, children, context)
 }

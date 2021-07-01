@@ -1,11 +1,12 @@
-use crate::heart::{Key, Context, TreeStateInner, PatchedTree};
+use crate::heart::{Key, KeyPart, Context, TreeStateInner, PatchedTree};
 use std::marker::PhantomData;
 use parking_lot::RwLockReadGuard;
 use std::ops::Deref;
+use std::any::TypeId;
 
 pub trait ContextListenable {
-    fn listenable_key<T: Send + Sync>(&self, key: Key, initial: T) -> Listenable<T>;
-    fn listenable<T: Send + Sync>(&self, initial: T) -> Listenable<T>;
+    fn listenable_key<T: Send + Sync + 'static>(&self, key: Key, initial: T) -> Listenable<T>;
+    fn listenable<T: Send + Sync + 'static>(&self, initial: T) -> Listenable<T>;
 
     fn shout<T: Send + Sync + 'static>(&self, listenable: Listenable<T>, new_value: T);
 
@@ -14,17 +15,19 @@ pub trait ContextListenable {
     fn listen_changed<T: Send + Sync + PartialEq + 'static>(&self, listenable: Listenable<T>) -> bool;
 }
 impl ContextListenable for Context {
-    fn listenable_key<T: Send + Sync>(&self, key: Key, initial: T) -> Listenable<T> {
-        Listenable {
-            key, phantom_data: Default::default()
-        }
+    fn listenable_key<T: Send + Sync + 'static>(&self, key: Key, initial: T) -> Listenable<T> {
+        let listenable = Listenable {
+            key,
+            phantom_data: Default::default()
+        };
+        if self.global.read().get(listenable.key).is_none() {
+            self.shout(listenable, initial)
+        };
+        listenable
     }
 
-    fn listenable<T: Send + Sync>(&self, initial: T) -> Listenable<T> {
-        Listenable {
-            key: self.key_for_hook(),
-            phantom_data: Default::default()
-        }
+    fn listenable<T: Send + Sync + 'static>(&self, initial: T) -> Listenable<T> {
+        self.listenable_key(self.key_for_hook(), initial)
     }
 
     fn shout<T: Send + Sync + 'static>(&self, listenable: Listenable<T>, new_value: T) {
@@ -33,7 +36,8 @@ impl ContextListenable for Context {
 
     fn listen<T: Send + Sync + 'static>(&self, listenable: Listenable<T>) -> T where T: Clone {
         self.widget_local.mark_used(listenable.key);
-        self.global.read().get(listenable.key).unwrap().downcast_ref::<T>().unwrap().clone()
+        self.global.read().get(listenable.key).unwrap()
+            .downcast_ref::<T>().unwrap().clone()
     }
 
     fn listen_ref<T: Send + Sync>(&self, listenable: Listenable<T>) -> ListenableGuard<T> {
