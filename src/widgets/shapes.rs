@@ -15,9 +15,9 @@ pub fn rounded_rect(
     border_radius: f32,
     color: Color,
     style: Style,
-    children: Widget,
+    children: Fragment,
     context: Context,
-) -> Widget {
+) -> Fragment {
     let path_gen = context.memoize_key(
         Key::default().with(KeyPart::Sideband { hash: KeyPart::calculate_hash(&("rounded_rect", (border_radius * 1000.0) as u64)) }),
         || {
@@ -40,7 +40,7 @@ pub fn rounded_rect(
         (),
     );
 
-    Widget {
+    Fragment {
         key_part: context.widget_local.key.last_part(),
         children: children.into(),
         layout_object: Some(LayoutObject {

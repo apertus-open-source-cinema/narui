@@ -47,10 +47,12 @@ impl Key {
 pub enum KeyPart {
     Nop,
     Args,
+
     Sideband { hash: u64 },
-    Widget { name: &'static str, loc: &'static str },
-    WidgetKey { name: &'static str, loc: &'static str, hash: u64 },
     Hook { number: u64 },
+
+    Fragment { name: &'static str, loc: &'static str },
+    FragmentKey { name: &'static str, loc: &'static str, hash: u64 },
 }
 impl KeyPart {
     pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
@@ -132,10 +134,10 @@ impl Context {
         }
     }
     pub fn enter_widget(&self, name: &'static str, loc: &'static str) -> Self {
-        self.with_key_widget(self.widget_local.key.with(KeyPart::Widget { name, loc }))
+        self.with_key_widget(self.widget_local.key.with(KeyPart::Fragment { name, loc }))
     }
     pub fn enter_widget_key(&self, name: &'static str, loc: &'static str, key: &str) -> Self {
-        self.with_key_widget(self.widget_local.key.with(KeyPart::WidgetKey {
+        self.with_key_widget(self.widget_local.key.with(KeyPart::FragmentKey {
             name,
             loc,
             hash: KeyPart::calculate_hash(&key),

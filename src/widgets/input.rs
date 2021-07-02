@@ -10,10 +10,10 @@ pub fn input(
     on_hover: impl Fn(Context, bool) -> () + Clone + Sync + Send + 'static,
     on_move: impl Fn(Context, Vec2) -> () + Clone + Sync + Send + 'static,
     style: Style,
-    children: Widget,
+    children: Fragment,
     context: Context,
-) -> Widget {
-    Widget {
+) -> Fragment {
+    Fragment {
         key_part: context.widget_local.key.last_part(),
         children: children.into(),
         layout_object: Some(LayoutObject {

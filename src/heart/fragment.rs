@@ -36,7 +36,7 @@ the output of this stage is the visual output :). profit!
  */
 
 
-pub type Widget = EvalObject;
+pub type Fragment = EvalObject;
 // The data structure that is input into the Evaluator Pass. When a EvalObject has both
 // a layout_object and children, the children are the children of the LayoutObject
 #[derive(Clone, Default, Derivative)]

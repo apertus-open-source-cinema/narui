@@ -42,7 +42,7 @@ pub fn widget(
     let function = parsed.unwrap();
 
     let return_type = function.sig.output.clone().to_token_stream().to_string().replace("-> ", "");
-    assert_eq!(return_type, "Widget");
+    assert_eq!(return_type, "Fragment");
 
     // parse & format the default arguments
     let parser = Punctuated::<AttributeParameter, Token![,]>::parse_terminated;

@@ -6,8 +6,8 @@ use stretch::{
     style::{AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, Style},
 };
 
-fn layout_block(style: Style, children: Widget, context: Context) -> Widget {
-    Widget {
+fn layout_block(style: Style, children: Fragment, context: Context) -> Fragment {
+    Fragment {
         key_part: context.widget_local.key.last_part(),
         children: children.into(),
         layout_object: Some(LayoutObject {
@@ -19,7 +19,7 @@ fn layout_block(style: Style, children: Widget, context: Context) -> Widget {
 }
 
 #[widget(style = Default::default())]
-pub fn container(style: Style, children: Widget, context: Context) -> Widget {
+pub fn container(style: Style, children: Fragment, context: Context) -> Fragment {
     layout_block(style, children, context)
 }
 
@@ -29,9 +29,9 @@ pub fn column(
     align_items: AlignItems,
     fill_parent: bool,
     style: Style,
-    children: Widget,
+    children: Fragment,
     context: Context,
-) -> Widget {
+) -> Fragment {
     let style = Style {
         flex_direction: FlexDirection::Column,
         flex_wrap: FlexWrap::NoWrap,
@@ -52,9 +52,9 @@ pub fn row(
     align_items: AlignItems,
     fill_parent: bool,
     style: Style,
-    children: Widget,
+    children: Fragment,
     context: Context,
-) -> Widget {
+) -> Fragment {
     let style = Style {
         flex_direction: FlexDirection::Row,
         flex_wrap: FlexWrap::NoWrap,
@@ -79,9 +79,9 @@ pub fn padding(
     left: Dimension,
     right: Dimension,
     style: Style,
-    children: Widget,
+    children: Fragment,
     context: Context,
-) -> Widget {
+) -> Fragment {
     let (mut t, mut b, mut l, mut r) = (all, all, all, all);
     if top_bottom != Dimension::default() {
         t = top_bottom;
@@ -113,9 +113,9 @@ pub fn min_size(
     width: Dimension,
     height: Dimension,
     style: Style,
-    children: Widget,
+    children: Fragment,
     context: Context,
-) -> Widget {
+) -> Fragment {
     let style = Style { min_size: Size { height, width }, ..style };
     layout_block(style, children, context)
 }

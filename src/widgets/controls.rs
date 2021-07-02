@@ -7,7 +7,7 @@ use stretch::{
 };
 
 #[widget]
-pub fn frame_counter(context: Context) -> Widget {
+pub fn frame_counter(context: Context) -> Fragment {
     let counter = context.listenable(0);
 
     let next_counter = context.listen(counter) + 1;
@@ -19,7 +19,7 @@ pub fn frame_counter(context: Context) -> Widget {
 }
 
 #[widget]
-pub fn repro(context: Context, children: Widget) -> Widget {
+pub fn repro(context: Context, children: Fragment) -> Fragment {
     rsx!{
         <container>
             <container>
@@ -34,9 +34,9 @@ pub fn repro(context: Context, children: Widget) -> Widget {
 pub fn button(
     on_click: impl Fn(Context, bool) -> () + Clone + Sync + Send + 'static,
     color: Color,
-    children: Widget,
+    children: Fragment,
     context: Context,
-) -> Widget {
+) -> Fragment {
     let clicked = context.listenable(false);
 
     let color = if context.listen(clicked) { color.lighten(0.1) } else { color };
@@ -60,7 +60,7 @@ pub fn button(
 }
 
 #[widget]
-pub fn slider_demo(context: Context) -> Widget {
+pub fn slider_demo(context: Context) -> Fragment {
     let slider_value = context.listenable(24.0);
 
     let style = Style { align_items: AlignItems::FlexEnd, ..Default::default() };
@@ -92,7 +92,7 @@ pub fn slider(
     slide_color: Color,
     knob_color: Color,
     context: Context,
-) -> Widget {
+) -> Fragment {
     let clicked = context.listenable(false);
     let on_click = move |context: Context, is_clicked| context.shout(clicked, is_clicked);
     let click_start_val = context.listenable(val);
@@ -161,7 +161,7 @@ pub fn slider(
 
 
 #[widget(initial_value = 1, step_size = 1)]
-pub fn counter(initial_value: i32, step_size: i32, context: Context) -> Widget {
+pub fn counter(initial_value: i32, step_size: i32, context: Context) -> Fragment {
     let count = context.listenable(initial_value);
 
     rsx! {

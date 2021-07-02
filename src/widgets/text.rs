@@ -27,7 +27,7 @@ pub fn text(
     width: Dimension,
     height: Dimension,
     context: Context,
-) -> Widget {
+) -> Fragment {
     let style = Style { size: Size { width, height }, ..Default::default() };
     let children_ = children.clone();
     let measurement_function = move |bounds: Size<Number>| -> Size<f32> {
@@ -59,7 +59,7 @@ pub fn text(
 
     let primitive_text = RenderObject::Text { text: children, size, color };
 
-    Widget {
+    Fragment {
         key_part: context.widget_local.key.last_part(),
         children: vec![],
         layout_object: Some(LayoutObject {

@@ -69,7 +69,7 @@ impl VulkanContext {
     pub fn get() -> Self { VULKAN_CONTEXT.clone() }
 }
 
-pub fn render(window_builder: WindowBuilder, top_node: Widget) {
+pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let event_loop: EventLoop<()> = EventLoop::new();
     let device = VulkanContext::get().device;
     let surface = window_builder.build_vk_surface(&event_loop, device.instance().clone()).unwrap();

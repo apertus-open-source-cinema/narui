@@ -4,7 +4,7 @@ use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parsed = syn_rsx::parse2(input.into()).unwrap();
-    let (begining, inplace) = handle_rsx_nodes(&parsed, Ident::new("__widget", Span::call_site()), None);
+    let (begining, inplace) = handle_rsx_nodes(&parsed, Ident::new("__fragment", Span::call_site()), None);
     let transformed = quote! {{
         #begining
 
@@ -20,7 +20,7 @@ fn call_context_closure(input: syn::Expr) -> TokenStream {
     quote! {#input}
 }
 
-fn handle_rsx_nodes(input: &Vec<Node>, widget_ident: Ident, key: Option<TokenStream>) -> (TokenStream, TokenStream) {
+fn handle_rsx_nodes(input: &Vec<Node>, fragment_ident: Ident, key: Option<TokenStream>) -> (TokenStream, TokenStream) {
     let mut outer_key = key;
     if outer_key.is_none() {
         assert_eq!(input.len(), 1);
@@ -31,8 +31,8 @@ fn handle_rsx_nodes(input: &Vec<Node>, widget_ident: Ident, key: Option<TokenStr
             let name_str = name.to_string();
             let loc = format!("{}_{}", name.span().start().line, name.span().start().column);
 
-            let mut key = quote! {KeyPart::Widget { name: #name_str, loc: #loc }};
-            let widget_ident = Ident::new(&format!("__widget_{}_{}", name_str, loc), Span::call_site());
+            let mut key = quote! {KeyPart::Fragment { name: #name_str, loc: #loc }};
+            let fragment_ident = Ident::new(&format!("__fragment_{}_{}", name_str, loc), Span::call_site());
 
             let constructor_ident = Ident::new(&format!("__{}_constructor", name), Span::call_site());
             let mut processed_attributes = vec![];
@@ -40,7 +40,7 @@ fn handle_rsx_nodes(input: &Vec<Node>, widget_ident: Ident, key: Option<TokenStr
                 let name = attribute.name.as_ref().unwrap();
                 let value = call_context_closure(attribute.value.as_ref().unwrap().clone());
                 if name.to_string() == "key" {
-                    key = quote! {KeyPart::WidgetKey { name: #name_str, loc: #loc, hash: KeyPart::calculate_hash(#value) }}
+                    key = quote! {KeyPart::Fragment { name: #name_str, loc: #loc, hash: KeyPart::calculate_hash(#value) }}
                 } else {
                     processed_attributes.push(quote! {#name=#value});
                 }
@@ -48,7 +48,7 @@ fn handle_rsx_nodes(input: &Vec<Node>, widget_ident: Ident, key: Option<TokenStr
             let (beginning, children_processed) = if x.children.is_empty() {
                 (quote! {}, quote! {})
             } else {
-                let (begining, inplace) = handle_rsx_nodes(&x.children, widget_ident, Some(key.clone()));
+                let (begining, inplace) = handle_rsx_nodes(&x.children, fragment_ident, Some(key.clone()));
                 (begining, quote! {
                     children=#inplace,
                 })
@@ -69,13 +69,13 @@ fn handle_rsx_nodes(input: &Vec<Node>, widget_ident: Ident, key: Option<TokenStr
         let to_beginning = quote! {
             #(#beginning)*
 
-            let #widget_ident = Widget {
+            let #fragment_ident = Fragment {
                 key_part: #outer_key,
                 children: vec![#(#inplace,)*],
                 layout_object: None,
             };
         };
-        let inplace = quote! {#widget_ident.clone()};
+        let inplace = quote! {#fragment_ident.clone()};
         (to_beginning, inplace)
     } else if input.len() == 1 {
         let value = input.iter().next().unwrap();
