@@ -4,23 +4,28 @@ use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parsed = syn_rsx::parse2(input.into()).unwrap();
-    let (begining, inplace) = handle_rsx_nodes(&parsed, Ident::new("__fragment", Span::call_site()), None);
+    let (begining, inplace) =
+        handle_rsx_nodes(&parsed, Ident::new("__fragment", Span::call_site()), None);
     let transformed = quote! {{
         #begining
 
         #inplace
     }};
-    println!("rsx: \n{}\n\n", transformed);
+    //println!("rsx: \n{}\n\n", transformed);
     transformed.into()
 }
 
-// if attrs or children of rsx constructs are expressions in the form context => value,
-// we transform them into a closure and call these closures
+// if attrs or children of rsx constructs are expressions in the form context =>
+// value, we transform them into a closure and call these closures
 fn call_context_closure(input: syn::Expr) -> TokenStream {
     quote! {#input}
 }
 
-fn handle_rsx_nodes(input: &Vec<Node>, fragment_ident: Ident, key: Option<TokenStream>) -> (TokenStream, TokenStream) {
+fn handle_rsx_nodes(
+    input: &Vec<Node>,
+    fragment_ident: Ident,
+    key: Option<TokenStream>,
+) -> (TokenStream, TokenStream) {
     let mut outer_key = key;
     if outer_key.is_none() {
         assert_eq!(input.len(), 1);

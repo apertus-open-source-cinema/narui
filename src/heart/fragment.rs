@@ -7,17 +7,11 @@ For layout we create `TreeNodes` with stretch Style attributes.
 use crate::heart::*;
 use derivative::Derivative;
 use lyon::path::Path;
-use parking_lot::Mutex;
-use std::{
-    fmt::Debug,
-    hash::{Hash, Hasher},
-    marker::PhantomData,
-    mem::replace,
-    sync::Arc,
-};
-use stretch::{geometry::Size, number::Number, style::Style};
+
 use crate::hooks::Listenable;
-use std::fmt::Formatter;
+use std::sync::Arc;
+use stretch::{geometry::Size, number::Number, style::Style};
+
 use std::iter::FromIterator;
 
 /*
@@ -37,8 +31,9 @@ the output of this stage is the visual output :). profit!
 
 
 pub type Fragment = EvalObject;
-// The data structure that is input into the Evaluator Pass. When a EvalObject has both
-// a layout_object and children, the children are the children of the LayoutObject
+// The data structure that is input into the Evaluator Pass. When a EvalObject
+// has both a layout_object and children, the children are the children of the
+// LayoutObject
 #[derive(Clone, Default, Derivative)]
 #[derivative(Debug)]
 pub struct EvalObject {
@@ -49,21 +44,24 @@ pub struct EvalObject {
 }
 impl Into<Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>> for EvalObject {
     fn into(self) -> Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
-        vec![(KeyPart::Nop, Arc::new(move |context| self.clone()))]
+        vec![(KeyPart::Nop, Arc::new(move |_context| self.clone()))]
     }
 }
 impl FromIterator<EvalObject> for EvalObject {
-    fn from_iter<T: IntoIterator<Item=EvalObject>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = EvalObject>>(iter: T) -> Self {
         EvalObject {
             key_part: KeyPart::Nop,
-            children: iter.into_iter().map(|x| (x.key_part, Arc::new(move |context| x.clone()) as _)).collect(),
-            layout_object: None
+            children: iter
+                .into_iter()
+                .map(|x| (x.key_part, Arc::new(move |_context| x.clone()) as _))
+                .collect(),
+            layout_object: None,
         }
     }
 }
 
-// A part of the layout tree additionally containing information to render the object
-// A LayoutObject is analog to a stretch Node
+// A part of the layout tree additionally containing information to render the
+// object A LayoutObject is analog to a stretch Node
 // but additionally contains a list of RenderObject that can then be passed
 // to the render stage.
 #[derive(Derivative, Clone)]
