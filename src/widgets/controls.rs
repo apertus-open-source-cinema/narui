@@ -1,5 +1,5 @@
 use crate::{heart::*, hooks::*, widgets::*};
-use narui_derive::{rsx, widget};
+use crate::macros::{rsx, widget};
 use palette::Shade;
 use stretch::{
     geometry::Size,
@@ -43,7 +43,9 @@ pub fn button(
 
     let callback = move |context: Context, is_clicked| {
         context.shout(clicked, is_clicked);
-        on_click(context, is_clicked);
+        if is_clicked {
+            on_click(context, is_clicked);
+        }
     };
 
     rsx! {
@@ -63,7 +65,7 @@ pub fn slider_demo(context: Context) -> Widget {
 
     let style = Style { align_items: AlignItems::FlexEnd, ..Default::default() };
     rsx! {
-        <column fill_parent=false align_items=AlignItems::Center>
+        <column fill_parent=true align_items=AlignItems::Center>
             <min_size height=Dimension::Points(300.0) style=style>
                 <text size={context.listen(slider_value)}>
                     {format!("{:.1} px", context.listen(slider_value))}
@@ -71,7 +73,9 @@ pub fn slider_demo(context: Context) -> Widget {
             </min_size>
             <slider
                 val={context.listen(slider_value)}
-                on_change={move |context: Context, new_val| context.shout(slider_value, new_val)}
+                on_change={move |context: Context, new_val| {
+                    context.shout(slider_value, new_val)
+                }}
                 min=12.0 max=300.0
             />
         </column>
@@ -91,22 +95,25 @@ pub fn slider(
 ) -> Widget {
     let clicked = context.listenable(false);
     let on_click = move |context: Context, is_clicked| context.shout(clicked, is_clicked);
+    let click_start_val = context.listenable(val);
 
-    let last_click_position = context.listenable(Vec2::zero());
-    let on_move = move |context: Context, position| {
-        let real_last_click_position = if context.listen(clicked) {
-            context.shout(last_click_position, position);
+    let on_move = move |context: Context, position: Vec2| {
+        let clicked_changed = context.listen_changed(clicked);
+        let clicked = context.listen(clicked);
+        /*
+        let click_start_val = if clicked & clicked_changed {
+            context.shout(click_start_val, position);
             position
         } else {
-            context.listen(last_click_position)
+            context.listen(click_start_val)
         };
+         */
 
-        if context.listen(clicked) {
-            let position_delta = position - real_last_click_position;
-            let distance = (position.y - 10.).abs();
-            let distance_factor = if distance < 15.0 { 1. } else { 1. + distance / 50. };
-            let new_val =
-                (position_delta.x / width * (max - min) / (distance_factor) + val).clamp(min, max);
+        if clicked {
+            //let position_delta = position - click_start_position;
+            //let distance = (position.y - 10.).abs();
+            //let distance_factor = if distance < 15.0 { 1. } else { 1. + distance / 50. };
+            let new_val = (position.x / width * (max - min) + min).clamp(min, max);
 
             on_change(context, new_val);
         }

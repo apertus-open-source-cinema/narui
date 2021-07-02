@@ -1011,7 +1011,7 @@ dependencies = [
  "jemallocator",
  "lazy_static",
  "lyon",
- "narui_derive",
+ "narui_macros",
  "notosans",
  "palette",
  "parking_lot",
@@ -1025,7 +1025,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "narui_derive"
+name = "narui_macros"
 version = "0.1.0"
 dependencies = [
  "bind_match",

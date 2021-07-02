@@ -1,5 +1,5 @@
 use crate::heart::*;
-use narui_derive::{widget};
+use crate::macros::{widget};
 use stretch::style::Style;
 use crate::hooks::*;
 use std::sync::Arc;
@@ -19,11 +19,11 @@ pub fn input(
         layout_object: Some(LayoutObject {
             style,
             measure_function: None,
-            render_objects: vec![RenderObject::Input {
+            render_objects: vec![(KeyPart::Nop, RenderObject::Input {
                 on_click: Arc::new(on_click),
                 on_hover: Arc::new(on_hover),
                 on_move: Arc::new(on_move),
-            }]
+            })]
         })
     }
 }

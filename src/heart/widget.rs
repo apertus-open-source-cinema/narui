@@ -72,7 +72,7 @@ pub struct LayoutObject {
     pub style: Style,
     #[derivative(Debug = "ignore")]
     pub measure_function: Option<Arc<dyn Fn(Size<Number>) -> Size<f32> + Send + Sync>>,
-    pub render_objects: Vec<RenderObject>,
+    pub render_objects: Vec<(KeyPart, RenderObject)>,
 }
 
 pub type PathGenInner = Arc<dyn (Fn(Size<f32>) -> Path) + Send + Sync>;

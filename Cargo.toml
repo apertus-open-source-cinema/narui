@@ -8,7 +8,7 @@ edition = "2018"
 name = "narui"
 
 [dependencies]
-narui_derive = { path = "../narui_derive" }
+narui_macros = { path = "narui_macros" }
 lyon = "0.17.5"
 stretch = { git = "https://github.com/vislyhq/stretch" }
 winit = "0.24.0"

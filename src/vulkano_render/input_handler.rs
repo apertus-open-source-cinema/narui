@@ -21,14 +21,18 @@ impl InputHandler {
                     ElementState::Pressed => {
                         for render_object in render_objects.clone() {
                             if let Input { on_click, .. } = render_object.clone().render_object {
-                                on_click(context.clone(), true);
+                                if render_object.rect.contains(self.cursor_position.into()) {
+                                    on_click(context.clone(), true);
+                                }
                             }
                         }
                     }
                     ElementState::Released => {
                         for render_object in render_objects.clone() {
                             if let Input { on_click, .. } = render_object.clone().render_object {
-                                on_click(context.clone(), false);
+                                if render_object.rect.contains(self.cursor_position.into()) {
+                                    on_click(context.clone(), false);
+                                }
                             }
                         }
                     }

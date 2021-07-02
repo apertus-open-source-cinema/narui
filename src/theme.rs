@@ -1,5 +1,5 @@
 use crate::heart::Color;
-use narui_derive::color;
+use crate::macros::color;
 
 pub static BG: Color = color!(#282828);
 pub static BG_LIGHT: Color = color!(#505050);

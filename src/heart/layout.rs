@@ -13,6 +13,7 @@ use stretch::prelude::{Style, Size, Dimension};
 // It is like a regular RenderObject but with Positioning information added
 #[derive(Debug, Clone)]
 pub struct PositionedRenderObject {
+    pub key: Key,
     pub render_object: RenderObject,
     pub rect: Rect,
     pub z_index: i32,
@@ -30,7 +31,7 @@ pub struct Layouter {
     top_node: Option<Node>,
 
     key_node_map: HashMap<Key, Node>,
-    render_object_map: HashMap<Node, Vec<RenderObject>>,
+    render_object_map: HashMap<Node, Vec<(Key, RenderObject)>>,
 
     // this is a dirty hack because stretch does not support getting this information by itself. this is a stretch deficiency
     node_has_measure: HashMap<Node, bool>,
@@ -54,7 +55,7 @@ impl Layouter {
         size: Vec2,
     ) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
         self.stretch.compute_layout(self.top_node.unwrap(), size.into())?;
-        println!("{}", self.layout_repr(self.top_node.unwrap()));
+        //println!("{}", self.layout_repr(self.top_node.unwrap()));
 
         let mut to_return = Vec::with_capacity(self.render_object_map.len());
         self.get_absolute_positions(self.top_node.unwrap(), Vec2::zero(), &mut to_return);
@@ -70,8 +71,9 @@ impl Layouter {
         let layout = self.stretch.layout(node).unwrap();
         let pos = parent_position + layout.location.into();
         if self.render_object_map.contains_key(&node) {
-            for render_object in self.render_object_map.get(&node).unwrap() {
+            for (key, render_object) in self.render_object_map.get(&node).unwrap() {
                 positioned_widgets.push(PositionedRenderObject {
+                    key: *key,
                     render_object: render_object.clone(),
                     rect: Rect { pos, size: layout.size.into() },
                     z_index: 0,
@@ -153,7 +155,9 @@ impl LayoutTree for Layouter {
                 }
             };
             self.node_has_measure.insert(node, has_measure_function);
-            self.render_object_map.insert(node, layout_object.render_objects);
+            self.render_object_map.insert(
+                node,
+                layout_object.render_objects.into_iter().map(|(key_part, render_object)| (key.with(key_part), render_object)).collect());
             node
         }).collect();
 

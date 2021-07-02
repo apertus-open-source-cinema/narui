@@ -1,5 +1,5 @@
 use crate::{heart::*, widgets::*, hooks::*};
-use narui_derive::widget;
+use crate::macros::widget;
 
 use crate::vulkano_render::text_render::FONT;
 use glyph_brush::{
@@ -65,7 +65,7 @@ pub fn text(
         layout_object: Some(LayoutObject {
             style,
             measure_function: Some(Arc::new(measurement_function)),
-            render_objects: vec![primitive_text]
+            render_objects: vec![(KeyPart::Nop, primitive_text)]
         })
     }
 }

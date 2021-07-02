@@ -23,7 +23,6 @@ use std::{
     sync::Arc,
 };
 use stretch::{geometry::Size, number::Number, prelude::Style};
-use std::mem::{uninitialized, MaybeUninit};
 
 type Deps = HashSet<Key>;
 // EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally

@@ -1,5 +1,5 @@
 use crate::{heart::*, hooks::*};
-use narui_derive::widget;
+use crate::macros::widget;
 
 use stretch::{
     geometry::{Rect, Size},

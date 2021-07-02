@@ -1,5 +1,5 @@
 use crate::heart::*;
-use narui_derive::{widget};
+use crate::macros::{widget};
 
 use lyon::{
     math::rect,
@@ -46,7 +46,7 @@ pub fn rounded_rect(
         layout_object: Some(LayoutObject {
             style,
             measure_function: None,
-            render_objects: vec![RenderObject::Path { path_gen, color }]
+            render_objects: vec![(KeyPart::Nop, RenderObject::Path { path_gen, color })]
         })
     }
 }
