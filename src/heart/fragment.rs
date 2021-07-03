@@ -13,6 +13,7 @@ use std::sync::Arc;
 use stretch::{geometry::Size, number::Number, style::Style};
 
 use std::iter::FromIterator;
+use lyon::tessellation::StrokeOptions;
 
 /*
 The general flow of a frame in narui:
@@ -74,16 +75,23 @@ pub struct LayoutObject {
     pub render_objects: Vec<(KeyPart, RenderObject)>,
 }
 
-pub type PathGenInner = Arc<dyn (Fn(Size<f32>) -> Path) + Send + Sync>;
-pub type PathGen = Listenable<PathGenInner>;
+pub type PathGenInner = dyn (Fn(Size<f32>) -> Path) + Send + Sync;
+pub type PathGen = Listenable<Arc<PathGenInner>>;
 // RenderObject is the data structure that really defines _what_ is rendered
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub enum RenderObject {
-    Path {
+    DebugRect,
+    FillPath {
         #[derivative(Debug = "ignore")]
         path_gen: PathGen,
         color: Color,
+    },
+    StrokePath {
+        #[derivative(Debug = "ignore")]
+        path_gen: PathGen,
+        color: Color,
+        stroke_options: StrokeOptions,
     },
     Text {
         text: String,

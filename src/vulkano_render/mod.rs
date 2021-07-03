@@ -151,7 +151,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
-    let layouter = Arc::new(Mutex::new(Layouter::new()));
+    let layouter = Arc::new(Mutex::new(Layouter::new(true)));
     let mut layouted: Vec<PositionedRenderObject> = vec![];
     let mut evaluator = Evaluator::new(top_node, layouter.clone());
 

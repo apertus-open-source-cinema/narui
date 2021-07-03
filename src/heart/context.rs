@@ -42,9 +42,11 @@ impl Key {
 pub enum KeyPart {
     Nop,
     Args,
+    DebugLayoutBounds,
 
     Sideband { hash: u64 },
     Hook { number: u64 },
+    RenderObject { number: u64 },
 
     Fragment { name: &'static str, loc: &'static str },
     FragmentKey { name: &'static str, loc: &'static str, hash: u64 },

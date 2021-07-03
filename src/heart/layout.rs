@@ -1,10 +1,9 @@
-use crate::heart::*;
+use crate::{heart::*};
 use hashbrown::HashMap;
 use stretch::{
     node::{MeasureFunc, Node},
     Stretch,
 };
-
 use stretch::prelude::{Dimension, Size, Style};
 
 
@@ -35,14 +34,17 @@ pub struct Layouter {
     // this is a dirty hack because stretch does not support getting this information by itself.
     // this is a stretch deficiency
     node_has_measure: HashMap<Node, bool>,
+
+    debug_layout_bounds: bool,
 }
 
 impl Layouter {
-    pub fn new() -> Self {
+    pub fn new(debug_layout_bounds: bool) -> Self {
         let stretch = Stretch::new();
         let mut layouter = Layouter {
             stretch,
             top_node: None,
+            debug_layout_bounds,
             key_node_map: HashMap::new(),
             render_object_map: HashMap::new(),
             node_has_measure: Default::default(),
@@ -73,6 +75,18 @@ impl Layouter {
     ) {
         let layout = self.stretch.layout(node).unwrap();
         let pos = parent_position + layout.location.into();
+
+        if self.debug_layout_bounds {
+            positioned_widgets.push(PositionedRenderObject {
+                // in principle this violates the key contract of uniqueness but it should not
+                // matter here.
+                key: Key::default().with(KeyPart::DebugLayoutBounds),
+                render_object: RenderObject::DebugRect,
+                rect: Rect { pos, size: layout.size.into() },
+                z_index: 0,
+            })
+        }
+
         if self.render_object_map.contains_key(&node) {
             for (key, render_object) in self.render_object_map.get(&node).unwrap() {
                 positioned_widgets.push(PositionedRenderObject {
@@ -80,7 +94,7 @@ impl Layouter {
                     render_object: render_object.clone(),
                     rect: Rect { pos, size: layout.size.into() },
                     z_index: 0,
-                })
+                });
             }
         }
         for child in self.stretch.children(node).unwrap() {

@@ -205,7 +205,7 @@ fn transform_function_args_to_context(function: ItemFn) -> proc_macro2::TokenStr
                 #(#stmts)*
             };
 
-            //TODO: mem::forget(context);  // we consume the context here to prevent the other widgets from giving it out
+            std::mem::forget(#context_ident);  // we consume the context here to prevent the other widgets from giving it out
             to_return
         }
     };

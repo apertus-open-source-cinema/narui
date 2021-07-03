@@ -97,7 +97,7 @@ mod fragment_shader {
 
             void main() {
                 float alpha = texture(tex, tex_frag).r;
-                if (alpha <= 0.0) {
+                if (alpha == 0.0) {
                     discard;
                 }
                 f_color = color_frag;
