@@ -1,5 +1,5 @@
 use super::VulkanContext;
-use crate::heart::*;
+use crate::{heart::*, hooks::ContextListenable};
 use hashbrown::HashMap;
 use lyon::{
     lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers},
@@ -14,7 +14,6 @@ use vulkano::{
     framebuffer::{RenderPassAbstract, Subpass},
     pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline},
 };
-use crate::hooks::ContextListenable;
 
 
 mod vertex_shader {
@@ -70,7 +69,7 @@ pub struct LyonRenderer {
         >,
     >,
     fill_tesselator: FillTessellator,
-    cache: HashMap<(*const Box<dyn Any + Send + Sync>, Vec2), VertexBuffers<Vec2, u16>>,
+    cache: HashMap<(*const Box<dyn Any + Send + Sync>, (i64, i64)), VertexBuffers<Vec2, u16>>,
 }
 impl LyonRenderer {
     pub fn new(render_pass: Arc<dyn RenderPassAbstract + Send + Sync>) -> Self {
@@ -110,12 +109,11 @@ impl LyonRenderer {
         for render_object in render_objects {
             if let RenderObject::Path { path_gen, color } = render_object.render_object {
                 let color = [color.red, color.green, color.blue, color.alpha];
-                let buffer = self.tesselate_with_cache(path_gen, render_object.rect.size, context.clone());
+                let buffer =
+                    self.tesselate_with_cache(path_gen, render_object.rect.size, context.clone());
                 for point in &buffer.vertices {
-                    vertices.push(Vertex {
-                        position: (point.clone() + render_object.rect.pos).into(),
-                        color,
-                    })
+                    vertices
+                        .push(Vertex { position: (*point + render_object.rect.pos).into(), color })
                 }
                 for index in &buffer.indices {
                     indices.push(index + last_index);
@@ -145,7 +143,7 @@ impl LyonRenderer {
         buffer_builder
             .draw_indexed(
                 self.pipeline.clone(),
-                &dynamic_state,
+                dynamic_state,
                 vertex_buffer,
                 index_buffer,
                 (),
@@ -158,7 +156,7 @@ impl LyonRenderer {
         &mut self,
         path_gen: PathGen,
         size: Vec2,
-        context: Context
+        context: Context,
     ) -> &VertexBuffers<Vec2, u16> {
         struct VertexConstructor {}
         impl FillVertexConstructor<Vec2> for VertexConstructor {
@@ -166,15 +164,16 @@ impl LyonRenderer {
         }
 
         let mut lyon_vertex_buffer: VertexBuffers<Vec2, u16> = VertexBuffers::new();
-        let cache_key = (Arc::as_ptr(&context.listen(path_gen)) as *const _, size);
-        if let None = self.cache.get(&cache_key) {
+        let cache_key =
+            (Arc::as_ptr(&context.listen(path_gen)) as *const _, Into::<(i64, i64)>::into(size));
+        if self.cache.get(&cache_key).is_none() {
             let path: Path = context.listen(path_gen)(size.into());
             let mut buffers_builder =
                 BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {});
             self.fill_tesselator
                 .tessellate_path(path.as_slice(), &FillOptions::DEFAULT, &mut buffers_builder)
                 .unwrap();
-            self.cache.insert(cache_key.clone(), lyon_vertex_buffer);
+            self.cache.insert(cache_key, lyon_vertex_buffer);
         }
         self.cache.get(&cache_key).unwrap()
     }

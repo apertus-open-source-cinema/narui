@@ -1,8 +1,8 @@
 pub mod heart;
+pub mod hooks;
 pub mod theme;
 pub mod vulkano_render;
 pub mod widgets;
-pub mod hooks;
 
 pub use narui_macros as macros;
 

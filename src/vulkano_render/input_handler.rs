@@ -16,35 +16,32 @@ impl InputHandler {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = position.into();
             }
-            WindowEvent::MouseInput { state, button, .. } => match button {
-                MouseButton::Left => match state {
-                    ElementState::Pressed => {
-                        for render_object in render_objects.clone() {
-                            if let Input { on_click, .. } = render_object.clone().render_object {
-                                if render_object.rect.contains(self.cursor_position.into()) {
-                                    on_click(context.clone(), true);
-                                }
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
+                ElementState::Pressed => {
+                    for render_object in render_objects.clone() {
+                        if let Input { on_click, .. } = render_object.clone().render_object {
+                            if render_object.rect.contains(self.cursor_position) {
+                                on_click(context.clone(), true);
                             }
                         }
                     }
-                    ElementState::Released => {
-                        for render_object in render_objects.clone() {
-                            if let Input { on_click, .. } = render_object.clone().render_object {
-                                if render_object.rect.contains(self.cursor_position.into()) {
-                                    on_click(context.clone(), false);
-                                }
+                }
+                ElementState::Released => {
+                    for render_object in render_objects.clone() {
+                        if let Input { on_click, .. } = render_object.clone().render_object {
+                            if render_object.rect.contains(self.cursor_position) {
+                                on_click(context.clone(), false);
                             }
                         }
                     }
-                },
-                _ => {}
+                }
             },
             _e => { /*dbg!(_e);*/ }
         }
 
         for render_object in render_objects.clone() {
-            if let Input { on_hover, on_move, on_click } = render_object.clone().render_object {
-                let is_hover = render_object.rect.contains(self.cursor_position.into());
+            if let Input { on_hover, on_move, on_click: _ } = render_object.clone().render_object {
+                let is_hover = render_object.rect.contains(self.cursor_position);
                 on_hover(context.clone(), is_hover);
                 if is_hover {
                     on_move(context.clone(), self.cursor_position - render_object.rect.pos);

@@ -42,11 +42,12 @@ pub struct EvalObject {
     pub children: Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
     pub layout_object: Option<LayoutObject>,
 }
-impl Into<Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>> for EvalObject {
-    fn into(self) -> Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
-        vec![(KeyPart::Nop, Arc::new(move |_context| self.clone()))]
+impl From<EvalObject> for Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
+    fn from(eval_obj: EvalObject) -> Self {
+        vec![(KeyPart::Nop, Arc::new(move |_context| eval_obj.clone()))]
     }
 }
+
 impl FromIterator<EvalObject> for EvalObject {
     fn from_iter<T: IntoIterator<Item = EvalObject>>(iter: T) -> Self {
         EvalObject {

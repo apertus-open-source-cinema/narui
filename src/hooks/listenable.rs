@@ -1,8 +1,7 @@
-use crate::heart::{Key, KeyPart, Context, TreeStateInner, PatchedTree};
-use std::marker::PhantomData;
+use crate::heart::{Context, Key, PatchedTree};
 use parking_lot::RwLockReadGuard;
-use std::ops::Deref;
-use std::any::TypeId;
+use std::{marker::PhantomData, ops::Deref};
+
 
 pub trait ContextListenable {
     fn listenable_key<T: Send + Sync + 'static>(&self, key: Key, initial: T) -> Listenable<T>;
@@ -10,16 +9,18 @@ pub trait ContextListenable {
 
     fn shout<T: Send + Sync + 'static>(&self, listenable: Listenable<T>, new_value: T);
 
-    fn listen<T: Send + Sync + 'static>(&self, listenable: Listenable<T>) -> T where T: Clone;
+    fn listen<T: Send + Sync + 'static>(&self, listenable: Listenable<T>) -> T
+    where
+        T: Clone;
     fn listen_ref<T: Send + Sync>(&self, listenable: Listenable<T>) -> ListenableGuard<T>;
-    fn listen_changed<T: Send + Sync + PartialEq + 'static>(&self, listenable: Listenable<T>) -> bool;
+    fn listen_changed<T: Send + Sync + PartialEq + 'static>(
+        &self,
+        listenable: Listenable<T>,
+    ) -> bool;
 }
 impl ContextListenable for Context {
     fn listenable_key<T: Send + Sync + 'static>(&self, key: Key, initial: T) -> Listenable<T> {
-        let listenable = Listenable {
-            key,
-            phantom_data: Default::default()
-        };
+        let listenable = Listenable { key, phantom_data: Default::default() };
         if self.global.read().get(listenable.key).is_none() {
             self.shout(listenable, initial)
         };
@@ -31,13 +32,15 @@ impl ContextListenable for Context {
     }
 
     fn shout<T: Send + Sync + 'static>(&self, listenable: Listenable<T>, new_value: T) {
-        self.global.write().set(listenable.key.clone(),Box::new(new_value));
+        self.global.write().set(listenable.key, Box::new(new_value));
     }
 
-    fn listen<T: Send + Sync + 'static>(&self, listenable: Listenable<T>) -> T where T: Clone {
+    fn listen<T: Send + Sync + 'static>(&self, listenable: Listenable<T>) -> T
+    where
+        T: Clone,
+    {
         self.widget_local.mark_used(listenable.key);
-        self.global.read().get(listenable.key).unwrap()
-            .downcast_ref::<T>().unwrap().clone()
+        self.global.read().get(listenable.key).unwrap().downcast_ref::<T>().unwrap().clone()
     }
 
     fn listen_ref<T: Send + Sync>(&self, listenable: Listenable<T>) -> ListenableGuard<T> {
@@ -48,12 +51,15 @@ impl ContextListenable for Context {
         }
     }
 
-    fn listen_changed<T: Send + Sync + PartialEq + 'static>(&self, listenable: Listenable<T>) -> bool {
+    fn listen_changed<T: Send + Sync + PartialEq + 'static>(
+        &self,
+        listenable: Listenable<T>,
+    ) -> bool {
         return self.global.read().is_updated(listenable.key, |a, b| {
             let a: &T = a.downcast_ref().unwrap();
             let b: &T = b.downcast_ref().unwrap();
             a == b
-        })
+        });
     }
 }
 
@@ -62,9 +68,7 @@ pub struct Listenable<T> {
     phantom_data: PhantomData<T>,
 }
 impl<T> Clone for Listenable<T> {
-    fn clone(&self) -> Self {
-        Self { key: self.key, phantom_data: Default::default() }
-    }
+    fn clone(&self) -> Self { Self { key: self.key, phantom_data: Default::default() } }
 }
 impl<T> Copy for Listenable<T> {}
 
@@ -76,5 +80,7 @@ pub struct ListenableGuard<'l, T> {
 impl<'l, T: 'static> Deref for ListenableGuard<'l, T> {
     type Target = T;
 
-    fn deref(&self) -> &Self::Target { self.rw_lock_guard.get(self.path).unwrap().downcast_ref().unwrap() }
+    fn deref(&self) -> &Self::Target {
+        self.rw_lock_guard.get(self.path).unwrap().downcast_ref().unwrap()
+    }
 }

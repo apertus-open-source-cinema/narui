@@ -1,6 +1,6 @@
-use crate::heart::*;
-use crate::macros::{widget};
+use crate::{heart::*, macros::widget};
 
+use crate::hooks::*;
 use lyon::{
     math::rect,
     path::{builder::*, Winding},
@@ -8,7 +8,6 @@ use lyon::{
 };
 use std::sync::Arc;
 use stretch::{geometry::Size, style::Style};
-use crate::hooks::*;
 
 #[widget(border_radius = 7.5, color = crate::theme::BG_LIGHT, style = Default::default(), children = Default::default())]
 pub fn rounded_rect(
@@ -19,7 +18,9 @@ pub fn rounded_rect(
     context: Context,
 ) -> Fragment {
     let path_gen = context.memoize_key(
-        Key::default().with(KeyPart::Sideband { hash: KeyPart::calculate_hash(&("rounded_rect", (border_radius * 1000.0) as u64)) }),
+        Key::default().with(KeyPart::Sideband {
+            hash: KeyPart::calculate_hash(&("rounded_rect", (border_radius * 1000.0) as u64)),
+        }),
         || {
             let closure: PathGenInner = Arc::new(move |size: Size<f32>| {
                 let mut builder = Builder::new();
@@ -46,7 +47,7 @@ pub fn rounded_rect(
         layout_object: Some(LayoutObject {
             style,
             measure_function: None,
-            render_objects: vec![(KeyPart::Nop, RenderObject::Path { path_gen, color })]
-        })
+            render_objects: vec![(KeyPart::Nop, RenderObject::Path { path_gen, color })],
+        }),
     }
 }

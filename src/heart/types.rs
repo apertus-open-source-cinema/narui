@@ -3,7 +3,6 @@ use stretch::geometry::{Point, Size};
 use winit::dpi::PhysicalPosition;
 
 pub use palette::LinSrgba as Color;
-use std::hash::{Hash, Hasher};
 use stretch::number::Number;
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
@@ -25,48 +24,73 @@ impl Sub for Vec2 {
 
     fn sub(self, rhs: Self) -> Self::Output { Vec2 { x: self.x - rhs.x, y: self.y - rhs.y } }
 }
-impl Hash for Vec2 {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        ((self.x * 100.) as u64).hash(state);
-        ((self.y * 100.) as u64).hash(state);
-    }
+
+macro_rules! implement_convert {
+    ($typename:ty, $v:ident, $x:expr, $y:expr, $val:expr) => {
+        impl From<$typename> for Vec2 {
+            fn from($v: $typename) -> Self { Vec2 { x: $x, y: $y } }
+        }
+        impl From<Vec2> for $typename {
+            fn from($v: Vec2) -> Self { $val }
+        }
+    };
 }
-impl Eq for Vec2 {} // TODO: this is evil and wrong but needed to be able to use as hashmap key
-impl From<PhysicalPosition<f64>> for Vec2 {
-    fn from(p: PhysicalPosition<f64>) -> Self { Vec2 { x: p.x as f32, y: p.y as f32 } }
+
+macro_rules! impl_convert_tuple_arr2 {
+    ($typename:ty) => {
+        implement_convert!(
+            ($typename, $typename),
+            v,
+            v.0 as f32,
+            v.1 as f32,
+            (v.x as $typename, v.y as $typename)
+        );
+        implement_convert!(
+            [$typename; 2],
+            v,
+            v[0] as f32,
+            v[1] as f32,
+            [v.x as $typename, v.y as $typename]
+        );
+    };
 }
-impl<T: Into<f32>> From<Point<T>> for Vec2 {
-    fn from(p: Point<T>) -> Self { Vec2 { x: p.x.into(), y: p.y.into() } }
+
+impl_convert_tuple_arr2!(f32);
+impl_convert_tuple_arr2!(f64);
+impl_convert_tuple_arr2!(i32);
+impl_convert_tuple_arr2!(i64);
+impl_convert_tuple_arr2!(u32);
+impl_convert_tuple_arr2!(u64);
+
+implement_convert!(Point<f64>, v, v.x as f32, v.y as f32, Point { x: v.x as f64, y: v.y as f64 });
+implement_convert!(Point<f32>, v, v.x as f32, v.y as f32, Point { x: v.x as f32, y: v.y as f32 });
+implement_convert!(
+    Size<f64>,
+    v,
+    v.width as f32,
+    v.height as f32,
+    Size { width: v.x as f64, height: v.y as f64 }
+);
+implement_convert!(
+    Size<f32>,
+    v,
+    v.width as f32,
+    v.height as f32,
+    Size { width: v.x as f32, height: v.y as f32 }
+);
+impl From<Vec2> for Size<Number> {
+    fn from(v: Vec2) -> Self { Size { width: Number::Defined(v.x), height: Number::Defined(v.y) } }
 }
-impl<T: Into<f32>> From<Size<T>> for Vec2 {
-    fn from(p: Size<T>) -> Self { Vec2 { x: p.width.into(), y: p.height.into() } }
-}
-impl Into<Size<f32>> for Vec2 {
-    fn into(self) -> Size<f32> { Size { width: self.x, height: self.y } }
-}
-impl Into<Size<Number>> for Vec2 {
-    fn into(self) -> Size<Number> {
-        Size { width: Number::Defined(self.x), height: Number::Defined(self.y) }
-    }
-}
-impl<T: Into<f32>> From<(T, T)> for Vec2 {
-    fn from((x, y): (T, T)) -> Self { Vec2 { x: x.into(), y: y.into() } }
-}
-impl From<[u32; 2]> for Vec2 {
-    fn from(arr: [u32; 2]) -> Self { Vec2 { x: arr[0] as f32, y: arr[1] as f32 } }
-}
-impl Into<[f32; 2]> for Vec2 {
-    fn into(self) -> [f32; 2] { [self.x, self.y] }
-}
-impl Into<(f32, f32)> for Vec2 {
-    fn into(self) -> (f32, f32) { (self.x, self.y) }
-}
-impl Into<lyon::math::Point> for Vec2 {
-    fn into(self) -> lyon::math::Point { lyon::math::point(self.x, self.y) }
-}
-impl From<lyon::math::Point> for Vec2 {
-    fn from(p: lyon::math::Point) -> Self { Vec2 { x: p.x, y: p.y } }
-}
+
+implement_convert!(
+    PhysicalPosition<f64>,
+    v,
+    v.x as f32,
+    v.y as f32,
+    PhysicalPosition { x: v.x as f64, y: v.y as f64 }
+);
+
+implement_convert!(lyon::math::Point, v, v.x, v.y, lyon::math::point(v.x, v.y));
 
 
 #[derive(Debug, Copy, Clone, PartialEq)]

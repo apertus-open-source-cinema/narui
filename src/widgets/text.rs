@@ -1,5 +1,4 @@
-use crate::{heart::*, widgets::*, hooks::*};
-use crate::macros::widget;
+use crate::{heart::*, hooks::*, macros::widget, widgets::*};
 
 use crate::vulkano_render::text_render::FONT;
 use glyph_brush::{
@@ -10,12 +9,12 @@ use glyph_brush::{
     SectionGeometry,
     SectionText,
 };
+use std::sync::Arc;
 use stretch::{
     geometry::Size,
     number::Number,
     style::{Dimension, Style},
 };
-use std::sync::Arc;
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
@@ -65,7 +64,7 @@ pub fn text(
         layout_object: Some(LayoutObject {
             style,
             measure_function: Some(Arc::new(measurement_function)),
-            render_objects: vec![(KeyPart::Nop, primitive_text)]
-        })
+            render_objects: vec![(KeyPart::Nop, primitive_text)],
+        }),
     }
 }

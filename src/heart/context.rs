@@ -1,17 +1,12 @@
 use hashbrown::{HashMap, HashSet};
-use parking_lot::{Mutex, RwLock, RwLockReadGuard};
+use parking_lot::{Mutex, RwLock};
 use std::{
     any::Any,
-    fmt,
-    fmt::{Debug, Formatter},
-    hash::Hash,
-    marker::PhantomData,
-    ops::Deref,
-    panic::panic_any,
+    collections::hash_map::DefaultHasher,
+    fmt::Debug,
+    hash::{Hash, Hasher},
     sync::Arc,
 };
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hasher;
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
 pub struct Key([Option<KeyPart>; 32]);
@@ -20,7 +15,7 @@ impl Default for Key {
 }
 impl Key {
     pub fn with(&self, tail: KeyPart) -> Self {
-        let mut to_return = self.0.clone();
+        let mut to_return = self.0;
         for i in 0..(to_return.len() + 1) {
             if i == to_return.len() {
                 dbg!(&self);
@@ -61,14 +56,10 @@ impl KeyPart {
         s.finish()
     }
 
-    pub fn sideband<T: Hash>(t: &T) -> Self {
-        Self::Sideband { hash: Self::calculate_hash(t) }
-    }
+    pub fn sideband<T: Hash>(t: &T) -> Self { Self::Sideband { hash: Self::calculate_hash(t) } }
 }
 impl Default for KeyPart {
-    fn default() -> Self {
-        KeyPart::Nop
-    }
+    fn default() -> Self { KeyPart::Nop }
 }
 
 pub type TreeItem = Box<dyn Any + Send + Sync>;
@@ -84,16 +75,14 @@ impl PatchedTree {
         self.patch.get(&key).or_else(|| self.tree.get(&key))
     }
 
-    pub fn set(&mut self, key: Key, value: TreeItem) {
-        self.patch.insert(key, value);
-    }
+    pub fn set(&mut self, key: Key, value: TreeItem) { self.patch.insert(key, value); }
 
     pub fn is_updated(&self, key: Key, is_equal: impl Fn(&TreeItem, &TreeItem) -> bool) -> bool {
         match (self.tree.get(&key), self.patch.get(&key)) {
             (None, None) => false,
             (Some(_), None) => false,
             (None, Some(_)) => true,
-            (Some(a), Some(b)) => !is_equal(a, b)
+            (Some(a), Some(b)) => !is_equal(a, b),
         }
     }
 
@@ -112,9 +101,7 @@ pub struct WidgetLocalContext {
     pub used: Arc<Mutex<HashSet<Key>>>,
 }
 impl WidgetLocalContext {
-    pub fn mark_used(&self, key: Key) {
-        self.used.lock().insert(key);
-    }
+    pub fn mark_used(&self, key: Key) { self.used.lock().insert(key); }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -129,7 +116,7 @@ impl Context {
             widget_local: WidgetLocalContext {
                 key,
                 hook_counter: Default::default(),
-                used: Default::default()
+                used: Default::default(),
             },
         }
     }
@@ -146,7 +133,7 @@ impl Context {
 
     pub fn key_for_hook(&self) -> Key {
         let mut counter = self.widget_local.hook_counter.lock();
-        let to_return = counter.clone();
+        let to_return = *counter;
         *counter += 1;
         self.widget_local.key.with(KeyPart::Hook { number: to_return })
     }

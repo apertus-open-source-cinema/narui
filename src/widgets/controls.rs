@@ -1,5 +1,9 @@
-use crate::{heart::*, hooks::*, widgets::*};
-use crate::macros::{rsx, widget};
+use crate::{
+    heart::*,
+    hooks::*,
+    macros::{rsx, widget},
+    widgets::*,
+};
 use palette::Shade;
 use stretch::{
     geometry::Size,
@@ -20,7 +24,7 @@ pub fn frame_counter(context: Context) -> Fragment {
 
 #[widget]
 pub fn repro(context: Context, children: Fragment) -> Fragment {
-    rsx!{
+    rsx! {
         <container>
             <container>
                 {children.clone()}
@@ -30,9 +34,9 @@ pub fn repro(context: Context, children: Fragment) -> Fragment {
 }
 
 
-#[widget(on_click = (| context, clicked | {}), color = crate::theme::BG)]
+#[widget(on_click = (| _context, _clicked | {}), color = crate::theme::BG)]
 pub fn button(
-    on_click: impl Fn(Context, bool) -> () + Clone + Sync + Send + 'static,
+    on_click: impl Fn(Context, bool) + Clone + Sync + Send + 'static,
     color: Color,
     children: Fragment,
     context: Context,
@@ -49,8 +53,8 @@ pub fn button(
     };
 
     rsx! {
-        <input on_click={callback.clone()}>
-            <rounded_rect color={color}>
+        <input on_click=callback.clone()>
+            <rounded_rect color=color>
                 <padding all=Dimension::Points(10.)>
                     {children.clone()}
                 </padding>
@@ -67,7 +71,7 @@ pub fn slider_demo(context: Context) -> Fragment {
     rsx! {
         <column fill_parent=true align_items=AlignItems::Center>
             <min_size height=Dimension::Points(300.0) style=style>
-                <text size={context.listen(slider_value)}>
+                <text size=context.listen(slider_value)>
                     {format!("{:.1} px", context.listen(slider_value))}
                 </text>
             </min_size>
@@ -85,7 +89,7 @@ pub fn slider_demo(context: Context) -> Fragment {
 #[widget(min = 0.0, max = 1.0, width = 500.0, slide_color = crate::theme::BG, knob_color = crate::theme::BG_LIGHT)]
 pub fn slider(
     val: f32,
-    on_change: impl Fn(Context, f32) -> () + Clone + Send + Sync + 'static,
+    on_change: impl Fn(Context, f32) + Clone + Send + Sync + 'static,
     min: f32,
     max: f32,
     width: f32,
@@ -95,10 +99,10 @@ pub fn slider(
 ) -> Fragment {
     let clicked = context.listenable(false);
     let on_click = move |context: Context, is_clicked| context.shout(clicked, is_clicked);
-    let click_start_val = context.listenable(val);
+    let _click_start_val = context.listenable(val);
 
     let on_move = move |context: Context, position: Vec2| {
-        let clicked_changed = context.listen_changed(clicked);
+        let _clicked_changed = context.listen_changed(clicked);
         let clicked = context.listen(clicked);
         /*
         let click_start_val = if clicked & clicked_changed {
@@ -148,10 +152,10 @@ pub fn slider(
         ..Default::default()
     };
     rsx! {
-         <input on_move={on_move.clone()} style=top_style>
+         <input on_move=on_move.clone() style=top_style>
             <rounded_rect style=slide_style color=slide_color />
             <container style=handle_container_style>
-                <input on_click={on_click} style=handle_input_style>
+                <input on_click=on_click style=handle_input_style>
                     <rounded_rect border_radius=10.0 style=handle_rect_style color=knob_color />
                 </input>
             </container>
@@ -166,13 +170,13 @@ pub fn counter(initial_value: i32, step_size: i32, context: Context) -> Fragment
 
     rsx! {
          <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
-            <button on_click={move |context: Context, state| context.shout(count, context.listen(count) - 1)}>
+            <button on_click=move |context: Context, _state| context.shout(count, context.listen(count) - 1)>
                 <text>{" - ".to_string()}</text>
             </button>
             <padding all=Dimension::Points(10.)>
                 <text>{format!("{}", context.listen(count))}</text>
             </padding>
-            <button on_click={move |context: Context, state| context.shout(count, context.listen(count) + 1)}>
+            <button on_click=move |context: Context, _state| context.shout(count, context.listen(count) + 1)>
                 <text>{" + ".to_string()}</text>
             </button>
          </row>

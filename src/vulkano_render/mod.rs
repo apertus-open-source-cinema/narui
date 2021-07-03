@@ -4,7 +4,7 @@ pub mod text_render;
 
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use std::sync::{Arc};
+use std::sync::Arc;
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, SubpassContents},
     device::{Device, DeviceExtensions, Queue},
@@ -37,8 +37,8 @@ use crate::{heart::*, theme};
 use input_handler::InputHandler;
 use lyon_render::LyonRenderer;
 use palette::Pixel;
-use text_render::TextRenderer;
 use parking_lot::Mutex;
+use text_render::TextRenderer;
 
 #[derive(Clone)]
 pub struct VulkanContext {
@@ -151,7 +151,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
-    let mut layouter = Arc::new(Mutex::new(Layouter::new()));
+    let layouter = Arc::new(Mutex::new(Layouter::new()));
     let mut layouted: Vec<PositionedRenderObject> = vec![];
     let mut evaluator = Evaluator::new(top_node, layouter.clone());
 
@@ -212,10 +212,16 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 )
                 .unwrap();
 
-            let evaluated = evaluator.update();
+            let _evaluated = evaluator.update();
             layouted = layouter.lock().do_layout(dimensions.into()).unwrap();
 
-            lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone(), evaluator.context.clone());
+            lyon_renderer.render(
+                &mut builder,
+                &dynamic_state,
+                &dimensions,
+                layouted.clone(),
+                evaluator.context.clone(),
+            );
             text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
 
             builder.end_render_pass().unwrap();

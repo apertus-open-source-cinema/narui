@@ -213,7 +213,7 @@ impl TextRenderer {
         let layout = pipeline.layout().descriptor_set_layout(0).unwrap();
         let descriptor_set = Arc::new(
             PersistentDescriptorSet::start(layout.clone())
-                .add_sampled_image(texture.clone(), sampler.clone())
+                .add_sampled_image(texture, sampler.clone())
                 .unwrap()
                 .build()
                 .unwrap(),
@@ -247,7 +247,7 @@ impl TextRenderer {
                         .add_text(
                             Text::new(&*text)
                                 .with_color(color.into_format().into_raw::<[f32; 4]>())
-                                .with_scale(PxScale::from(size.clone())),
+                                .with_scale(PxScale::from(size)),
                         )
                         .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
                         .with_bounds(Into::<(f32, f32)>::into(
@@ -320,7 +320,7 @@ impl TextRenderer {
             let layout = self.pipeline.layout().descriptor_set_layout(0).unwrap();
             self.descriptor_set = Arc::new(
                 PersistentDescriptorSet::start(layout.clone())
-                    .add_sampled_image(texture.clone(), self.sampler.clone())
+                    .add_sampled_image(texture, self.sampler.clone())
                     .unwrap()
                     .build()
                     .unwrap(),
@@ -332,7 +332,7 @@ impl TextRenderer {
         buffer_builder
             .draw(
                 self.pipeline.clone(),
-                &dynamic_state,
+                dynamic_state,
                 (self.quad_vertex_buffer.clone(), self.instance_data_buffer.clone()),
                 self.descriptor_set.clone(),
                 push_constants,
