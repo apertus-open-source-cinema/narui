@@ -21,9 +21,8 @@ type Deps = HashSet<Key>;
 // contains the dependencies of Node for allowing partial rebuild.
 #[derive(Clone)]
 pub struct EvaluatedEvalObject {
-    pub children: Vec<
-        (KeyPart, EvaluatedEvalObject, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>, Deps)
-    >,
+    pub children:
+        Vec<(KeyPart, EvaluatedEvalObject, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>, Deps)>,
     pub layout_object: Option<LayoutObject>,
 }
 

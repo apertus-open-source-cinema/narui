@@ -4,11 +4,13 @@ use crate::hooks::*;
 use lyon::{
     math::rect,
     path::{builder::*, Winding},
-    tessellation::path::{builder::BorderRadii, path::Builder},
+    tessellation::{
+        path::{builder::BorderRadii, path::Builder},
+        StrokeOptions,
+    },
 };
 use std::sync::Arc;
 use stretch::{geometry::Size, style::Style};
-use lyon::tessellation::StrokeOptions;
 
 #[widget(
     style = Default::default(),
@@ -57,19 +59,21 @@ pub fn rounded_rect(
 
     let mut render_objects = vec![];
     if let Some(fill_color) = fill_color {
-        render_objects.push((KeyPart::RenderObject { number: 0 }, RenderObject::FillPath { path_gen, color: fill_color }));
+        render_objects.push((
+            KeyPart::RenderObject { number: 0 },
+            RenderObject::FillPath { path_gen, color: fill_color },
+        ));
     }
     if let Some(stroke_color) = stroke_color {
-        render_objects.push((KeyPart::RenderObject { number: 1 }, RenderObject::StrokePath { path_gen, color: stroke_color, stroke_options }));
+        render_objects.push((
+            KeyPart::RenderObject { number: 1 },
+            RenderObject::StrokePath { path_gen, color: stroke_color, stroke_options },
+        ));
     }
 
     Fragment {
         key_part: context.widget_local.key.last_part(),
         children: children.into(),
-        layout_object: Some(LayoutObject {
-            style,
-            measure_function: None,
-            render_objects,
-        }),
+        layout_object: Some(LayoutObject { style, measure_function: None, render_objects }),
     }
 }

@@ -1,10 +1,10 @@
-use crate::{heart::*};
+use crate::heart::*;
 use hashbrown::HashMap;
 use stretch::{
     node::{MeasureFunc, Node},
+    prelude::{Dimension, Size, Style},
     Stretch,
 };
-use stretch::prelude::{Dimension, Size, Style};
 
 
 // PositionedRenderObject is the main output data structure of the Layouting

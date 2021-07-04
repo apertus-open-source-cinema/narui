@@ -12,8 +12,8 @@ use crate::hooks::Listenable;
 use std::sync::Arc;
 use stretch::{geometry::Size, number::Number, style::Style};
 
-use std::iter::FromIterator;
 use lyon::tessellation::StrokeOptions;
+use std::iter::FromIterator;
 
 /*
 The general flow of a frame in narui:

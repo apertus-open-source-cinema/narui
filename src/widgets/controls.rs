@@ -10,30 +10,6 @@ use stretch::{
     style::{AlignItems, Dimension, FlexDirection, JustifyContent, PositionType, Style},
 };
 
-#[widget]
-pub fn frame_counter(context: Context) -> Fragment {
-    let counter = context.listenable(0);
-
-    let next_counter = context.listen(counter) + 1;
-    context.shout(counter, next_counter);
-
-    rsx! {
-        <text>{format!("{:.3}", context.listen(counter))}</text>
-    }
-}
-
-#[widget]
-pub fn repro(context: Context, children: Fragment) -> Fragment {
-    rsx! {
-        <container>
-            <container>
-                {children.clone()}
-            </container>
-        </container>
-    }
-}
-
-
 #[widget(on_click = (| _context, _clicked | {}), color = crate::theme::BG)]
 pub fn button(
     on_click: impl Fn(Context, bool) + Clone + Sync + Send + 'static,
@@ -60,29 +36,6 @@ pub fn button(
                 </padding>
             </rounded_rect>
         </input>
-    }
-}
-
-#[widget]
-pub fn slider_demo(context: Context) -> Fragment {
-    let slider_value = context.listenable(24.0);
-
-    let style = Style { align_items: AlignItems::FlexEnd, ..Default::default() };
-    rsx! {
-        <column fill_parent=true align_items=AlignItems::Center>
-            <min_size height=Dimension::Points(300.0) style=style>
-                <text size=context.listen(slider_value)>
-                    {format!("{:.1} px", context.listen(slider_value))}
-                </text>
-            </min_size>
-            <slider
-                val={context.listen(slider_value)}
-                on_change={move |context: Context, new_val| {
-                    context.shout(slider_value, new_val)
-                }}
-                min=12.0 max=300.0
-            />
-        </column>
     }
 }
 
@@ -160,25 +113,5 @@ pub fn slider(
                 </input>
             </container>
          </input>
-    }
-}
-
-
-#[widget(initial_value = 1, step_size = 1)]
-pub fn counter(initial_value: i32, step_size: i32, context: Context) -> Fragment {
-    let count = context.listenable(initial_value);
-
-    rsx! {
-         <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
-            <button on_click=move |context: Context, _state| context.shout(count, context.listen(count) - 1)>
-                <text>{" - ".to_string()}</text>
-            </button>
-            <padding all=Dimension::Points(10.)>
-                <text>{format!("{}", context.listen(count))}</text>
-            </padding>
-            <button on_click=move |context: Context, _state| context.shout(count, context.listen(count) + 1)>
-                <text>{" + ".to_string()}</text>
-            </button>
-         </row>
     }
 }

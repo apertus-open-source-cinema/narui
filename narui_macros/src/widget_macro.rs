@@ -50,6 +50,8 @@ pub fn widget(
 
     let function_ident = function.sig.ident.clone();
     let macro_ident =
+        Ident::new(&format!("__{}_constructor_", function_ident.clone()), Span::call_site());
+    let macro_ident_pub =
         Ident::new(&format!("__{}_constructor", function_ident.clone()), Span::call_site());
 
     let match_arms: Vec<_> = {
@@ -93,7 +95,7 @@ pub fn widget(
                 quote! {
                     (@parse [#arg_names_comma_ident] #unhygienic = $value:expr,$($rest:tt)*) => {
                         let $#unhygienic = #value;
-                        #macro_ident!(@parse [#arg_names_comma_dollar] $($rest)*);
+                        #macro_ident_pub!(@parse [#arg_names_comma_dollar] $($rest)*);
                     };
                 }
             })
@@ -119,7 +121,7 @@ pub fn widget(
             (@initial $($args:tt)*) => {
                 {
                     #(#initializers;)*
-                    #macro_ident!(@parse [#arg_names_comma] $($args)*);
+                    #macro_ident_pub!(@parse [#arg_names_comma] $($args)*);
 
                     #function_call
                 }
@@ -145,7 +147,7 @@ pub fn widget(
 
             // we do this to have correct scoping of the macro. It should not just be placed at the
             // crate root but rather at the path of the original function.
-            pub use #macro_ident as #macro_ident;
+            pub use #macro_ident as #macro_ident_pub;
         }
     };
 
@@ -156,7 +158,7 @@ pub fn widget(
 
         #transformed_function
     };
-    //println!("widget: \n{}\n\n", transformed.clone());
+    // println!("widget: \n{}\n\n", transformed.clone());
     transformed.into()
 }
 // a (simplified) example of the kind of macro this proc macro generates:
