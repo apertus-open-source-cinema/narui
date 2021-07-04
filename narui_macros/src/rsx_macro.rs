@@ -45,7 +45,7 @@ fn handle_rsx_nodes(
                 let name = attribute.name.as_ref().unwrap();
                 let value = call_context_closure(attribute.value.as_ref().unwrap().clone());
                 if name.to_string() == "key" {
-                    key = quote! {KeyPart::Fragment { name: #name_str, loc: #loc, hash: KeyPart::calculate_hash(#value) }}
+                    key = quote! {KeyPart::FragmentKey { name: #name_str, loc: #loc, hash: KeyPart::calculate_hash(#value) }}
                 } else {
                     processed_attributes.push(quote! {#name=#value});
                 }

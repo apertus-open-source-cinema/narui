@@ -18,7 +18,7 @@ use stretch::{geometry::Size, style::Style};
 
     border_radius = 7.5,
 
-    fill_color = Some(crate::theme::BG_LIGHT),
+    fill_color = Some(narui::theme::BG_LIGHT),
     stroke_color = None,
     stroke_options = Default::default()
 )]

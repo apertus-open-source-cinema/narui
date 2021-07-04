@@ -4,6 +4,10 @@ pub mod theme;
 pub mod vulkano_render;
 pub mod widgets;
 
+
+// this is a rather evil hack for being able to resolve paths with narui:: as
+// crate::
+pub(crate) use crate as narui;
 pub use narui_macros as macros;
 
 pub use heart::*;
