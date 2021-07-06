@@ -24,13 +24,13 @@ pub fn button(
     };
 
     rsx! {
-        <input on_click=callback.clone()>
-            <rounded_rect fill_color=Some(color)>
+        <rounded_rect fill_color=Some(color)>
+            <input on_click=callback.clone()>
                 <padding all=Dimension::Points(10.)>
                     {children.clone()}
                 </padding>
-            </rounded_rect>
-        </input>
+            </input>
+        </rounded_rect>
     }
 }
 
@@ -50,7 +50,6 @@ pub fn slider(
     let _click_start_val = context.listenable(val);
 
     let on_move = move |context: Context, position: Vec2| {
-        let _clicked_changed = context.listen_changed(clicked);
         let clicked = context.listen(clicked);
         /*
         let click_start_val = if clicked & clicked_changed {

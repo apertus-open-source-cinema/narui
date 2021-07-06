@@ -48,7 +48,6 @@ impl From<EvalObject> for Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send
         vec![(KeyPart::Nop, Arc::new(move |_context| eval_obj.clone()))]
     }
 }
-
 impl FromIterator<EvalObject> for EvalObject {
     fn from_iter<T: IntoIterator<Item = EvalObject>>(iter: T) -> Self {
         EvalObject {
@@ -61,12 +60,17 @@ impl FromIterator<EvalObject> for EvalObject {
         }
     }
 }
+impl PartialEq for EvalObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.key_part == other.key_part  // TODO: this implementation is unsound for the general case
+    }
+}
 
 // A part of the layout tree additionally containing information to render the
 // object A LayoutObject is analog to a stretch Node
 // but additionally contains a list of RenderObject that can then be passed
 // to the render stage.
-#[derive(Derivative, Clone)]
+#[derive(Derivative, Clone, Default)]
 #[derivative(Debug)]
 pub struct LayoutObject {
     pub style: Style,

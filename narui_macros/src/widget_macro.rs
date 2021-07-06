@@ -1,6 +1,6 @@
 use bind_match::bind_match;
 use core::result::{Result, Result::Ok};
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Span, Literal};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
 use syn::{
@@ -40,6 +40,12 @@ pub fn widget(
     // parse the function
     let parsed: Result<ItemFn, _> = syn::parse2(item.into());
     let function = parsed.unwrap();
+    let function_ident = function.sig.ident.clone();
+
+    let last_name = get_arg_names(&function).into_iter().last().unwrap().to_string();
+    let last_type = get_arg_types(&function)[&last_name].clone();
+    assert_eq!(last_type.to_token_stream().to_string(), "Context");
+    assert_eq!(last_name.to_string(), "context");
 
     let return_type = function.sig.output.clone().to_token_stream().to_string().replace("-> ", "");
     assert_eq!(return_type, "Fragment");
@@ -48,7 +54,6 @@ pub fn widget(
     let parser = Punctuated::<AttributeParameter, Token![,]>::parse_terminated;
     let parsed_args = parser.parse(args).unwrap();
 
-    let function_ident = function.sig.ident.clone();
     let macro_ident =
         Ident::new(&format!("__{}_constructor_", function_ident.clone()), Span::call_site());
     let macro_ident_pub =
@@ -93,56 +98,67 @@ pub fn widget(
                 };
 
                 quote! {
-                    (@parse [#arg_names_comma_ident] #unhygienic = $value:expr,$($rest:tt)*) => {
+                    (@parse_args [#arg_names_comma_ident] #unhygienic = $value:expr,$($rest:tt)*) => {
                         let $#unhygienic = #value;
-                        #macro_ident_pub!(@parse [#arg_names_comma_dollar] $($rest)*);
+                        #macro_ident_pub!(@parse_args [#arg_names_comma_dollar] $($rest)*);
                     };
                 }
             })
             .collect()
     };
 
-    let initial_arm = {
+    let shout_args_arm = {
         let initializers = parsed_args.clone().into_iter().map(|x| {
             let ident = desinfect_ident(&x.ident);
             let value = x.expr;
             quote! { let #ident = #value }
         });
-        let arg_names_comma = {
-            let arg_names = get_arg_names_hygienic(&function);
-            quote! {#(#arg_names,)*}
-        };
-        let function_call = quote! {
-            #function_ident(#arg_names_comma)
-        };
+        let arg_names = get_arg_names_hygienic(&function);
+
+        let arg_names_listenables: Vec<_> = get_arg_names(&function)
+            .into_iter()
+            .filter(|ident| get_arg_types(&function)[&ident.to_string()].to_token_stream().to_string() != "Context")
+            .map(|ident| desinfect_ident(&ident))
+            .enumerate()
+            .map(|(i, ident)| {
+                quote! {{
+                    let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with($key_part).with(KeyPart::Arg(#i))) };
+                    shout!($context, listenable, #ident);
+                    listenable
+                }}
+            })
+            .collect();
+
 
 
         quote! {
-            (@initial $($args:tt)*) => {
+            (@shout_args context=$context:ident, key_part=$key_part:expr, $($args:tt)*) => {
                 {
                     #(#initializers;)*
-                    #macro_ident_pub!(@parse [#arg_names_comma] $($args)*);
+                    #macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
 
-                    #function_call
+                    (#(#arg_names_listenables,)*)
                 }
             };
         }
     };
 
     let constructor_macro = {
-        let arg_names_comma_ident = {
-            let arg_names = get_arg_names_hygienic(&function).clone();
-            quote! {#($#arg_names:ident,)*}
-        };
+        let arg_names = get_arg_names_hygienic(&function);
+        let arg_numbers : Vec<_> = (0..(get_arg_names(&function).len() - 1))
+            .map(|i| Literal::usize_unsuffixed(i)).collect();
 
         quote! {
             #[macro_export]
             macro_rules! #macro_ident {
-                #initial_arm
+                #shout_args_arm
 
                 #(#match_arms)*
+                (@parse_args [#($#arg_names:ident,)*] ) => { };
 
-                (@parse [#arg_names_comma_ident] ) => { };
+                (@construct listenable=$listenable:ident, context=$context:ident) => {{
+                    #function_ident(#($context.listen($listenable.#arg_numbers),)* $context)
+                }}
             }
 
             // we do this to have correct scoping of the macro. It should not just be placed at the
@@ -158,7 +174,7 @@ pub fn widget(
 
         #transformed_function
     };
-    // println!("widget: \n{}\n\n", transformed.clone());
+    //println!("widget: \n{}\n\n", transformed.clone());
     transformed.into()
 }
 // a (simplified) example of the kind of macro this proc macro generates:
@@ -198,16 +214,13 @@ fn transform_function_args_to_context(function: ItemFn) -> proc_macro2::TokenStr
         .0
         .to_string();
     let context_ident = Ident::new(&context_string, Span::call_site());
-    let arg_names = get_arg_names(&function_clone);
     let function_transformed = quote! {
         #(#attrs)* #vis #sig {
-            #context_ident.args(&(#(#arg_names.clone(), )*));
-
             let to_return = {
                 #(#stmts)*
             };
 
-            std::mem::forget(#context_ident);  // we consume the context here to prevent the other widgets from giving it out
+            std::mem::drop(#context_ident);  // we consume the context here to prevent the other widgets from giving it out
             to_return
         }
     };

@@ -8,12 +8,12 @@ pub trait ContextMemoize {
         &self,
         key: Key,
         callback: impl Fn() -> T,
-        deps: impl PartialEq + Send + Sync + Clone + 'static,
+        deps: impl PartialEq + Send + Sync + Clone + 'static + PartialEq,
     ) -> Listenable<T>;
     fn memoize<T: Send + Sync + 'static>(
         &self,
         callback: impl Fn() -> T,
-        deps: impl PartialEq + Send + Sync + Clone + 'static,
+        deps: impl PartialEq + Send + Sync + Clone + 'static + PartialEq,
     ) -> Listenable<T>;
 }
 impl ContextMemoize for Context {
@@ -21,13 +21,13 @@ impl ContextMemoize for Context {
         &self,
         key: Key,
         callback: impl Fn() -> T,
-        deps: impl PartialEq + Send + Sync + Clone + 'static,
+        deps: impl PartialEq + Send + Sync + Clone + 'static + PartialEq,
     ) -> Listenable<T> {
         let last_deps = self.listenable_key(key.with(KeyPart::Sideband { hash: 0 }), deps.clone());
         let last_result = self.listenable_key(key.with(KeyPart::Sideband { hash: 1 }), callback());
         if *self.listen_ref(last_deps) != deps {
             self.shout(last_deps, deps);
-            self.shout(last_result, callback());
+            self.shout_unconditional(last_result, callback());
         }
         last_result
     }
@@ -35,7 +35,7 @@ impl ContextMemoize for Context {
     fn memoize<T: Send + Sync + 'static>(
         &self,
         callback: impl Fn() -> T,
-        deps: impl PartialEq + Send + Sync + Clone + 'static,
+        deps: impl PartialEq + Send + Sync + Clone + 'static + PartialEq,
     ) -> Listenable<T> {
         self.memoize_key(self.key_for_hook(), callback, deps)
     }

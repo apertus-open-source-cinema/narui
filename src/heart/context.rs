@@ -1,14 +1,9 @@
 use hashbrown::{HashMap, HashSet};
 use parking_lot::{Mutex, RwLock};
-use std::{
-    any::Any,
-    collections::hash_map::DefaultHasher,
-    fmt::Debug,
-    hash::{Hash, Hasher},
-    sync::Arc,
-};
+use std::{any::Any, collections::hash_map::DefaultHasher, fmt::Debug, hash::{Hash, Hasher}, sync::Arc};
+use std::fmt::Formatter;
 
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
+#[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub struct Key([Option<KeyPart>; 32]);
 impl Default for Key {
     fn default() -> Self { Self([None; 32]) }
@@ -28,23 +23,35 @@ impl Key {
         }
         Self(to_return)
     }
-    pub fn last_part(&self) -> KeyPart {
-        for i in (0..(self.0.len())).rev() {
-            if let Some(part) = self.0[i] {
-                return part;
+    pub fn len(&self) -> usize {
+        for i in 0..(self.0.len()) {
+            if self.0[i].is_none() {
+                return i;
             }
         }
-        panic!("empty key has no last_part")
+        return self.0.len();
+    }
+    pub fn last_part(&self) -> KeyPart {
+        self.0[self.len() - 1].unwrap()
+    }
+}
+impl Debug for Key {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for i in 0..self.len() {
+            write!(f, "{}{:?}", if i == 0 {""} else {"."}, self.0[i].unwrap())?
+        }
+        Ok(())
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Debug)]
+#[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
 pub enum KeyPart {
     Nop,
-    Args,
     DebugLayoutBounds,
-
+    Widget,
     Sideband { hash: u64 },
+
+    Arg(usize),
     Hook { number: u64 },
     RenderObject { number: u64 },
 
@@ -62,6 +69,21 @@ impl KeyPart {
 }
 impl Default for KeyPart {
     fn default() -> Self { KeyPart::Nop }
+}
+impl Debug for KeyPart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KeyPart::Nop => write!(f, "Nop"),
+            KeyPart::Arg(n) => write!(f, "Arg_{}", n),
+            KeyPart::DebugLayoutBounds => write!(f, "DebugLayoutBounds"),
+            KeyPart::Widget => write!(f, "Widget"),
+            KeyPart::Sideband { hash } => write!(f, "Sideband_{}", hash),
+            KeyPart::Hook { number } => write!(f, "Sideband_{}", number),
+            KeyPart::RenderObject { number } => write!(f, "RenderObject_{}", number),
+            KeyPart::Fragment { name, loc } => write!(f, "Fragment_{}_{}", name, loc),
+            KeyPart::FragmentKey { name, loc, hash } => write!(f, "Fragment_{}_{}_{}", name, loc, hash)
+        }
+    }
 }
 
 pub type TreeItem = Box<dyn Any + Send + Sync>;
@@ -89,10 +111,12 @@ impl PatchedTree {
     }
 
     // apply the patch to the tree starting a new frame
-    pub fn update_tree(&mut self) {
+    pub fn update_tree(&mut self) -> Vec<Key> {
+        let keys = self.patch.keys().into_iter().cloned().collect();
         for (key, value) in self.patch.drain() {
             self.tree.insert(key, value);
         }
+        keys
     }
 }
 
@@ -112,7 +136,7 @@ pub struct Context {
     pub widget_local: WidgetLocalContext,
 }
 impl Context {
-    fn with_key_widget(&self, key: Key) -> Context {
+    pub fn with_key_widget(&self, key: Key) -> Context {
         Context {
             global: self.global.clone(),
             widget_local: WidgetLocalContext {
@@ -121,16 +145,6 @@ impl Context {
                 used: Default::default(),
             },
         }
-    }
-    pub fn enter_widget(&self, name: &'static str, loc: &'static str) -> Self {
-        self.with_key_widget(self.widget_local.key.with(KeyPart::Fragment { name, loc }))
-    }
-    pub fn enter_widget_key(&self, name: &'static str, loc: &'static str, key: &str) -> Self {
-        self.with_key_widget(self.widget_local.key.with(KeyPart::FragmentKey {
-            name,
-            loc,
-            hash: KeyPart::calculate_hash(&key),
-        }))
     }
 
     pub fn key_for_hook(&self) -> Key {

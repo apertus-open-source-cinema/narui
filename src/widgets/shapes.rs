@@ -25,13 +25,14 @@ use stretch::{geometry::Size, style::Style};
 pub fn rounded_rect(
     style: Style,
     children: Fragment,
-    context: Context,
 
     border_radius: f32,
 
     fill_color: Option<Color>,
     stroke_color: Option<Color>,
     stroke_options: StrokeOptions,
+
+    context: Context,
 ) -> Fragment {
     let path_gen = context.memoize_key(
         Key::default().with(KeyPart::Sideband {

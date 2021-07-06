@@ -1,6 +1,7 @@
 use narui::*;
 use stretch::style::{AlignItems, Dimension, JustifyContent, Style};
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
+use narui_macros::rsx_toplevel;
 
 
 #[widget]
@@ -35,7 +36,7 @@ fn main() {
 
     render(
         window_builder,
-        rsx! {
+        rsx_toplevel! {
             <slider_demo />
         },
     );

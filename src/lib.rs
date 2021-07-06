@@ -1,3 +1,5 @@
+#![feature(box_syntax)]
+
 pub mod heart;
 pub mod hooks;
 pub mod theme;

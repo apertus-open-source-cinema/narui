@@ -4,7 +4,21 @@ mod widget_macro;
 use quote::quote;
 
 #[proc_macro]
-pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream { rsx_macro::rsx(input) }
+pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream { rsx_macro::rsx(input).into() }
+
+#[proc_macro]
+pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let rsx = rsx_macro::rsx(input);
+
+    (quote! {
+        Fragment {
+            key_part: KeyPart::Nop,
+            children: vec![(KeyPart::Nop, std::sync::Arc::new(|context| { #rsx }))],
+            layout_object: None,
+        }
+    }).into()
+}
+
 
 #[proc_macro_attribute]
 pub fn widget(
