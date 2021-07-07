@@ -37,6 +37,10 @@ pub struct Layouter {
     // this is a stretch deficiency
     node_has_measure: HashMap<Node, bool>,
 
+    // if nothing has changed, we dont need to re-invoke stretch
+    changed_layout: bool,
+    last_size: Vec2,
+
     debug_layout_bounds: bool,
 }
 
@@ -49,6 +53,8 @@ impl Layouter {
             debug_layout_bounds,
             key_node_map: HashMap::new(),
             render_object_map: HashMap::new(),
+            changed_layout: true,
+            last_size: Vec2::zero(),
             node_has_measure: Default::default(),
         };
         layouter.top_node = Some(layouter.node(
@@ -61,7 +67,11 @@ impl Layouter {
         layouter
     }
     pub fn do_layout(&mut self, size: Vec2) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
-        self.stretch.compute_layout(self.top_node.unwrap(), size.into())?;
+        if self.changed_layout || (size != self.last_size) {
+            self.stretch.compute_layout(self.top_node.unwrap(), size.into())?;
+            self.changed_layout = false;
+            self.last_size = size;
+        }
         //println!("{}", self.layout_repr(self.top_node.unwrap()));
 
         let mut to_return = Vec::with_capacity(self.render_object_map.len());
@@ -143,17 +153,22 @@ impl LayoutTree for Layouter {
         let node = match maybe_old_node {
             None => match layout_object.measure_function {
                 Some(measure_function) => {
+                    self.changed_layout = true;
                     let measure_function = {
                         let measure_function = measure_function.clone();
                         MeasureFunc::Boxed(Box::new(move |size| measure_function(size)))
                     };
                     self.stretch.new_leaf(layout_object.style, measure_function).unwrap()
                 }
-                None => self.stretch.new_node(layout_object.style, &[]).unwrap(),
+                None => {
+                    self.changed_layout = true;
+                    self.stretch.new_node(layout_object.style, &[]).unwrap()
+                },
             },
             Some(old_node) => {
                 let old_node = *old_node;
                 if self.stretch.style(old_node).unwrap() != &layout_object.style {
+                    self.changed_layout = true;
                     self.stretch.set_style(old_node, layout_object.style).unwrap();
                 }
                 match layout_object.measure_function {
@@ -163,11 +178,13 @@ impl LayoutTree for Layouter {
                             MeasureFunc::Boxed(Box::new(move |size| measure_function(size)));
                         self.stretch.set_measure(old_node, Some(measure_function)).unwrap();
                         self.stretch.mark_dirty(old_node).unwrap();
+                        self.changed_layout = true;
                     }
                     None => {
                         if *self.node_has_measure.get(&old_node).unwrap() {
                             self.stretch.set_measure(old_node, None).unwrap();
                             self.stretch.mark_dirty(old_node).unwrap();
+                            self.changed_layout = true;
                         }
                     }
                 }
