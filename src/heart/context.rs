@@ -27,7 +27,7 @@ impl Key {
             dbg!(&self);
             panic!("crank up the key length limit!");
         }
-        let mut new = self.clone();
+        let mut new = *self;
         new.data[self.len()] = tail;
         new.hash = self.hash.overflowing_add(KeyPart::calculate_hash(&tail)).0;
         new.len += 1;
@@ -40,9 +40,7 @@ impl Clone for Key {
     fn clone(&self) -> Self {
         let data = unsafe {
             let mut uninit: [KeyPart; 32] = MaybeUninit::uninit().assume_init();
-            for i in 0..self.len() {
-                uninit[i] = self.data[i];
-            }
+            uninit[..self.len()].clone_from_slice(&self.data[..self.len()]);
             uninit
         };
         Key { data, len: self.len, hash: self.hash }

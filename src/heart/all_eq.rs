@@ -4,14 +4,14 @@ pub trait AllEqViaPartialEq {
     fn all_eq(&self, other: &Self) -> bool;
 }
 impl<T: PartialEq> AllEqViaPartialEq for &AllEqDispatcher<&T> {
-    fn all_eq(&self, other: &Self) -> bool { self.0.eq(&other.0) }
+    fn all_eq(&self, other: &Self) -> bool { self.0.eq(other.0) }
 }
 
 pub trait AllEqViaPtrEquality {
     fn all_eq(&self, other: &Self) -> bool;
 }
 impl<T> AllEqViaPtrEquality for AllEqDispatcher<&T> {
-    fn all_eq(&self, other: &Self) -> bool { self.0 as *const T == other.0 as *const T }
+    fn all_eq(&self, other: &Self) -> bool { std::ptr::eq(self.0 as *const T, other.0 as *const T) }
 }
 
 #[macro_export]

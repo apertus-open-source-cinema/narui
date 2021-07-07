@@ -180,11 +180,10 @@ impl<T: LayoutTree> Evaluator<T> {
         }
 
         for child in old_children {
-            if frag
+            if !frag
                 .children
                 .iter()
-                .find(|candidate| candidate.borrow().key == child.borrow().key)
-                .is_none()
+                .any(|candidate| candidate.borrow().key == child.borrow().key)
             {
                 self.remove_tree(child.as_ref())
             }

@@ -25,9 +25,9 @@ pub fn button(
 
     rsx! {
         <rounded_rect fill_color=Some(color)>
-            <input on_click=callback.clone()>
+            <input on_click=callback>
                 <padding all=Dimension::Points(10.)>
-                    {children.clone()}
+                    {children}
                 </padding>
             </input>
         </rounded_rect>
@@ -99,7 +99,7 @@ pub fn slider(
         ..Default::default()
     };
     rsx! {
-         <input on_move=on_move.clone() style=top_style>
+         <input on_move=on_move style=top_style>
             <rounded_rect style=slide_style fill_color=Some(slide_color) />
             <container style=handle_container_style>
                 <input on_click=on_click style=handle_input_style>
