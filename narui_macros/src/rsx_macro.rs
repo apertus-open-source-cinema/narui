@@ -4,21 +4,17 @@ use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     let parsed = syn_rsx::parse2(input.into()).unwrap();
-    let (begining, inplace) =
-        handle_rsx_nodes(&parsed, "rsx");
+    let (begining, inplace) = handle_rsx_nodes(&parsed, "rsx");
     let transformed = quote! {{
         #begining
 
         #inplace
     }};
-    println!("rsx: \n{}\n\n", transformed);
+    //println!("rsx: \n{}\n\n", transformed);
     transformed.into()
 }
 
-fn handle_rsx_nodes(
-    input: &Vec<Node>,
-    parent: &str,
-) -> (TokenStream, TokenStream) {
+fn handle_rsx_nodes(input: &Vec<Node>, parent: &str) -> (TokenStream, TokenStream) {
     let fragment_ident = Ident::new(&format!("__{}_children", parent), Span::call_site());
 
     if input.iter().all(|x| x.node_type == NodeType::Element) {
@@ -70,22 +66,20 @@ fn handle_rsx_nodes(
             #(#beginning)*
 
             let #fragment_ident = Fragment {
-                key_part: context.widget_local.key.last_part(),
+                key: context.widget_local.key,
                 children: vec![#(#inplace,)*],
                 layout_object: None,
             };
         };
         let inplace = quote! {#fragment_ident.clone()};
         (to_beginning, inplace)
-    }
-    else if input.len() == 1 {
+    } else if input.len() == 1 {
         let value = input.iter().next().unwrap().value.as_ref().unwrap();
 
         let to_beginning = quote! {};
         let inplace = quote! {#value};
         (to_beginning, inplace)
-    }
-    else {
+    } else {
         panic!("each rsx node can either contain n nodes or one block, got {:?}", input);
     }
 }

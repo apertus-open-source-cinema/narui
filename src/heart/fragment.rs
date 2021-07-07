@@ -13,7 +13,6 @@ use std::sync::Arc;
 use stretch::{geometry::Size, number::Number, style::Style};
 
 use lyon::tessellation::StrokeOptions;
-use std::iter::FromIterator;
 
 /*
 The general flow of a frame in narui:
@@ -38,7 +37,7 @@ pub type Fragment = EvalObject;
 #[derive(Clone, Default, Derivative)]
 #[derivative(Debug)]
 pub struct EvalObject {
-    pub key_part: KeyPart,
+    pub key: Key,
     #[derivative(Debug = "ignore")]
     pub children: Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
     pub layout_object: Option<LayoutObject>,
@@ -48,22 +47,23 @@ impl From<EvalObject> for Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send
         vec![(KeyPart::Nop, Arc::new(move |_context| eval_obj.clone()))]
     }
 }
-impl FromIterator<EvalObject> for EvalObject {
-    fn from_iter<T: IntoIterator<Item = EvalObject>>(iter: T) -> Self {
+pub trait ToFragment {
+    fn to_fragment(self, context: Context) -> EvalObject;
+}
+impl<T: IntoIterator<Item = EvalObject>> ToFragment for T {
+    fn to_fragment(self, context: Context) -> EvalObject {
         EvalObject {
-            key_part: KeyPart::Nop,
-            children: iter
+            key: context.widget_local.key,
+            children: self
                 .into_iter()
-                .map(|x| (x.key_part, Arc::new(move |_context| x.clone()) as _))
+                .map(|x| (x.key.last_part(), Arc::new(move |_context| x.clone()) as _))
                 .collect(),
             layout_object: None,
         }
     }
 }
 impl PartialEq for EvalObject {
-    fn eq(&self, other: &Self) -> bool {
-        self.key_part == other.key_part  // TODO: this implementation is unsound for the general case
-    }
+    fn eq(&self, other: &Self) -> bool { self.key == other.key }
 }
 
 // A part of the layout tree additionally containing information to render the

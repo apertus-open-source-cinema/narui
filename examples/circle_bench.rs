@@ -1,4 +1,4 @@
-use narui::{heart::*, macros::rsx, vulkano_render::render, widgets::*};
+use narui::*;
 use stretch::style::{AlignItems, Dimension, JustifyContent};
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
@@ -10,17 +10,24 @@ fn main() {
 
     render(
         window_builder,
-        rsx! {
+        rsx_toplevel! {
             <row justify_content={JustifyContent::SpaceEvenly} fill_parent=true>
-                {(0..33).map(|x| rsx!{
+                {(0..50).map(|x| rsx!{
                     <column justify_content={JustifyContent::SpaceEvenly} align_items={AlignItems::Center} fill_parent=true key=&x>
-                        {(0..31).map(|y| rsx!{
-                            <rounded_rect fill_color={Some(Color::from_components((x as f32 / 33., y as f32 / 31., 0., 1.)))} key=&y>
+                        {(0..50).map(|y| rsx!{
+                            <rounded_rect
+                                key=&y
+                                fill_color={
+                                    let listenable: Listenable<u64> = unsafe { Listenable::uninitialized(Key::default().with(KeyPart::sideband("frame_counter"))) };
+                                    let val = context.listen(listenable);
+                                    Some(Color::from_components((x as f32 / 33., y as f32 / 31., (val as f32 / 100.0) % 1., 1.)))
+                                }
+                            >
                                 <min_size width={Dimension::Points(10.0)} height={Dimension::Points(10.0)} />
                             </rounded_rect>
-                        }).collect()}
+                        }).to_fragment(context.clone())}
                     </column>
-                }).collect()}
+                }).to_fragment(context.clone())}
             </row>
         },
     );

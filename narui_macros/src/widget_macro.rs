@@ -1,6 +1,6 @@
 use bind_match::bind_match;
 use core::result::{Result, Result::Ok};
-use proc_macro2::{Ident, Span, Literal};
+use proc_macro2::{Ident, Literal, Span};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
 use syn::{
@@ -130,7 +130,6 @@ pub fn widget(
             .collect();
 
 
-
         quote! {
             (@shout_args context=$context:ident, key_part=$key_part:expr, $($args:tt)*) => {
                 {
@@ -145,8 +144,9 @@ pub fn widget(
 
     let constructor_macro = {
         let arg_names = get_arg_names_hygienic(&function);
-        let arg_numbers : Vec<_> = (0..(get_arg_names(&function).len() - 1))
-            .map(|i| Literal::usize_unsuffixed(i)).collect();
+        let arg_numbers: Vec<_> = (0..(get_arg_names(&function).len() - 1))
+            .map(|i| Literal::usize_unsuffixed(i))
+            .collect();
 
         quote! {
             #[macro_export]

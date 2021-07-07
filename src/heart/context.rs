@@ -1,44 +1,73 @@
 use hashbrown::{HashMap, HashSet};
 use parking_lot::{Mutex, RwLock};
-use std::{any::Any, collections::hash_map::DefaultHasher, fmt::Debug, hash::{Hash, Hasher}, sync::Arc};
-use std::fmt::Formatter;
+use std::{
+    any::Any,
+    collections::hash_map::DefaultHasher,
+    fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
+    mem::MaybeUninit,
+    sync::Arc,
+};
 
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
-pub struct Key([Option<KeyPart>; 32]);
+#[derive(Eq, Copy, PartialOrd)]
+pub struct Key {
+    data: [KeyPart; 32],
+    len: usize,
+    hash: u64,
+}
 impl Default for Key {
-    fn default() -> Self { Self([None; 32]) }
+    fn default() -> Self {
+        let data = unsafe { MaybeUninit::uninit().assume_init() };
+        Self { data, len: 0, hash: 0 }
+    }
 }
 impl Key {
     pub fn with(&self, tail: KeyPart) -> Self {
-        let mut to_return = self.0;
-        for i in 0..(to_return.len() + 1) {
-            if i == to_return.len() {
-                dbg!(&self);
-                panic!("crank up the key length limit!");
+        if self.len() == 31 {
+            dbg!(&self);
+            panic!("crank up the key length limit!");
+        }
+        let mut new = self.clone();
+        new.data[self.len()] = tail;
+        new.hash = self.hash.overflowing_add(KeyPart::calculate_hash(&tail)).0;
+        new.len += 1;
+        new
+    }
+    pub fn len(&self) -> usize { self.len }
+    pub fn last_part(&self) -> KeyPart { self.data[self.len() - 1] }
+}
+impl Clone for Key {
+    fn clone(&self) -> Self {
+        let data = unsafe {
+            let mut uninit: [KeyPart; 32] = MaybeUninit::uninit().assume_init();
+            for i in 0..self.len() {
+                uninit[i] = self.data[i];
             }
-            if to_return[i].is_none() {
-                to_return[i] = Some(tail);
-                break;
+            uninit
+        };
+        Key { data, len: self.len, hash: self.hash }
+    }
+}
+impl PartialEq for Key {
+    fn eq(&self, other: &Self) -> bool {
+        if self.len != other.len {
+            return false;
+        }
+        for i in (0..self.len).rev() {
+            if self.data[i] != other.data[i] {
+                return false;
             }
         }
-        Self(to_return)
+        true
     }
-    pub fn len(&self) -> usize {
-        for i in 0..(self.0.len()) {
-            if self.0[i].is_none() {
-                return i;
-            }
-        }
-        return self.0.len();
-    }
-    pub fn last_part(&self) -> KeyPart {
-        self.0[self.len() - 1].unwrap()
-    }
+}
+impl Hash for Key {
+    fn hash<H: Hasher>(&self, state: &mut H) { self.hash.hash(state) }
 }
 impl Debug for Key {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for i in 0..self.len() {
-            write!(f, "{}{:?}", if i == 0 {""} else {"."}, self.0[i].unwrap())?
+            write!(f, "{}{:?}", if i == 0 { "" } else { "." }, self.data[i])?
         }
         Ok(())
     }
@@ -59,13 +88,15 @@ pub enum KeyPart {
     FragmentKey { name: &'static str, loc: &'static str, hash: u64 },
 }
 impl KeyPart {
-    pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    pub fn calculate_hash<T: Hash + ?Sized>(t: &T) -> u64 {
         let mut s = DefaultHasher::new();
         t.hash(&mut s);
         s.finish()
     }
 
-    pub fn sideband<T: Hash>(t: &T) -> Self { Self::Sideband { hash: Self::calculate_hash(t) } }
+    pub fn sideband<T: Hash + ?Sized>(t: &T) -> Self {
+        Self::Sideband { hash: Self::calculate_hash(t) }
+    }
 }
 impl Default for KeyPart {
     fn default() -> Self { KeyPart::Nop }
@@ -81,7 +112,9 @@ impl Debug for KeyPart {
             KeyPart::Hook { number } => write!(f, "Sideband_{}", number),
             KeyPart::RenderObject { number } => write!(f, "RenderObject_{}", number),
             KeyPart::Fragment { name, loc } => write!(f, "Fragment_{}_{}", name, loc),
-            KeyPart::FragmentKey { name, loc, hash } => write!(f, "Fragment_{}_{}_{}", name, loc, hash)
+            KeyPart::FragmentKey { name, loc, hash } => {
+                write!(f, "Fragment_{}_{}_{}", name, loc, hash)
+            }
         }
     }
 }

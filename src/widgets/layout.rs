@@ -6,7 +6,7 @@ use stretch::{
 
 fn layout_block(style: Style, children: Fragment, context: &Context) -> Fragment {
     Fragment {
-        key_part: context.widget_local.key.last_part(),
+        key: context.widget_local.key,
         children: children.into(),
         layout_object: Some(LayoutObject { style, measure_function: None, render_objects: vec![] }),
     }

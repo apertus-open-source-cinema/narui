@@ -23,7 +23,7 @@ pub struct PositionedRenderObject {
 pub trait LayoutTree {
     fn set_node(&mut self, key: Key, layout_object: LayoutObject);
     fn remove_node(&mut self, key: Key);
-    fn set_children(&mut self, parent: Key, children: impl Iterator<Item=Key>);
+    fn set_children(&mut self, parent: Key, children: impl Iterator<Item = Key>);
 }
 
 pub struct Layouter {
@@ -106,7 +106,12 @@ impl Layouter {
 
     pub fn layout_repr(&self, node: Node) -> String {
         let (key, _) = self.key_node_map.iter().find(|(_, n)| **n == node).unwrap();
-        let mut to_return = format!("{:?}\t{:?}\n", key, self.stretch.layout(node).unwrap());
+        let mut to_return = format!(
+            "{:?}\t{:?}\t{:?}\n",
+            key,
+            self.stretch.layout(node).unwrap(),
+            self.stretch.style(node)
+        );
         for child in self.stretch.children(node).unwrap() {
             to_return += indent(self.layout_repr(child), "    ".to_owned()).as_str();
         }
@@ -130,28 +135,22 @@ impl LayoutTree for Layouter {
         let mut maybe_old_node = self.key_node_map.get(&key);
         // the maybe_old_node might be invalid, so we need to check if it is still
         // present in stretch
-        if maybe_old_node.is_some() && self.stretch.style(*maybe_old_node.unwrap()).is_err()
-        {
+        if maybe_old_node.is_some() && self.stretch.style(*maybe_old_node.unwrap()).is_err() {
+            dbg!("bad");
             maybe_old_node = None;
         }
 
         let node = match maybe_old_node {
-            None => {
-                match layout_object.measure_function {
-                    Some(measure_function) => {
-                        let measure_function = {
-                            let measure_function = measure_function.clone();
-                            MeasureFunc::Boxed(Box::new(move |size| measure_function(size)))
-                        };
-                        self.stretch
-                            .new_leaf(layout_object.style, measure_function)
-                            .unwrap()
-                    }
-                    None => {
-                        self.stretch.new_node(layout_object.style, &[]).unwrap()
-                    }
+            None => match layout_object.measure_function {
+                Some(measure_function) => {
+                    let measure_function = {
+                        let measure_function = measure_function.clone();
+                        MeasureFunc::Boxed(Box::new(move |size| measure_function(size)))
+                    };
+                    self.stretch.new_leaf(layout_object.style, measure_function).unwrap()
                 }
-            }
+                None => self.stretch.new_node(layout_object.style, &[]).unwrap(),
+            },
             Some(old_node) => {
                 let old_node = *old_node;
                 if self.stretch.style(old_node).unwrap() != &layout_object.style {
@@ -160,9 +159,8 @@ impl LayoutTree for Layouter {
                 match layout_object.measure_function {
                     Some(measure_function) => {
                         let measure_function = measure_function.clone();
-                        let measure_function = MeasureFunc::Boxed(Box::new(move |size| {
-                            measure_function(size)
-                        }));
+                        let measure_function =
+                            MeasureFunc::Boxed(Box::new(move |size| measure_function(size)));
                         self.stretch.set_measure(old_node, Some(measure_function)).unwrap();
                         self.stretch.mark_dirty(old_node).unwrap();
                     }
@@ -176,6 +174,7 @@ impl LayoutTree for Layouter {
                 old_node
             }
         };
+        self.key_node_map.insert(key, node);
         self.node_has_measure.insert(node, has_measure_function);
         self.render_object_map.insert(
             node,
@@ -192,11 +191,10 @@ impl LayoutTree for Layouter {
         self.node_has_measure.remove(&node).unwrap();
         self.stretch.remove(node);
     }
-    fn set_children(&mut self, parent: Key, children: impl Iterator<Item=Key>) {
+    fn set_children(&mut self, parent: Key, children: impl Iterator<Item = Key>) {
         let parent_node = self.node(parent, Default::default());
-        let children: Vec<_> = children.map(|key| {
-            self.node(key, Default::default()).clone()
-        }).collect();
+        let children: Vec<_> =
+            children.map(|key| self.node(key, Default::default()).clone()).collect();
         self.stretch.set_children(parent_node, &children).unwrap();
     }
 

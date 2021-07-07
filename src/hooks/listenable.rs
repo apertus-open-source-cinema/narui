@@ -38,7 +38,11 @@ impl ContextListenable for Context {
             }
         }
     }
-    fn shout_unconditional<T: Send + Sync + 'static>(&self, listenable: Listenable<T>, new_value: T) {
+    fn shout_unconditional<T: Send + Sync + 'static>(
+        &self,
+        listenable: Listenable<T>,
+        new_value: T,
+    ) {
         let mut lock = self.global.write();
         lock.set(listenable.key, Box::new(new_value))
     }

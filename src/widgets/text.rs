@@ -59,7 +59,7 @@ pub fn text(
     let primitive_text = RenderObject::Text { text: children, size, color };
 
     Fragment {
-        key_part: context.widget_local.key.last_part(),
+        key: context.widget_local.key,
         children: vec![],
         layout_object: Some(LayoutObject {
             style,

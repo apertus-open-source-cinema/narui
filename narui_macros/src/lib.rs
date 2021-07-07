@@ -4,7 +4,9 @@ mod widget_macro;
 use quote::quote;
 
 #[proc_macro]
-pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream { rsx_macro::rsx(input).into() }
+pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    rsx_macro::rsx(input).into()
+}
 
 #[proc_macro]
 pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -12,11 +14,12 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     (quote! {
         Fragment {
-            key_part: KeyPart::Nop,
+            key: Default::default(),
             children: vec![(KeyPart::Nop, std::sync::Arc::new(|context| { #rsx }))],
             layout_object: None,
         }
-    }).into()
+    })
+    .into()
 }
 
 

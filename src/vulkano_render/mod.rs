@@ -212,7 +212,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 )
                 .unwrap();
 
-            let _evaluated = evaluator.update();
+            evaluator.update();
             layouted = layouter.lock().do_layout(dimensions.into()).unwrap();
 
             lyon_renderer.render(
