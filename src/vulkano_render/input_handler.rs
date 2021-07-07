@@ -21,7 +21,8 @@ impl InputHandler {
         event: WindowEvent,
         render_objects: Vec<PositionedRenderObject>,
         context: Context,
-    ) {
+    ) -> bool {
+        let mut updated = false;
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = position.into();
@@ -38,9 +39,11 @@ impl InputHandler {
                         if input_state.hover != is_hover {
                             on_hover(context.clone(), is_hover);
                             input_state.hover = is_hover;
+                            updated = true;
                         }
                         if input_state.clicked || is_hover {
                             on_move(context.clone(), self.cursor_position - render_object.rect.pos);
+                            updated = true;
                         }
                     }
                 }
@@ -56,6 +59,7 @@ impl InputHandler {
                             if render_object.rect.contains(self.cursor_position) {
                                 input_state.clicked = true;
                                 on_click(context.clone(), true);
+                                updated = true;
                             }
                         }
                     }
@@ -70,12 +74,14 @@ impl InputHandler {
                             if input_state.clicked {
                                 input_state.clicked = false;
                                 on_click(context.clone(), false);
+                                updated = true;
                             }
                         }
                     }
                 }
             },
             _e => { /*dbg!(_e);*/ }
-        }
+        };
+        updated
     }
 }

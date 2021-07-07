@@ -39,6 +39,7 @@ use lyon_render::LyonRenderer;
 use palette::Pixel;
 use parking_lot::Mutex;
 use text_render::TextRenderer;
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct VulkanContext {
@@ -144,60 +145,80 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     };
     let mut framebuffers =
         window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
-    let mut recreate_swapchain = false;
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
 
+
     let mut fps_report = FPSReporter::new("gui");
+
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
+
     let layouter = Arc::new(Mutex::new(Layouter::new(false)));
-    let mut layouted: Vec<PositionedRenderObject> = vec![];
     let mut evaluator = Evaluator::new(top_node, layouter.clone());
 
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-            *control_flow = ControlFlow::Exit;
-        }
-        Event::WindowEvent { event: WindowEvent::Resized(_), .. } => {
-            recreate_swapchain = true;
-        }
-        Event::WindowEvent { event: window_event, .. } => {
-            input_handler.handle_input(window_event, layouted.clone(), evaluator.context.clone());
-        }
-        Event::RedrawEventsCleared => {
-            previous_frame_end.as_mut().unwrap().cleanup_finished();
-            if recreate_swapchain {
-                dimensions = surface.window().inner_size().into();
-                let (new_swapchain, new_images) =
-                    match swapchain.recreate_with_dimensions(dimensions) {
-                        Ok(r) => r,
-                        Err(SwapchainCreationError::UnsupportedDimensions) => return,
-                        Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-                    };
+    let mut layouted: Vec<PositionedRenderObject> = vec![];
+    let mut recreate_swapchain = false;
+    let mut needs_redraw = false;
 
-                swapchain = new_swapchain;
-                framebuffers = window_size_dependent_setup(
-                    &new_images,
-                    render_pass.clone(),
-                    &mut dynamic_state,
-                );
-                recreate_swapchain = false;
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+        match event {
+            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+                *control_flow = ControlFlow::Exit;
             }
+            Event::WindowEvent { event: WindowEvent::Resized(_), .. } => {
+                recreate_swapchain = true;
+            }
+            Event::WindowEvent { event: window_event, .. } => {
+                if input_handler.handle_input(window_event, layouted.clone(), evaluator.context.clone()) {
+                    needs_redraw = true;
+                }
+            }
+            Event::RedrawRequested(_) => {
+                needs_redraw = true;
+            }
+            _ => {}
+        }
 
+        if recreate_swapchain {
+            dimensions = surface.window().inner_size().into();
+            let (new_swapchain, new_images) =
+                match swapchain.recreate_with_dimensions(dimensions) {
+                    Ok(r) => r,
+                    Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                    Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                };
+
+            swapchain = new_swapchain;
+            framebuffers = window_size_dependent_setup(
+                &new_images,
+                render_pass.clone(),
+                &mut dynamic_state,
+            );
+            recreate_swapchain = false;
+        }
+
+        if needs_redraw {
             let (image_num, suboptimal, acquire_future) =
-                match swapchain::acquire_next_image(swapchain.clone(), None) {
+                match swapchain::acquire_next_image(swapchain.clone(), Some(Duration::from_millis(0))) {
                     Ok(r) => r,
                     Err(AcquireError::OutOfDate) => {
                         recreate_swapchain = true;
                         return;
-                    }
+                    },
+                    Err(AcquireError::Timeout) => {
+                        return;
+                    },
                     Err(e) => panic!("Failed to acquire next image: {:?}", e),
                 };
-
             if suboptimal {
                 recreate_swapchain = true;
+                return;
             }
+
+            needs_redraw = false;
+            previous_frame_end.as_mut().unwrap().cleanup_finished();
 
             let clear_values =
                 vec![theme::BG.into_format().into_raw::<[f32; 4]>().into(), ClearValue::None];
@@ -222,7 +243,12 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 layouted.clone(),
                 evaluator.context.clone(),
             );
-            text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
+            text_render.render(
+                &mut builder,
+                &dynamic_state,
+                &dimensions,
+                layouted.clone()
+            );
 
             builder.end_render_pass().unwrap();
             let command_buffer = builder.build().unwrap();
@@ -251,7 +277,6 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 }
             }
         }
-        _ => {}
     });
 }
 

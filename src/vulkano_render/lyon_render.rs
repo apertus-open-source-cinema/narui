@@ -216,7 +216,7 @@ impl LyonRenderer {
             )
             .unwrap();
     }
-    pub fn fill_tessellate_with_cache(
+    fn fill_tessellate_with_cache(
         &mut self,
         path_gen: impl Deref<Target = PathGenInner>,
         size: Vec2,
@@ -240,7 +240,7 @@ impl LyonRenderer {
         }
         self.fill_cache.get(&cache_key).unwrap()
     }
-    pub fn stroke_tessellate_with_cache(
+    fn stroke_tessellate_with_cache(
         &mut self,
         path_gen: impl Deref<Target = PathGenInner>,
         stroke_options: StrokeOptions,
