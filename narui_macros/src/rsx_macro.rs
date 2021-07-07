@@ -50,7 +50,14 @@ fn handle_rsx_nodes(input: &Vec<Node>, parent: &str) -> (TokenStream, TokenStrea
 
             let beginning = quote! {
                 #beginning
-                let #args_listenable_ident = #constructor_ident!(@shout_args context=context, key_part=#key, #(#processed_attributes,)* #children_processed);
+                let #args_listenable_ident = {
+                    let context = {
+                        let mut context = context.clone();  // TODO our handling of args which listen ist DUMB!
+                        context.widget_local.key = context.widget_local.key.with(#key);
+                        context
+                    };
+                    #constructor_ident!(@shout_args context=context, #(#processed_attributes,)* #children_processed)
+                };
             };
             let inplace = quote! {(
                 #key,

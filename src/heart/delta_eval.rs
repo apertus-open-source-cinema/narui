@@ -30,7 +30,7 @@ pub struct EvaluatedEvalObject {
 // the LayoutTree trait.
 pub struct Evaluator<T: LayoutTree> {
     pub context: Context,
-    root: Arc<RefCell<EvaluatedEvalObject>>,
+    _root: Arc<RefCell<EvaluatedEvalObject>>,
     layout_tree: Arc<Mutex<T>>,
     deps_map: HashMap<Key, Vec<Arc<RefCell<EvaluatedEvalObject>>>>,
     frame_counter: u64,
@@ -55,7 +55,7 @@ impl<T: LayoutTree> Evaluator<T> {
         );
         context.global.write().update_tree();
 
-        Evaluator { context, root, layout_tree, deps_map, frame_counter: 0 }
+        Evaluator { context, _root: root, layout_tree, deps_map, frame_counter: 0 }
     }
     fn evaluate_unconditional(
         gen: Arc<dyn Fn(Context) -> EvalObject + Send + Sync>,

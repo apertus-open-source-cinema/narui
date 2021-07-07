@@ -20,7 +20,7 @@ fn main() {
                                 fill_color={
                                     let listenable: Listenable<u64> = unsafe { Listenable::uninitialized(Key::default().with(KeyPart::sideband("frame_counter"))) };
                                     let val = context.listen(listenable);
-                                    Some(Color::from_components((x as f32 / 33., y as f32 / 31., (val as f32 / 100.0) % 1., 1.)))
+                                    Some(Color::from_components((x as f32 / 50., y as f32 / 50., ((val as f32 / 10.0).sin() + 1.) / 2., 1.)))
                                 }
                             >
                                 <min_size width={Dimension::Points(10.0)} height={Dimension::Points(10.0)} />

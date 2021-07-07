@@ -62,21 +62,13 @@ pub fn widget(
     let match_arms: Vec<_> = {
         let args_with_default: HashSet<_> =
             parsed_args.clone().into_iter().map(|x| x.ident.to_string()).collect();
-        let arg_names_comma_dollar = {
-            let arg_names = get_arg_names(&function).clone();
-            quote! {#($#arg_names,)*}
-        };
-        let arg_names_comma_ident = {
-            let arg_names = get_arg_names(&function).clone();
-            quote! {#($#arg_names:ident,)*}
-        };
 
         let arg_types = get_arg_types(&function);
         get_arg_names(&function)
             .iter()
+            .filter(|ident| &ident.to_string() != "context")
             .map(|unhygienic| {
-                let arg_names_comma_dollar = arg_names_comma_dollar.clone();
-                let arg_names_comma_ident = arg_names_comma_ident.clone();
+                let arg_names: Vec<_> = get_arg_names(&function).into_iter().filter(|ident| &ident.to_string() != "context").collect();
 
                 let arg_type = &arg_types[&unhygienic.to_string()];
                 let dummy_function_ident =
@@ -98,9 +90,10 @@ pub fn widget(
                 };
 
                 quote! {
-                    (@parse_args [#arg_names_comma_ident] #unhygienic = $value:expr,$($rest:tt)*) => {
+                    (@parse_args [#($#arg_names:ident,)*] #unhygienic = $value:expr,$($rest:tt)*) => {
+                        #[allow(unused_braces)]
                         let $#unhygienic = #value;
-                        #macro_ident_pub!(@parse_args [#arg_names_comma_dollar] $($rest)*);
+                        #macro_ident_pub!(@parse_args [#($#arg_names,)*] $($rest)*);
                     };
                 }
             })
@@ -113,7 +106,11 @@ pub fn widget(
             let value = x.expr;
             quote! { let #ident = #value }
         });
-        let arg_names = get_arg_names_hygienic(&function);
+        let arg_names: Vec<_> = get_arg_names(&function)
+            .into_iter()
+            .filter(|ident| &ident.to_string() != "context")
+            .map(|ident| desinfect_ident(&ident))
+            .collect();
 
         let arg_names_listenables: Vec<_> = get_arg_names(&function)
             .into_iter()
@@ -122,7 +119,7 @@ pub fn widget(
             .enumerate()
             .map(|(i, ident)| {
                 quote! {{
-                    let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with($key_part).with(KeyPart::Arg(#i))) };
+                    let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with(KeyPart::Arg(#i))) };
                     shout!($context, listenable, #ident);
                     listenable
                 }}
@@ -131,7 +128,7 @@ pub fn widget(
 
 
         quote! {
-            (@shout_args context=$context:ident, key_part=$key_part:expr, $($args:tt)*) => {
+            (@shout_args context=$context:ident, $($args:tt)*) => {
                 {
                     #(#initializers;)*
                     #macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
@@ -143,7 +140,11 @@ pub fn widget(
     };
 
     let constructor_macro = {
-        let arg_names = get_arg_names_hygienic(&function);
+        let arg_names: Vec<_> = get_arg_names(&function)
+            .into_iter()
+            .filter(|ident| &ident.to_string() != "context")
+            .map(|ident| desinfect_ident(&ident))
+            .collect();
         let arg_numbers: Vec<_> = (0..(get_arg_names(&function).len() - 1))
             .map(|i| Literal::usize_unsuffixed(i))
             .collect();
@@ -239,10 +240,6 @@ fn get_arg_names(function: &ItemFn) -> Vec<Ident> {
             pat_ident.ident
         })
         .collect()
-}
-
-fn get_arg_names_hygienic(function: &ItemFn) -> Vec<Ident> {
-    get_arg_names(function).iter().map(desinfect_ident).collect()
 }
 
 // creates a hyginic (kind of) identifier from an unhyginic one
