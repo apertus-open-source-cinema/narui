@@ -118,6 +118,7 @@ pub fn widget(
             .map(|ident| desinfect_ident(&ident))
             .enumerate()
             .map(|(i, ident)| {
+                let i = i as u64;
                 quote! {{
                     let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with(KeyPart::Arg(#i))) };
                     shout!($context, listenable, #ident);

@@ -76,11 +76,13 @@ pub enum KeyPart {
     Nop,
     DebugLayoutBounds,
     Widget,
-    Sideband { hash: u64 },
+    Deps,
 
-    Arg(usize),
-    Hook { number: u64 },
-    RenderObject { number: u64 },
+    Arg(u64),
+    Hook(u64),
+    RenderObject(u64),
+
+    Sideband { hash: u64 },
 
     Fragment { name: &'static str, loc: &'static str },
     FragmentKey { name: &'static str, loc: &'static str, hash: u64 },
@@ -106,9 +108,10 @@ impl Debug for KeyPart {
             KeyPart::Arg(n) => write!(f, "Arg_{}", n),
             KeyPart::DebugLayoutBounds => write!(f, "DebugLayoutBounds"),
             KeyPart::Widget => write!(f, "Widget"),
+            KeyPart::Deps => write!(f, "Deps"),
             KeyPart::Sideband { hash } => write!(f, "Sideband_{}", hash),
-            KeyPart::Hook { number } => write!(f, "Sideband_{}", number),
-            KeyPart::RenderObject { number } => write!(f, "RenderObject_{}", number),
+            KeyPart::Hook(number) => write!(f, "Sideband_{}", number),
+            KeyPart::RenderObject(number) => write!(f, "RenderObject_{}", number),
             KeyPart::Fragment { name, loc } => write!(f, "Fragment_{}_{}", name, loc),
             KeyPart::FragmentKey { name, loc, hash } => {
                 write!(f, "Fragment_{}_{}_{}", name, loc, hash)
@@ -182,6 +185,6 @@ impl Context {
         let mut counter = self.widget_local.hook_counter.lock();
         let to_return = *counter;
         *counter += 1;
-        self.widget_local.key.with(KeyPart::Hook { number: to_return })
+        self.widget_local.key.with(KeyPart::Hook(to_return))
     }
 }

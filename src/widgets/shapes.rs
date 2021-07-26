@@ -61,13 +61,13 @@ pub fn rounded_rect(
     let mut render_objects = vec![];
     if let Some(fill_color) = fill_color {
         render_objects.push((
-            KeyPart::RenderObject { number: 0 },
+            KeyPart::RenderObject(0),
             RenderObject::FillPath { path_gen, color: fill_color },
         ));
     }
     if let Some(stroke_color) = stroke_color {
         render_objects.push((
-            KeyPart::RenderObject { number: 1 },
+            KeyPart::RenderObject(1),
             RenderObject::StrokePath { path_gen, color: stroke_color, stroke_options },
         ));
     }
