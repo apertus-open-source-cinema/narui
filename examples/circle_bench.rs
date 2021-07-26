@@ -5,7 +5,7 @@ use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 fn main() {
     let window_builder = WindowBuilder::new()
-        .with_title("narui counter demo")
+        .with_title("narui circle benchmark")
         .with_gtk_theme_variant("dark".parse().unwrap());
 
     render(

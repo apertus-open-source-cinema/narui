@@ -24,7 +24,7 @@ pub fn btn(context: Context) -> Fragment {
 
 fn main() {
     let window_builder = WindowBuilder::new()
-        .with_title("narui counter demo")
+        .with_title("narui minimal delta demo")
         .with_gtk_theme_variant("dark".parse().unwrap());
 
     render(
