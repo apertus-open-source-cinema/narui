@@ -19,28 +19,31 @@ pub struct InputHandler {
     input_states: HashMap<Key, InputState>,
 }
 impl InputHandler {
-    pub fn new() -> Self {
-        Default::default()
-    }
-    pub fn enqueue_input(
-        &mut self,
-        event: WindowEvent,
-    ) -> bool {
+    pub fn new() -> Self { Default::default() }
+    pub fn enqueue_input(&mut self, event: WindowEvent) -> bool {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = position.into();
                 self.cursor_moved = true;
                 true
             }
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
+            } => {
                 self.cursor_pressed = true;
                 true
             }
-            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } => {
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => {
                 self.cursor_released = true;
                 true
             }
-            _ => false
+            _ => false,
         }
     }
     pub fn handle_input(
@@ -55,10 +58,8 @@ impl InputHandler {
         let mut updated = false;
         for render_object in render_objects.clone() {
             if let Input { on_hover, on_move, on_click } = render_object.clone().render_object {
-                let input_state = self
-                    .input_states
-                    .entry(render_object.key)
-                    .or_insert(Default::default());
+                let input_state =
+                    self.input_states.entry(render_object.key).or_insert(Default::default());
                 if self.cursor_moved {
                     let is_hover = render_object.rect.contains(self.cursor_position);
                     if input_state.hover != is_hover {

@@ -38,8 +38,11 @@ use input_handler::InputHandler;
 use lyon_render::LyonRenderer;
 use palette::Pixel;
 use parking_lot::Mutex;
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+};
 use text_render::TextRenderer;
-use std::time::Duration;
 
 #[derive(Clone)]
 pub struct VulkanContext {
@@ -85,8 +88,8 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
     let mut dimensions;
 
+    let caps = surface.capabilities(device.physical_device()).unwrap();
     let (mut swapchain, images) = {
-        let caps = surface.capabilities(device.physical_device()).unwrap();
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         let format = caps.supported_formats[0].0;
         dimensions = surface.window().inner_size().into();
@@ -161,8 +164,10 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut recreate_swapchain = false;
     let mut needs_redraw = true;
 
+    let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
+
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
+        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 60));
         match event {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 *control_flow = ControlFlow::Exit;
@@ -171,9 +176,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 recreate_swapchain = true;
             }
             Event::WindowEvent { event, .. } => {
-                if input_handler.enqueue_input(event) {
-                    needs_redraw = true;
-                }
+                input_handler.enqueue_input(event);
             }
             Event::RedrawRequested(_) => {
                 needs_redraw = true;
@@ -183,45 +186,48 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
         if recreate_swapchain {
             dimensions = surface.window().inner_size().into();
-            let (new_swapchain, new_images) =
-                match swapchain.recreate_with_dimensions(dimensions) {
-                    Ok(r) => r,
-                    Err(SwapchainCreationError::UnsupportedDimensions) => return,
-                    Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-                };
+            let (new_swapchain, new_images) = match swapchain.recreate_with_dimensions(dimensions) {
+                Ok(r) => r,
+                Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+            };
 
             swapchain = new_swapchain;
-            framebuffers = window_size_dependent_setup(
-                &new_images,
-                render_pass.clone(),
-                &mut dynamic_state,
-            );
+            framebuffers =
+                window_size_dependent_setup(&new_images, render_pass.clone(), &mut dynamic_state);
             recreate_swapchain = false;
+            acquired_images.clear();
         }
 
-        if needs_redraw {
-            let (image_num, suboptimal, acquire_future) =
-                match swapchain::acquire_next_image(swapchain.clone(), Some(Duration::from_millis(0))) {
-                    Ok(r) => {
-                        r
-                    },
-                    Err(AcquireError::OutOfDate) => {
-                        recreate_swapchain = true;
-                        return;
-                    },
-                    Err(AcquireError::Timeout) => {
-                        return;
-                    },
-                    Err(e) => panic!("Failed to acquire next image: {:?}", e),
-                };
-            if suboptimal {
+        match swapchain::acquire_next_image(swapchain.clone(), Some(Duration::from_millis(0))) {
+            Ok((image_num, suboptimal, acquire_future)) => {
+                if suboptimal {
+                    recreate_swapchain = true;
+                    return;
+                }
+                acquired_images.push_back((image_num, acquire_future));
+            }
+            Err(AcquireError::OutOfDate) => {
                 recreate_swapchain = true;
                 return;
             }
+            Err(AcquireError::Timeout) => {}
+            Err(e) => panic!("Failed to acquire next image: {:?}", e),
+        };
 
-            let changed = input_handler.handle_input(layouted.clone(), evaluator.context.clone());
-            // TODO: use changed information
-            needs_redraw = false;
+        if (needs_redraw && !acquired_images.is_empty())
+            || (acquired_images.len() >= (caps.min_image_count) as usize - 1)
+        {
+            input_handler.handle_input(layouted.clone(), evaluator.context.clone());
+            if !needs_redraw {
+                if !evaluator.update() {
+                    return;
+                }
+            } else {
+                needs_redraw = false;
+            }
+
+            let (image_num, acquire_future) = acquired_images.pop_front().unwrap();
 
             previous_frame_end.as_mut().unwrap().cleanup_finished();
 
@@ -238,7 +244,6 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 )
                 .unwrap();
 
-            evaluator.update();
             layouted = layouter.lock().do_layout(dimensions.into()).unwrap();
 
             lyon_renderer.render(
@@ -248,12 +253,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 layouted.clone(),
                 evaluator.context.clone(),
             );
-            text_render.render(
-                &mut builder,
-                &dynamic_state,
-                &dimensions,
-                layouted.clone()
-            );
+            text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
 
             builder.end_render_pass().unwrap();
             let command_buffer = builder.build().unwrap();
