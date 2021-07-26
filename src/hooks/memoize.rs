@@ -23,8 +23,8 @@ impl ContextMemoize for Context {
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + Clone + 'static + PartialEq,
     ) -> Listenable<T> {
-        let last_deps = self.listenable_key(key.with(KeyPart::Sideband { hash: 0 }), deps.clone());
-        let last_result = self.listenable_key(key.with(KeyPart::Sideband { hash: 1 }), callback());
+        let last_deps = self.listenable_key(key.with(KeyPart::Deps), deps.clone());
+        let last_result = self.listenable_key(key, callback());
         if *self.listen_ref(last_deps) != deps {
             self.shout(last_deps, deps);
             self.shout_unconditional(last_result, callback());

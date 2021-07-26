@@ -15,12 +15,6 @@ pub struct Key {
     len: usize,
     hash: u64,
 }
-impl Default for Key {
-    fn default() -> Self {
-        let data = unsafe { MaybeUninit::uninit().assume_init() };
-        Self { data, len: 0, hash: 0 }
-    }
-}
 impl Key {
     pub fn with(&self, tail: KeyPart) -> Self {
         if self.len() == 31 {
@@ -35,6 +29,20 @@ impl Key {
     }
     pub fn len(&self) -> usize { self.len }
     pub fn last_part(&self) -> KeyPart { self.data[self.len() - 1] }
+    pub fn starts_with(&self, start: &Key) -> bool {
+        for i in 0..(start.len()) {
+            if self.data[i] != start.data[i] {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+impl Default for Key {
+    fn default() -> Self {
+        let data = unsafe { MaybeUninit::uninit().assume_init() };
+        Self { data, len: 0, hash: 0 }
+    }
 }
 impl Clone for Key {
     fn clone(&self) -> Self {
@@ -121,34 +129,47 @@ impl Debug for KeyPart {
 }
 
 pub type TreeItem = Box<dyn Any + Send + Sync>;
-pub type TreeStateInner = HashMap<Key, TreeItem>;
+
+#[derive(Debug)]
+enum Patch<T> {
+    Remove,
+    Set(T),
+}
 
 #[derive(Debug, Default)]
 pub struct PatchedTree {
-    tree: TreeStateInner,
-    patch: TreeStateInner,
+    tree: HashMap<Key, TreeItem>,
+    patch: HashMap<Key, Patch<TreeItem>>,
 }
 impl PatchedTree {
     pub fn get(&self, key: Key) -> Option<&TreeItem> {
-        self.patch.get(&key).or_else(|| self.tree.get(&key))
-    }
-
-    pub fn set(&mut self, key: Key, value: TreeItem) { self.patch.insert(key, value); }
-
-    pub fn is_updated(&self, key: Key, is_equal: impl Fn(&TreeItem, &TreeItem) -> bool) -> bool {
-        match (self.tree.get(&key), self.patch.get(&key)) {
-            (None, None) => false,
-            (Some(_), None) => false,
-            (None, Some(_)) => true,
-            (Some(a), Some(b)) => !is_equal(a, b),
+        match self.patch.get(&key) {
+            None => self.tree.get(&key),
+            Some(Patch::Remove) => None,
+            Some(Patch::Set(v)) => Some(v),
         }
     }
+
+    pub fn set(&mut self, key: Key, value: TreeItem) { self.patch.insert(key, Patch::Set(value)); }
+    pub fn remove(&mut self, key: Key) { self.patch.insert(key, Patch::Remove); }
 
     // apply the patch to the tree starting a new frame
     pub fn update_tree(&mut self) -> Vec<Key> {
         let keys = self.patch.keys().into_iter().cloned().collect();
         for (key, value) in self.patch.drain() {
-            self.tree.insert(key, value);
+            match value {
+                Patch::Remove => {
+                    let keys: Vec<Key> = self.tree.keys().into_iter().cloned().collect();
+                    for candidate in keys {
+                        if candidate.starts_with(&key) {
+                            self.tree.remove(&candidate);
+                        }
+                    }
+                }
+                Patch::Set(v) => {
+                    self.tree.insert(key, v);
+                }
+            }
         }
         keys
     }

@@ -163,7 +163,7 @@ impl LayoutTree for Layouter {
                 None => {
                     self.changed_layout = true;
                     self.stretch.new_node(layout_object.style, &[]).unwrap()
-                },
+                }
             },
             Some(old_node) => {
                 let old_node = *old_node;
@@ -210,8 +210,7 @@ impl LayoutTree for Layouter {
     }
     fn set_children(&mut self, parent: Key, children: impl Iterator<Item = Key>) {
         let parent_node = self.node(parent, Default::default());
-        let children: Vec<_> =
-            children.map(|key| self.node(key, Default::default())).collect();
+        let children: Vec<_> = children.map(|key| self.node(key, Default::default())).collect();
         self.stretch.set_children(parent_node, &children).unwrap();
     }
 

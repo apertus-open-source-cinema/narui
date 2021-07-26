@@ -1,11 +1,6 @@
 // do partial re evaluation of the changed widget tree
 
-use crate::{
-    heart::{Context, EvalObject, Key, LayoutObject, LayoutTree},
-    ContextListenable,
-    KeyPart,
-    Listenable,
-};
+use crate::heart::{Context, EvalObject, Key, LayoutObject, LayoutTree};
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 use parking_lot::Mutex;
@@ -30,38 +25,23 @@ pub struct EvaluatedEvalObject {
 // the LayoutTree trait.
 pub struct Evaluator<T: LayoutTree> {
     pub context: Context,
-    _root: Arc<RefCell<EvaluatedEvalObject>>,
     layout_tree: Arc<Mutex<T>>,
     deps_map: HashMap<Key, Vec<Arc<RefCell<EvaluatedEvalObject>>>>,
-    frame_counter: u64,
 }
-
 impl<T: LayoutTree> Evaluator<T> {
     pub fn new(top_node: EvalObject, layout_tree: Arc<Mutex<T>>) -> Self {
-        let context = Context::default();
-        let mut deps_map = Default::default();
+        let mut evaluator =
+            Evaluator { context: Default::default(), layout_tree, deps_map: Default::default() };
         let top_gen = Arc::new(move |_context| top_node.clone());
+        let _root = evaluator.evaluate_unconditional(top_gen, evaluator.context.clone());
+        evaluator.context.global.write().update_tree();
 
-        let listenable: Listenable<u64> = unsafe {
-            Listenable::uninitialized(Key::default().with(KeyPart::sideband("frame_counter")))
-        };
-        context.shout_unconditional(listenable, 0);
-
-        let root = Self::evaluate_unconditional(
-            top_gen,
-            context.clone(),
-            layout_tree.clone(),
-            &mut deps_map,
-        );
-        context.global.write().update_tree();
-
-        Evaluator { context, _root: root, layout_tree, deps_map, frame_counter: 0 }
+        evaluator
     }
     fn evaluate_unconditional(
+        &mut self,
         gen: Arc<dyn Fn(Context) -> EvalObject + Send + Sync>,
         context: Context,
-        layout_tree: Arc<Mutex<impl LayoutTree>>,
-        deps_map: &mut HashMap<Key, Vec<Arc<RefCell<EvaluatedEvalObject>>>>,
     ) -> Arc<RefCell<EvaluatedEvalObject>> {
         let key = context.widget_local.key;
         let evaluated: EvalObject = gen(context.clone());
@@ -71,12 +51,12 @@ impl<T: LayoutTree> Evaluator<T> {
             .into_iter()
             .map(|(key_part, gen)| {
                 let context = context.with_key_widget(context.widget_local.key.with(key_part));
-                Self::evaluate_unconditional(gen, context, layout_tree.clone(), deps_map)
+                self.evaluate_unconditional(gen, context)
             })
             .collect();
 
         if evaluated.layout_object.is_some() || (key == Default::default()) {
-            let mut layout_tree = layout_tree.lock();
+            let mut layout_tree = self.layout_tree.lock();
             if let Some(layout_object) = evaluated.layout_object.clone() {
                 layout_tree.set_node(key, layout_object);
             }
@@ -92,22 +72,15 @@ impl<T: LayoutTree> Evaluator<T> {
             layout_object: evaluated.layout_object,
         }));
         for key in deps {
-            deps_map.entry(key).or_default().push(to_return.clone());
+            self.deps_map.entry(key).or_default().push(to_return.clone());
         }
         to_return
     }
 
-    pub fn update(&mut self) {
-        for _i in 0..32 {
+    pub fn update(&mut self) -> bool {
+        for i in 0..32 {
             if !self.update_once() {
-                self.frame_counter += 1;
-                let listenable: Listenable<u64> = unsafe {
-                    Listenable::uninitialized(
-                        Key::default().with(KeyPart::sideband("frame_counter")),
-                    )
-                };
-                self.context.shout_unconditional(listenable, self.frame_counter);
-                return;
+                return if i == 0 { false } else { true };
             }
         }
         panic!("did not converge");
@@ -159,13 +132,9 @@ impl<T: LayoutTree> Evaluator<T> {
                     .find(|candidate| candidate.borrow().key.last_part() == *key_part)
                     .cloned()
                     .unwrap_or_else(|| {
-                        let context =
-                            context.with_key_widget(context.widget_local.key.with(*key_part));
-                        Self::evaluate_unconditional(
+                        self.evaluate_unconditional(
                             child.clone(),
-                            context,
-                            self.layout_tree.clone(),
-                            &mut self.deps_map,
+                            context.with_key_widget(context.widget_local.key.with(*key_part)),
                         )
                     })
             })
@@ -180,20 +149,19 @@ impl<T: LayoutTree> Evaluator<T> {
         }
 
         for child in old_children {
-            if !frag
-                .children
-                .iter()
-                .any(|candidate| candidate.borrow().key == child.borrow().key)
-            {
-                self.remove_tree(child.as_ref())
+            if !frag.children.iter().any(|candidate| candidate.borrow().key == child.borrow().key) {
+                self.remove_tree(child.as_ref(), false)
             }
         }
     }
-    fn remove_tree(&mut self, tree: &RefCell<EvaluatedEvalObject>) {
+    fn remove_tree(&mut self, tree: &RefCell<EvaluatedEvalObject>, top: bool) {
         // TODO handle removal of layout objects
         let frag = tree.borrow();
+        if top {
+            self.context.global.write().remove(frag.key);
+        }
         for child in frag.children.iter() {
-            self.remove_tree(child);
+            self.remove_tree(child, false);
         }
         for to_remove in frag.deps.iter() {
             self.deps_map.entry(*to_remove).or_default().retain(|x| x.borrow().key != frag.key)

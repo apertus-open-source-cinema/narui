@@ -32,7 +32,9 @@ impl ContextListenable for Context {
         match lock.get(listenable.key) {
             None => lock.set(listenable.key, Box::new(new_value)),
             Some(old_value) => {
-                if (&**old_value).downcast_ref::<T>().unwrap() != &new_value {
+                if (&**old_value).downcast_ref::<T>().expect("old value has wrong type")
+                    != &new_value
+                {
                     lock.set(listenable.key, Box::new(new_value))
                 }
             }
@@ -52,7 +54,13 @@ impl ContextListenable for Context {
         T: Clone,
     {
         self.widget_local.mark_used(listenable.key);
-        self.global.read().get(listenable.key).unwrap().downcast_ref::<T>().unwrap().clone()
+        self.global
+            .read()
+            .get(listenable.key)
+            .expect("cant find key of listenable in Context")
+            .downcast_ref::<T>()
+            .expect("Listenable has wrong type")
+            .clone()
     }
 
     fn listen_ref<T: Send + Sync>(&self, listenable: Listenable<T>) -> ListenableGuard<T> {
@@ -73,7 +81,7 @@ macro_rules! shout_ {
         match lock.get($listenable.key) {
             None => lock.set($listenable.key, Box::new($value)),
             Some(old_value) => {
-                let old = (&**old_value).downcast_ref().unwrap();
+                let old = (&**old_value).downcast_ref().expect("old value has wrong type");
                 fn constrain_type<T>(_a: &T, _b: &T) {}
                 constrain_type(old, &$value);
                 if !all_eq!(old, &$value) {
@@ -100,14 +108,18 @@ impl<T> Clone for Listenable<T> {
 impl<T> Copy for Listenable<T> {}
 
 pub struct ListenableGuard<'l, T> {
-    rw_lock_guard: RwLockReadGuard<'l, PatchedTree>,
-    phantom: PhantomData<T>,
-    path: Key,
+    pub(crate) rw_lock_guard: RwLockReadGuard<'l, PatchedTree>,
+    pub(crate) phantom: PhantomData<T>,
+    pub(crate) path: Key,
 }
 impl<'l, T: 'static> Deref for ListenableGuard<'l, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.rw_lock_guard.get(self.path).unwrap().downcast_ref().unwrap()
+        self.rw_lock_guard
+            .get(self.path)
+            .expect("cant find key of ListenableGuard in Context")
+            .downcast_ref()
+            .expect("ListenableGuard has wrong type")
     }
 }
