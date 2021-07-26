@@ -159,7 +159,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
     let mut layouted: Vec<PositionedRenderObject> = vec![];
     let mut recreate_swapchain = false;
-    let mut needs_redraw = false;
+    let mut needs_redraw = true;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -170,8 +170,8 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             Event::WindowEvent { event: WindowEvent::Resized(_), .. } => {
                 recreate_swapchain = true;
             }
-            Event::WindowEvent { event: window_event, .. } => {
-                if input_handler.handle_input(window_event, layouted.clone(), evaluator.context.clone()) {
+            Event::WindowEvent { event, .. } => {
+                if input_handler.enqueue_input(event) {
                     needs_redraw = true;
                 }
             }
@@ -202,7 +202,9 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
         if needs_redraw {
             let (image_num, suboptimal, acquire_future) =
                 match swapchain::acquire_next_image(swapchain.clone(), Some(Duration::from_millis(0))) {
-                    Ok(r) => r,
+                    Ok(r) => {
+                        r
+                    },
                     Err(AcquireError::OutOfDate) => {
                         recreate_swapchain = true;
                         return;
@@ -217,7 +219,10 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 return;
             }
 
+            let changed = input_handler.handle_input(layouted.clone(), evaluator.context.clone());
+            // TODO: use changed information
             needs_redraw = false;
+
             previous_frame_end.as_mut().unwrap().cleanup_finished();
 
             let clear_values =

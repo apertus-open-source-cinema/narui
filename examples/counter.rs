@@ -30,7 +30,7 @@ fn main() {
 
     render(
         window_builder,
-        rsx! {
+        rsx_toplevel! {
             <counter />
         },
     );

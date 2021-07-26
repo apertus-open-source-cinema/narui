@@ -8,80 +8,90 @@ pub struct InputState {
     hover: bool,
 }
 
+#[derive(Default)]
 pub struct InputHandler {
     cursor_position: Vec2,
+    cursor_moved: bool,
+
+    cursor_pressed: bool,
+    cursor_released: bool,
+
     input_states: HashMap<Key, InputState>,
 }
 impl InputHandler {
     pub fn new() -> Self {
-        InputHandler { cursor_position: Vec2::zero(), input_states: Default::default() }
+        Default::default()
     }
-    pub fn handle_input(
+    pub fn enqueue_input(
         &mut self,
         event: WindowEvent,
-        render_objects: Vec<PositionedRenderObject>,
-        context: Context,
     ) -> bool {
-        let mut updated = false;
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = position.into();
+                self.cursor_moved = true;
+                true
+            }
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
+                self.cursor_pressed = true;
+                true
+            }
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } => {
+                self.cursor_released = true;
+                true
+            }
+            _ => false
+        }
+    }
+    pub fn handle_input(
+        &mut self,
+        render_objects: Vec<PositionedRenderObject>,
+        context: Context,
+    ) -> bool {
+        if !self.cursor_moved && !self.cursor_pressed && !self.cursor_released {
+            return false;
+        }
 
-                for render_object in render_objects.clone() {
-                    if let Input { on_hover, on_move, on_click: _ } =
-                        render_object.clone().render_object
-                    {
-                        let input_state = self
-                            .input_states
-                            .entry(render_object.key)
-                            .or_insert(Default::default());
-                        let is_hover = render_object.rect.contains(self.cursor_position);
-                        if input_state.hover != is_hover {
-                            on_hover(context.clone(), is_hover);
-                            input_state.hover = is_hover;
-                            updated = true;
-                        }
-                        if input_state.clicked || is_hover {
-                            on_move(context.clone(), self.cursor_position - render_object.rect.pos);
-                            updated = true;
-                        }
+        let mut updated = false;
+        for render_object in render_objects.clone() {
+            if let Input { on_hover, on_move, on_click } = render_object.clone().render_object {
+                let input_state = self
+                    .input_states
+                    .entry(render_object.key)
+                    .or_insert(Default::default());
+                if self.cursor_moved {
+                    let is_hover = render_object.rect.contains(self.cursor_position);
+                    if input_state.hover != is_hover {
+                        on_hover(context.clone(), is_hover);
+                        input_state.hover = is_hover;
+                        updated = true;
+                    }
+                    if input_state.clicked || is_hover {
+                        on_move(context.clone(), self.cursor_position - render_object.rect.pos);
+                        updated = true;
+                    }
+                }
+                if self.cursor_pressed {
+                    if render_object.rect.contains(self.cursor_position) {
+                        input_state.clicked = true;
+                        on_click(context.clone(), true);
+                        updated = true;
+                    }
+                }
+                if self.cursor_released {
+                    if input_state.clicked {
+                        input_state.clicked = false;
+                        on_click(context.clone(), false);
+                        updated = true;
                     }
                 }
             }
-            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
-                ElementState::Pressed => {
-                    for render_object in render_objects.clone() {
-                        let input_state = self
-                            .input_states
-                            .entry(render_object.key)
-                            .or_insert(Default::default());
-                        if let Input { on_click, .. } = render_object.clone().render_object {
-                            if render_object.rect.contains(self.cursor_position) {
-                                input_state.clicked = true;
-                                on_click(context.clone(), true);
-                                updated = true;
-                            }
-                        }
-                    }
-                }
-                ElementState::Released => {
-                    for render_object in render_objects.clone() {
-                        let input_state = self
-                            .input_states
-                            .entry(render_object.key)
-                            .or_insert(Default::default());
-                        if let Input { on_click, .. } = render_object.clone().render_object {
-                            if input_state.clicked {
-                                input_state.clicked = false;
-                                on_click(context.clone(), false);
-                                updated = true;
-                            }
-                        }
-                    }
-                }
-            },
-            _e => { /*dbg!(_e);*/ }
-        };
+        }
+
+        self.cursor_moved = false;
+        self.cursor_pressed = false;
+        self.cursor_released = false;
+
         updated
     }
 }
