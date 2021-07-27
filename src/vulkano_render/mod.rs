@@ -1,30 +1,46 @@
 pub mod input_handler;
 pub mod lyon_render;
+pub mod raw_render;
 pub mod text_render;
 
+use crate::{heart::*, raw_render::RawRenderer, theme};
 use anyhow::{anyhow, Result};
+use input_handler::InputHandler;
 use lazy_static::lazy_static;
-use std::sync::Arc;
+use lyon_render::LyonRenderer;
+use palette::Pixel;
+use parking_lot::Mutex;
+use std::{
+    collections::VecDeque,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use text_render::TextRenderer;
 use vulkano::{
-    command_buffer::{AutoCommandBufferBuilder, DynamicState, SubpassContents},
-    device::{Device, DeviceExtensions, Queue},
-    format::ClearValue,
-    framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract},
-    image::{view::ImageView, AttachmentImage, ImageAccess, ImageUsage, SwapchainImage},
-    instance::{Instance, PhysicalDevice},
-    pipeline::viewport::Viewport,
-    swapchain,
-    swapchain::{
-        AcquireError,
-        ColorSpace,
-        FullscreenExclusive,
-        PresentMode,
-        SurfaceTransform,
-        Swapchain,
-        SwapchainCreationError,
+    command_buffer::{
+        AutoCommandBufferBuilder,
+        CommandBufferUsage::OneTimeSubmit,
+        DynamicState,
+        SubpassContents,
     },
+    device::{physical::PhysicalDevice, Device, DeviceExtensions, DeviceOwned, Queue},
+    format::ClearValue,
+    image::{
+        view::ImageView,
+        AttachmentImage,
+        ImageAccess,
+        ImageUsage,
+        SampleCount::Sample4,
+        SwapchainImage,
+    },
+    instance::Instance,
+    pipeline::viewport::Viewport,
+    render_pass::{Framebuffer, FramebufferAbstract, RenderPass},
+    swapchain,
+    swapchain::{AcquireError, Swapchain, SwapchainCreationError},
     sync,
     sync::{FlushError, GpuFuture},
+    Version,
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{
@@ -32,17 +48,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-
-use crate::{heart::*, theme};
-use input_handler::InputHandler;
-use lyon_render::LyonRenderer;
-use palette::Pixel;
-use parking_lot::Mutex;
-use std::{
-    collections::VecDeque,
-    time::{Duration, Instant},
-};
-use text_render::TextRenderer;
 
 #[derive(Clone)]
 pub struct VulkanContext {
@@ -55,7 +60,7 @@ lazy_static! {
 impl VulkanContext {
     pub fn create() -> Result<Self> {
         let required_extensions = vulkano_win::required_extensions();
-        let instance = Instance::new(None, &required_extensions, None)?;
+        let instance = Instance::new(None, Version::V1_2, &required_extensions, None)?;
         let physical = PhysicalDevice::enumerate(&instance)
             .next()
             .ok_or_else(|| anyhow!("No physical device found"))?;
@@ -92,25 +97,16 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let (mut swapchain, images) = {
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         let format = caps.supported_formats[0].0;
+        dbg!(format);
         dimensions = surface.window().inner_size().into();
-
-        Swapchain::new(
-            device.clone(),
-            surface.clone(),
-            caps.min_image_count,
-            format,
-            dimensions,
-            1,
-            ImageUsage::color_attachment(),
-            &queue,
-            SurfaceTransform::Identity,
-            alpha,
-            PresentMode::Fifo,
-            FullscreenExclusive::Default,
-            true,
-            ColorSpace::SrgbNonLinear,
-        )
-        .unwrap()
+        Swapchain::start(device.clone(), surface.clone())
+            .usage(ImageUsage::color_attachment())
+            .num_images(caps.min_image_count)
+            .composite_alpha(alpha)
+            .dimensions(dimensions)
+            .format(format)
+            .build()
+            .expect("cant create swapchain")
     };
 
     let render_pass = Arc::new(
@@ -155,6 +151,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
     let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
     let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
+    let mut raw_render = RawRenderer::new(render_pass.clone());
     let mut input_handler = InputHandler::new();
 
     let layouter = Arc::new(Mutex::new(Layouter::new(false)));
@@ -186,11 +183,12 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
         if recreate_swapchain {
             dimensions = surface.window().inner_size().into();
-            let (new_swapchain, new_images) = match swapchain.recreate_with_dimensions(dimensions) {
-                Ok(r) => r,
-                Err(SwapchainCreationError::UnsupportedDimensions) => return,
-                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-            };
+            let (new_swapchain, new_images) =
+                match swapchain.recreate().dimensions(dimensions).build() {
+                    Ok(r) => r,
+                    Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                    Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                };
 
             swapchain = new_swapchain;
             framebuffers =
@@ -234,7 +232,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             let clear_values =
                 vec![theme::BG.into_format().into_raw::<[f32; 4]>().into(), ClearValue::None];
             let mut builder =
-                AutoCommandBufferBuilder::primary_one_time_submit(device.clone(), queue.family())
+                AutoCommandBufferBuilder::primary(device.clone(), queue.family(), OneTimeSubmit)
                     .unwrap();
             builder
                 .begin_render_pass(
@@ -246,6 +244,8 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
             layouted = layouter.lock().do_layout(dimensions.into()).unwrap();
 
+
+            raw_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
             lyon_renderer.render(
                 &mut builder,
                 &dynamic_state,
@@ -289,7 +289,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 /// window is resized
 fn window_size_dependent_setup(
     images: &[Arc<SwapchainImage<Window>>],
-    render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
+    render_pass: Arc<RenderPass>,
     dynamic_state: &mut DynamicState,
 ) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
     let dimensions = images[0].dimensions();
@@ -308,7 +308,7 @@ fn window_size_dependent_setup(
                 AttachmentImage::transient_multisampled(
                     render_pass.device().clone(),
                     [dimensions.width(), dimensions.height()],
-                    4,
+                    Sample4,
                     image.format(),
                 )
                 .unwrap(),

@@ -15,6 +15,7 @@ pub use narui_macros as macros;
 pub use heart::*;
 pub use hooks::*;
 pub use macros::*;
+pub use stretch::style;
 pub use theme::*;
 pub use vulkano_render::*;
 pub use widgets::*;

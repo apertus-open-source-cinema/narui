@@ -4,15 +4,15 @@ Composed Widgets are functions that return either other Composed Widgets or Prim
 For layout we create `TreeNodes` with stretch Style attributes.
 */
 
-use crate::heart::*;
+use crate::{heart::*, hooks::Listenable};
 use derivative::Derivative;
-use lyon::path::Path;
-
-use crate::hooks::Listenable;
+use lyon::{path::Path, tessellation::StrokeOptions};
 use std::sync::Arc;
 use stretch::{geometry::Size, number::Number, style::Style};
-
-use lyon::tessellation::StrokeOptions;
+use vulkano::{
+    command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
+    render_pass::RenderPass,
+};
 
 /*
 The general flow of a frame in narui:
@@ -111,5 +111,17 @@ pub enum RenderObject {
         on_hover: Arc<dyn Fn(Context, bool) + Send + Sync>,
         #[derivative(Debug = "ignore")]
         on_move: Arc<dyn Fn(Context, Vec2) + Send + Sync>,
+    },
+    Raw {
+        #[derivative(Debug = "ignore")]
+        render_fn: Arc<
+            dyn Fn(
+                    Arc<RenderPass>,
+                    &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+                    &DynamicState,
+                    Rect,
+                ) + Send
+                + Sync,
+        >,
     },
 }

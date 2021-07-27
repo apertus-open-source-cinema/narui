@@ -23,11 +23,10 @@ use std::{mem, mem::size_of, ops::Deref, sync::Arc};
 use stretch::geometry::Size;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
-    command_buffer::{AutoCommandBufferBuilder, DynamicState},
-    descriptor::PipelineLayoutAbstract,
+    command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
     device::Device,
-    framebuffer::{RenderPassAbstract, Subpass},
-    pipeline::{vertex::SingleBufferDefinition, GraphicsPipeline},
+    pipeline::{vertex::BuffersDefinition, GraphicsPipeline},
+    render_pass::{RenderPass, Subpass},
 };
 
 
@@ -76,13 +75,7 @@ vulkano::impl_vertex!(Vertex, position, color);
 
 pub struct LyonRenderer {
     device: Arc<Device>,
-    pipeline: Arc<
-        GraphicsPipeline<
-            SingleBufferDefinition<Vertex>,
-            Box<dyn PipelineLayoutAbstract + Send + Sync>,
-            Arc<dyn RenderPassAbstract + Send + Sync>,
-        >,
-    >,
+    pipeline: Arc<GraphicsPipeline<BuffersDefinition>>,
     fill_tessellator: FillTessellator,
     fill_cache: HashMap<(usize, (i64, i64)), VertexBuffers<Vec2, u16>>,
     stroke_tessellator: StrokeTessellator,
@@ -90,7 +83,7 @@ pub struct LyonRenderer {
         HashMap<(usize, (i64, i64), [u8; size_of::<StrokeOptions>()]), VertexBuffers<Vec2, u16>>,
 }
 impl LyonRenderer {
-    pub fn new(render_pass: Arc<dyn RenderPassAbstract + Send + Sync>) -> Self {
+    pub fn new(render_pass: Arc<RenderPass>) -> Self {
         let device = VulkanContext::get().device;
 
         let vs = vertex_shader::Shader::load(device.clone()).unwrap();
@@ -122,7 +115,7 @@ impl LyonRenderer {
     }
     pub fn render(
         &mut self,
-        buffer_builder: &mut AutoCommandBufferBuilder,
+        buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
         render_objects: Vec<PositionedRenderObject>,
@@ -212,7 +205,6 @@ impl LyonRenderer {
                 index_buffer,
                 (),
                 push_constants,
-                vec![],
             )
             .unwrap();
     }

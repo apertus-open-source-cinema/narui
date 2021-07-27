@@ -15,20 +15,17 @@ use palette::Pixel;
 use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
-    command_buffer::{AutoCommandBufferBuilder, DynamicState},
-    descriptor::{
-        descriptor_set::{
-            PersistentDescriptorSet,
-            PersistentDescriptorSetImg,
-            PersistentDescriptorSetSampler,
-        },
-        PipelineLayoutAbstract,
+    command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
+    descriptor_set::persistent::{
+        PersistentDescriptorSet,
+        PersistentDescriptorSetImg,
+        PersistentDescriptorSetSampler,
     },
     device::{Device, Queue},
     format::Format,
-    framebuffer::{RenderPassAbstract, Subpass},
     image::{view::ImageView, ImageDimensions, ImmutableImage, MipmapsCount},
-    pipeline::{vertex::OneVertexOneInstanceDefinition, GraphicsPipeline},
+    pipeline::{vertex::BuffersDefinition, GraphicsPipeline, GraphicsPipelineAbstract},
+    render_pass::{RenderPass, Subpass},
     sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
 };
 
@@ -126,27 +123,21 @@ vulkano::impl_vertex!(InstanceData, pos_min, pos_max, tex_min, tex_max, color);
 pub struct TextRenderer {
     device: Arc<Device>,
     queue: Arc<Queue>,
-    pipeline: std::sync::Arc<
-        GraphicsPipeline<
-            OneVertexOneInstanceDefinition<Vertex, InstanceData>,
-            Box<dyn PipelineLayoutAbstract + Send + Sync>,
-            std::sync::Arc<dyn RenderPassAbstract + Send + Sync>,
-        >,
-    >,
+    pipeline: std::sync::Arc<GraphicsPipeline<BuffersDefinition>>,
     glyph_brush: GlyphBrush<InstanceData>,
     quad_vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     instance_data_buffer: Arc<CpuAccessibleBuffer<[InstanceData]>>,
     sampler: Arc<Sampler>,
     descriptor_set: Arc<
         PersistentDescriptorSet<(
-            ((), PersistentDescriptorSetImg<Arc<ImageView<Arc<ImmutableImage<Format>>>>>),
+            ((), PersistentDescriptorSetImg<Arc<ImageView<Arc<ImmutableImage>>>>),
             PersistentDescriptorSetSampler,
         )>,
     >,
     texture_bytes: Vec<u8>,
 }
 impl TextRenderer {
-    pub fn new(render_pass: Arc<dyn RenderPassAbstract + Send + Sync>, queue: Arc<Queue>) -> Self {
+    pub fn new(render_pass: Arc<RenderPass>, queue: Arc<Queue>) -> Self {
         let device = VulkanContext::get().device;
 
         let vs = vertex_shader::Shader::load(device.clone()).unwrap();
@@ -154,7 +145,9 @@ impl TextRenderer {
 
         let pipeline = Arc::new(
             GraphicsPipeline::start()
-                .vertex_input(OneVertexOneInstanceDefinition::<Vertex, InstanceData>::new())
+                .vertex_input(
+                    BuffersDefinition::new().vertex::<Vertex>().instance::<InstanceData>(),
+                )
                 .vertex_shader(vs.main_entry_point(), ())
                 .triangle_strip()
                 .viewports_dynamic_scissors_irrelevant(1)
@@ -210,7 +203,7 @@ impl TextRenderer {
         )
         .unwrap();
 
-        let layout = pipeline.layout().descriptor_set_layout(0).unwrap();
+        let layout = pipeline.layout().descriptor_set_layouts()[0].clone();
         let descriptor_set = Arc::new(
             PersistentDescriptorSet::start(layout.clone())
                 .add_sampled_image(texture, sampler.clone())
@@ -235,7 +228,7 @@ impl TextRenderer {
     }
     pub fn render(
         &mut self,
-        buffer_builder: &mut AutoCommandBufferBuilder,
+        buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
         render_objects: Vec<PositionedRenderObject>,
@@ -317,7 +310,7 @@ impl TextRenderer {
             .unwrap();
             let texture = ImageView::new(image).unwrap();
 
-            let layout = self.pipeline.layout().descriptor_set_layout(0).unwrap();
+            let layout = self.pipeline.layout().descriptor_set_layouts()[0].clone();
             self.descriptor_set = Arc::new(
                 PersistentDescriptorSet::start(layout.clone())
                     .add_sampled_image(texture, self.sampler.clone())
@@ -336,7 +329,6 @@ impl TextRenderer {
                 (self.quad_vertex_buffer.clone(), self.instance_data_buffer.clone()),
                 self.descriptor_set.clone(),
                 push_constants,
-                vec![],
             )
             .unwrap();
     }
