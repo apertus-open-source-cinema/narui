@@ -14,9 +14,9 @@ stretch = { git = "https://github.com/vislyhq/stretch" }
 winit = "0.25.0"
 anyhow = "1.0.40"
 lazy_static = "1.4.0"
-vulkano = { git = "https://github.com/apertus-open-source-cinema/vulkano", branch = "uniform_and_storage_8bit" }
-vulkano-shaders = { git = "https://github.com/apertus-open-source-cinema/vulkano", branch = "uniform_and_storage_8bit" }
-vulkano-win = { git = "https://github.com/apertus-open-source-cinema/vulkano", branch = "uniform_and_storage_8bit" }
+vulkano = { git = "https://github.com/vulkano-rs/vulkano" }
+vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano" }
+vulkano-win = { git = "https://github.com/vulkano-rs/vulkano" }
 derivative = "2.2.0"
 glyph_brush = "0.7.2"
 notosans = "0.1.0"
