@@ -23,7 +23,7 @@ use vulkano::{
         DynamicState,
         SubpassContents,
     },
-    device::{ DeviceOwned},
+    device::DeviceOwned,
     format::ClearValue,
     image::{
         view::ImageView,

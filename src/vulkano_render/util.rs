@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use std::{sync::Arc};
+use std::sync::Arc;
 use vulkano::{
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
     instance::Instance,
@@ -19,7 +19,10 @@ lazy_static! {
 impl VulkanContext {
     pub fn create() -> Result<Self> {
         let required_extensions = vulkano_win::required_extensions();
-        dbg!(vulkano::instance::layers_list().unwrap().map(|layer| layer.name().to_string()).collect::<Vec<_>>());
+        dbg!(vulkano::instance::layers_list()
+            .unwrap()
+            .map(|layer| layer.name().to_string())
+            .collect::<Vec<_>>());
         let instance = Instance::new(None, Version::V1_2, &required_extensions, None)?;
         let physical = PhysicalDevice::enumerate(&instance)
             .next()
