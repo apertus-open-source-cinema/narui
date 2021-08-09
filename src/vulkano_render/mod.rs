@@ -2,11 +2,12 @@ pub mod input_handler;
 pub mod lyon_render;
 pub mod raw_render;
 pub mod text_render;
+pub mod util;
+
+pub use util::VulkanContext;
 
 use crate::{heart::*, raw_render::RawRenderer, theme};
-use anyhow::{anyhow, Result};
 use input_handler::InputHandler;
-use lazy_static::lazy_static;
 use lyon_render::LyonRenderer;
 use palette::Pixel;
 use std::{
@@ -22,7 +23,7 @@ use vulkano::{
         DynamicState,
         SubpassContents,
     },
-    device::{physical::PhysicalDevice, Device, DeviceExtensions, DeviceOwned, Queue},
+    device::{ DeviceOwned},
     format::ClearValue,
     image::{
         view::ImageView,
@@ -32,14 +33,12 @@ use vulkano::{
         SampleCount::Sample4,
         SwapchainImage,
     },
-    instance::Instance,
     pipeline::viewport::Viewport,
     render_pass::{Framebuffer, FramebufferAbstract, RenderPass},
     swapchain,
     swapchain::{AcquireError, Swapchain, SwapchainCreationError},
     sync,
     sync::{FlushError, GpuFuture},
-    Version,
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{
@@ -47,35 +46,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-
-#[derive(Clone)]
-pub struct VulkanContext {
-    pub device: Arc<Device>,
-    pub queues: Vec<Arc<Queue>>,
-}
-lazy_static! {
-    pub static ref VULKAN_CONTEXT: VulkanContext = VulkanContext::create().unwrap();
-}
-impl VulkanContext {
-    pub fn create() -> Result<Self> {
-        let required_extensions = vulkano_win::required_extensions();
-        let instance = Instance::new(None, Version::V1_2, &required_extensions, None)?;
-        let physical = PhysicalDevice::enumerate(&instance)
-            .next()
-            .ok_or_else(|| anyhow!("No physical device found"))?;
-        let queue_family = physical.queue_families().map(|qf| (qf, 0.5)); // All queues have the same priority
-        let device_ext = DeviceExtensions {
-            khr_swapchain: true,
-            khr_storage_buffer_storage_class: true,
-            khr_8bit_storage: true,
-            ..DeviceExtensions::none()
-        };
-        let (device, queues) =
-            Device::new(physical, physical.supported_features(), &device_ext, queue_family)?;
-        Ok(Self { device, queues: queues.collect() })
-    }
-    pub fn get() -> Self { VULKAN_CONTEXT.clone() }
-}
 
 pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let event_loop: EventLoop<()> = EventLoop::new();
