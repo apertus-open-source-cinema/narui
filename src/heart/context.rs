@@ -72,8 +72,9 @@ impl Hash for Key {
 }
 impl Debug for Key {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RootKey")?;
         for i in 0..self.len() {
-            write!(f, "{}{:?}", if i == 0 { "" } else { "." }, self.data[i])?
+            write!(f, ".{:?}", self.data[i])?
         }
         Ok(())
     }
