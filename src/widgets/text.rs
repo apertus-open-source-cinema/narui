@@ -64,7 +64,7 @@ pub fn text(
         layout_object: Some(LayoutObject {
             style,
             measure_function: Some(Arc::new(measurement_function)),
-            render_objects: vec![(KeyPart::Nop, primitive_text)],
+            render_objects: vec![(KeyPart::RenderObject(0), primitive_text)],
         }),
     }
 }

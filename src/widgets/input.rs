@@ -18,7 +18,7 @@ pub fn input(
             style,
             measure_function: None,
             render_objects: vec![(
-                KeyPart::Nop,
+                KeyPart::RenderObject(0),
                 RenderObject::Input {
                     on_click: Arc::new(on_click),
                     on_hover: Arc::new(on_hover),
