@@ -80,10 +80,10 @@ impl<T: LayoutTree> Evaluator<T> {
     pub fn update(&mut self) -> bool {
         for i in 0..32 {
             if !self.update_once() {
+                self.layout_tree.update();
                 return if i == 0 { false } else { true };
             }
         }
-        self.layout_tree.update();
         panic!("did not converge");
     }
     fn update_once(&mut self) -> bool {
