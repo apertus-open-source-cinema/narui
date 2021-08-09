@@ -30,11 +30,8 @@ pub struct Evaluator<T: LayoutTree> {
 impl<T: LayoutTree> Evaluator<T> {
     pub fn new(top_node: EvalObject, layout_tree: T) -> Self {
         let layout_tree = LayoutTreeFilter::new(layout_tree);
-        let mut evaluator = Evaluator {
-            context: Default::default(),
-            layout_tree,
-            deps_map: Default::default()
-        };
+        let mut evaluator =
+            Evaluator { context: Default::default(), layout_tree, deps_map: Default::default() };
         let top_gen = Arc::new(move |_context| top_node.clone());
         let _root = evaluator.evaluate_unconditional(top_gen, evaluator.context.clone());
         evaluator.context.global.write().update_tree();
@@ -179,7 +176,7 @@ pub struct LayoutTreeFilter<T: LayoutTree> {
 impl<T: LayoutTree> LayoutTreeFilter<T> {
     pub fn new(layout_tree: T) -> Self {
         Self {
-            layout_tree: layout_tree,
+            layout_tree,
             children_map: Default::default(),
             parent_map: Default::default(),
             dirty_keys: Default::default(),
@@ -187,7 +184,12 @@ impl<T: LayoutTree> LayoutTreeFilter<T> {
         }
     }
 
-    pub fn set_node(&mut self, key: Key, layout_object: Option<LayoutObject>, children_keys: Vec<Key>) {
+    pub fn set_node(
+        &mut self,
+        key: Key,
+        layout_object: Option<LayoutObject>,
+        children_keys: Vec<Key>,
+    ) {
         for child_key in children_keys.clone() {
             self.parent_map.insert(child_key, key);
         }
@@ -207,7 +209,7 @@ impl<T: LayoutTree> LayoutTreeFilter<T> {
     }
     pub fn update(&mut self) {
         let mut to_update_parent_nodes = HashSet::new();
-        let dirty_keys : Vec<_> = self.dirty_keys.drain().collect();
+        let dirty_keys: Vec<_> = self.dirty_keys.drain().collect();
         for dirty_key in dirty_keys {
             to_update_parent_nodes.insert(self.get_layout_parent(&dirty_key));
         }
@@ -219,7 +221,7 @@ impl<T: LayoutTree> LayoutTreeFilter<T> {
     fn get_layout_parent(&self, key: &Key) -> Key {
         if let Some(parent) = self.parent_map.get(key) {
             if self.is_layout_object[parent] {
-                return *parent
+                return *parent;
             } else {
                 return self.get_layout_parent(parent);
             }
@@ -227,10 +229,7 @@ impl<T: LayoutTree> LayoutTreeFilter<T> {
             return Key::default();
         }
     }
-    fn get_layout_children(
-        &self,
-        parent: Key,
-    ) -> Vec<Key> {
+    fn get_layout_children(&self, parent: Key) -> Vec<Key> {
         let mut to_return = Vec::with_capacity(10);
         for k in self.children_map[&parent].iter() {
             if self.is_layout_object[k] {

@@ -141,7 +141,6 @@ impl Layouter {
 
 impl LayoutTree for Layouter {
     fn set_node(&mut self, key: Key, layout_object: LayoutObject) {
-
         let has_measure_function = layout_object.measure_function.is_some();
         let mut maybe_old_node = self.key_node_map.get(&key);
         // the maybe_old_node might be invalid, so we need to check if it is still
