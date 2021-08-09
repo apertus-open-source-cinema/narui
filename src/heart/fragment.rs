@@ -81,6 +81,13 @@ pub struct LayoutObject {
 
 pub type PathGenInner = dyn (Fn(Size<f32>) -> Path) + Send + Sync;
 pub type PathGen = Listenable<Arc<PathGenInner>>;
+pub type RenderFnInner = dyn Fn(
+        Arc<RenderPass>,
+        &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        &DynamicState,
+        Rect,
+    ) + Send
+    + Sync;
 // RenderObject is the data structure that really defines _what_ is rendered
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -114,14 +121,6 @@ pub enum RenderObject {
     },
     Raw {
         #[derivative(Debug = "ignore")]
-        render_fn: Arc<
-            dyn Fn(
-                    Arc<RenderPass>,
-                    &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-                    &DynamicState,
-                    Rect,
-                ) + Send
-                + Sync,
-        >,
+        render_fn: Arc<RenderFnInner>,
     },
 }
