@@ -19,6 +19,7 @@ impl RawRenderer {
     ) {
         for render_object in render_objects {
             if let RenderObject::Raw { render_fn } = render_object.render_object {
+                dbg!("raw render object");
                 render_fn(
                     self.render_pass.clone(),
                     buffer_builder,
