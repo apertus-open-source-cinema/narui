@@ -131,7 +131,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
 
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 60));
+        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 70));
         match event {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 *control_flow = ControlFlow::Exit;
