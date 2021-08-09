@@ -3,7 +3,6 @@
 use crate::heart::{Context, EvalObject, Key, LayoutObject, LayoutTree};
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
-use parking_lot::Mutex;
 use std::{cell::RefCell, sync::Arc};
 
 
@@ -25,16 +24,21 @@ pub struct EvaluatedEvalObject {
 // the LayoutTree trait.
 pub struct Evaluator<T: LayoutTree> {
     pub context: Context,
-    layout_tree: Arc<Mutex<T>>,
+    pub layout_tree: LayoutTreeFilter<T>,
     deps_map: HashMap<Key, Vec<Arc<RefCell<EvaluatedEvalObject>>>>,
 }
 impl<T: LayoutTree> Evaluator<T> {
-    pub fn new(top_node: EvalObject, layout_tree: Arc<Mutex<T>>) -> Self {
-        let mut evaluator =
-            Evaluator { context: Default::default(), layout_tree, deps_map: Default::default() };
+    pub fn new(top_node: EvalObject, layout_tree: T) -> Self {
+        let layout_tree = LayoutTreeFilter::new(layout_tree);
+        let mut evaluator = Evaluator {
+            context: Default::default(),
+            layout_tree,
+            deps_map: Default::default()
+        };
         let top_gen = Arc::new(move |_context| top_node.clone());
         let _root = evaluator.evaluate_unconditional(top_gen, evaluator.context.clone());
         evaluator.context.global.write().update_tree();
+        evaluator.layout_tree.update();
 
         evaluator
     }
@@ -46,31 +50,30 @@ impl<T: LayoutTree> Evaluator<T> {
         let key = context.widget_local.key;
         let evaluated: EvalObject = gen(context.clone());
         let deps = context.widget_local.used.lock().clone();
-        let children: Vec<_> = evaluated
-            .children
-            .into_iter()
-            .map(|(key_part, gen)| {
-                let context = context.with_key_widget(context.widget_local.key.with(key_part));
-                self.evaluate_unconditional(gen, context)
-            })
-            .collect();
-
-        if evaluated.layout_object.is_some() || (key == Default::default()) {
-            let mut layout_tree = self.layout_tree.lock();
-            if let Some(layout_object) = evaluated.layout_object.clone() {
-                layout_tree.set_node(key, layout_object);
-            }
-            layout_tree
-                .set_children(key, Self::get_layout_children(&mut children.iter()).into_iter());
-        }
 
         let to_return = Arc::new(RefCell::new(EvaluatedEvalObject {
             key,
             gen,
             deps: deps.clone(),
-            children,
-            layout_object: evaluated.layout_object,
+            layout_object: evaluated.layout_object.clone(),
+            children: vec![],
         }));
+
+        let mut children_keys = Vec::with_capacity(10);
+        let children: Vec<_> = evaluated
+            .children
+            .into_iter()
+            .map(|(key_part, gen)| {
+                let key = context.widget_local.key.with(key_part);
+                children_keys.push(key);
+                let context = context.with_key_widget(key);
+                self.evaluate_unconditional(gen, context)
+            })
+            .collect();
+        to_return.borrow_mut().children = children;
+
+        self.layout_tree.set_node(key, evaluated.layout_object, children_keys);
+
         for key in deps {
             self.deps_map.entry(key).or_default().push(to_return.clone());
         }
@@ -83,6 +86,7 @@ impl<T: LayoutTree> Evaluator<T> {
                 return if i == 0 { false } else { true };
             }
         }
+        self.layout_tree.update();
         panic!("did not converge");
     }
     fn update_once(&mut self) -> bool {
@@ -140,13 +144,8 @@ impl<T: LayoutTree> Evaluator<T> {
             })
             .collect();
 
-        if let Some(layout_object) = frag.layout_object.clone() {
-            let mut layout_tree = self.layout_tree.lock();
-            layout_tree.set_node(frag.key, layout_object);
-
-            let layout_children = Self::get_layout_children(&mut frag.children.iter());
-            layout_tree.set_children(frag.key, layout_children.into_iter());
-        }
+        let children_keys = frag.children.iter().map(|child| child.borrow().key).collect();
+        self.layout_tree.set_node(frag.key, frag.layout_object.clone(), children_keys);
 
         for child in old_children {
             if !frag.children.iter().any(|candidate| candidate.borrow().key == child.borrow().key) {
@@ -167,25 +166,79 @@ impl<T: LayoutTree> Evaluator<T> {
             self.deps_map.entry(*to_remove).or_default().retain(|x| x.borrow().key != frag.key)
         }
     }
+}
 
-    fn get_layout_children(
-        children: &mut dyn Iterator<Item = &Arc<RefCell<EvaluatedEvalObject>>>,
-    ) -> Vec<Key> {
-        let mut to_return = Vec::new();
-        Self::get_layout_children_inner(children, &mut to_return);
-        to_return
+
+pub struct LayoutTreeFilter<T: LayoutTree> {
+    pub layout_tree: T,
+    children_map: HashMap<Key, Vec<Key>>,
+    parent_map: HashMap<Key, Key>,
+    is_layout_object: HashMap<Key, bool>,
+    dirty_keys: HashSet<Key>,
+}
+impl<T: LayoutTree> LayoutTreeFilter<T> {
+    pub fn new(layout_tree: T) -> Self {
+        Self {
+            layout_tree: layout_tree,
+            children_map: Default::default(),
+            parent_map: Default::default(),
+            dirty_keys: Default::default(),
+            is_layout_object: Default::default(),
+        }
     }
-    fn get_layout_children_inner(
-        children: &mut dyn Iterator<Item = &Arc<RefCell<EvaluatedEvalObject>>>,
-        vec: &mut Vec<Key>,
-    ) {
-        for child in children {
-            let child = child.borrow();
-            if child.layout_object.is_some() {
-                vec.push(child.key);
+
+    pub fn set_node(&mut self, key: Key, layout_object: Option<LayoutObject>, children_keys: Vec<Key>) {
+        for child_key in children_keys.clone() {
+            self.parent_map.insert(child_key, key);
+        }
+        self.children_map.insert(key, children_keys);
+        self.dirty_keys.insert(key);
+
+        self.is_layout_object.insert(key, layout_object.is_some());
+        if let Some(layout_object) = layout_object {
+            self.layout_tree.set_node(key, layout_object);
+        }
+    }
+    pub fn remove_node(&mut self, key: Key) {
+        self.layout_tree.remove_node(key);
+        self.is_layout_object.remove(&key);
+        self.children_map.remove(&key);
+        self.parent_map.remove(&key);
+    }
+    pub fn update(&mut self) {
+        let mut to_update_parent_nodes = HashSet::new();
+        let dirty_keys : Vec<_> = self.dirty_keys.drain().collect();
+        for dirty_key in dirty_keys {
+            to_update_parent_nodes.insert(self.get_layout_parent(&dirty_key));
+        }
+        for parent in to_update_parent_nodes.drain() {
+            self.layout_tree.set_children(parent, self.get_layout_children(parent).into_iter());
+        }
+    }
+
+    fn get_layout_parent(&self, key: &Key) -> Key {
+        if let Some(parent) = self.parent_map.get(key) {
+            if self.is_layout_object[parent] {
+                return *parent
             } else {
-                Self::get_layout_children_inner(&mut child.children.iter(), vec)
+                return self.get_layout_parent(parent);
+            }
+        } else {
+            return Key::default();
+        }
+    }
+    fn get_layout_children(
+        &self,
+        parent: Key,
+    ) -> Vec<Key> {
+        let mut to_return = Vec::with_capacity(10);
+        for k in self.children_map[&parent].iter() {
+            if self.is_layout_object[k] {
+                to_return.push(*k)
+            } else {
+                to_return.append(&mut self.get_layout_children(*k))
             }
         }
+        to_return
     }
 }
