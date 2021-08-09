@@ -9,7 +9,6 @@ use input_handler::InputHandler;
 use lazy_static::lazy_static;
 use lyon_render::LyonRenderer;
 use palette::Pixel;
-use parking_lot::Mutex;
 use std::{
     collections::VecDeque,
     sync::Arc,
@@ -97,7 +96,6 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let (mut swapchain, images) = {
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         let format = caps.supported_formats[0].0;
-        dbg!(format);
         dimensions = surface.window().inner_size().into();
         Swapchain::start(device.clone(), surface.clone())
             .usage(ImageUsage::color_attachment())
@@ -154,12 +152,11 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut raw_render = RawRenderer::new(render_pass.clone());
     let mut input_handler = InputHandler::new();
 
-    let layouter = Arc::new(Mutex::new(Layouter::new(false)));
-    let mut evaluator = Evaluator::new(top_node, layouter.clone());
+    let layouter = Layouter::new(false);
+    let mut evaluator = Evaluator::new(top_node, layouter);
 
     let mut layouted: Vec<PositionedRenderObject> = vec![];
     let mut recreate_swapchain = false;
-    let mut needs_redraw = true;
 
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
 
@@ -174,11 +171,77 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             }
             Event::WindowEvent { event, .. } => {
                 input_handler.enqueue_input(event);
+                *control_flow = ControlFlow::Poll;
+                return;
+            }
+            Event::MainEventsCleared => {
+                input_handler.handle_input(layouted.clone(), evaluator.context.clone());
+                if evaluator.update()
+                    && (acquired_images.len() >= (caps.min_image_count) as usize - 1)
+                {
+                    surface.window().request_redraw();
+                }
             }
             Event::RedrawRequested(_) => {
-                needs_redraw = true;
+                let (image_num, acquire_future) = acquired_images.pop_front().unwrap();
+
+                previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+                let clear_values =
+                    vec![theme::BG.into_format().into_raw::<[f32; 4]>().into(), ClearValue::None];
+                let mut builder = AutoCommandBufferBuilder::primary(
+                    device.clone(),
+                    queue.family(),
+                    OneTimeSubmit,
+                )
+                .unwrap();
+                let framebuffer = <Arc<_> as Clone>::clone(&framebuffers[image_num]);
+                builder
+                    .begin_render_pass(framebuffer, SubpassContents::Inline, clear_values)
+                    .unwrap();
+
+                let layouter = &mut evaluator.layout_tree.layout_tree;
+                layouted = layouter.do_layout(dimensions.into()).unwrap();
+
+                raw_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
+                lyon_renderer.render(
+                    &mut builder,
+                    &dynamic_state,
+                    &dimensions,
+                    layouted.clone(),
+                    evaluator.context.clone(),
+                );
+                text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
+
+                builder.end_render_pass().unwrap();
+                let command_buffer = builder.build().unwrap();
+                fps_report.frame();
+
+                let future = previous_frame_end
+                    .take()
+                    .unwrap()
+                    .join(acquire_future)
+                    .then_execute(queue.clone(), command_buffer)
+                    .unwrap()
+                    .then_swapchain_present(queue.clone(), swapchain.clone(), image_num)
+                    .then_signal_fence_and_flush();
+
+                match future {
+                    Ok(future) => {
+                        previous_frame_end = Some(future.boxed());
+                    }
+                    Err(FlushError::OutOfDate) => {
+                        recreate_swapchain = true;
+                        previous_frame_end = Some(sync::now(device.clone()).boxed());
+                    }
+                    Err(e) => {
+                        println!("Failed to flush future: {:?}", e);
+                        previous_frame_end = Some(sync::now(device.clone()).boxed());
+                    }
+                }
             }
-            _ => {}
+
+            _e => {}
         }
 
         if recreate_swapchain {
@@ -197,6 +260,8 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             acquired_images.clear();
         }
 
+
+        // here we fill our FIFO of surfaces we can draw to - as eagerly as we can
         match swapchain::acquire_next_image(swapchain.clone(), Some(Duration::from_millis(0))) {
             Ok((image_num, suboptimal, acquire_future)) => {
                 if suboptimal {
@@ -212,76 +277,6 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             Err(AcquireError::Timeout) => {}
             Err(e) => panic!("Failed to acquire next image: {:?}", e),
         };
-
-        if (needs_redraw && !acquired_images.is_empty())
-            || (acquired_images.len() >= (caps.min_image_count) as usize - 1)
-        {
-            input_handler.handle_input(layouted.clone(), evaluator.context.clone());
-            if !needs_redraw {
-                if !evaluator.update() {
-                    return;
-                }
-            } else {
-                needs_redraw = false;
-            }
-
-            let (image_num, acquire_future) = acquired_images.pop_front().unwrap();
-
-            previous_frame_end.as_mut().unwrap().cleanup_finished();
-
-            let clear_values =
-                vec![theme::BG.into_format().into_raw::<[f32; 4]>().into(), ClearValue::None];
-            let mut builder =
-                AutoCommandBufferBuilder::primary(device.clone(), queue.family(), OneTimeSubmit)
-                    .unwrap();
-            builder
-                .begin_render_pass(
-                    framebuffers[image_num].clone(),
-                    SubpassContents::Inline,
-                    clear_values,
-                )
-                .unwrap();
-
-            layouted = layouter.lock().do_layout(dimensions.into()).unwrap();
-
-
-            raw_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
-            lyon_renderer.render(
-                &mut builder,
-                &dynamic_state,
-                &dimensions,
-                layouted.clone(),
-                evaluator.context.clone(),
-            );
-            text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
-
-            builder.end_render_pass().unwrap();
-            let command_buffer = builder.build().unwrap();
-            fps_report.frame();
-
-            let future = previous_frame_end
-                .take()
-                .unwrap()
-                .join(acquire_future)
-                .then_execute(queue.clone(), command_buffer)
-                .unwrap()
-                .then_swapchain_present(queue.clone(), swapchain.clone(), image_num)
-                .then_signal_fence_and_flush();
-
-            match future {
-                Ok(future) => {
-                    previous_frame_end = Some(future.boxed());
-                }
-                Err(FlushError::OutOfDate) => {
-                    recreate_swapchain = true;
-                    previous_frame_end = Some(sync::now(device.clone()).boxed());
-                }
-                Err(e) => {
-                    println!("Failed to flush future: {:?}", e);
-                    previous_frame_end = Some(sync::now(device.clone()).boxed());
-                }
-            }
-        }
     });
 }
 
