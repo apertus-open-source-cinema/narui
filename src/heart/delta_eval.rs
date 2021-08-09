@@ -81,7 +81,7 @@ impl<T: LayoutTree> Evaluator<T> {
         for i in 0..32 {
             if !self.update_once() {
                 self.layout_tree.update();
-                return if i == 0 { false } else { true };
+                return i != 0;
             }
         }
         panic!("did not converge");
@@ -221,12 +221,12 @@ impl<T: LayoutTree> LayoutTreeFilter<T> {
     fn get_layout_parent(&self, key: &Key) -> Key {
         if let Some(parent) = self.parent_map.get(key) {
             if self.is_layout_object[parent] {
-                return *parent;
+                *parent
             } else {
-                return self.get_layout_parent(parent);
+                self.get_layout_parent(parent)
             }
         } else {
-            return Key::default();
+            Key::default()
         }
     }
     fn get_layout_children(&self, parent: Key) -> Vec<Key> {

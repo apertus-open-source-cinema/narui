@@ -35,7 +35,7 @@ impl Key {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 impl Default for Key {

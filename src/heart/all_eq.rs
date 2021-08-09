@@ -36,7 +36,7 @@ mod test_all_eq {
 
     #[test]
     fn test_closure() {
-        let clos_a = |a: i32, b: i32| {};
+        let clos_a = |_a: i32, _b: i32| {};
         assert!(all_eq!(&clos_a, &clos_a));
     }
 

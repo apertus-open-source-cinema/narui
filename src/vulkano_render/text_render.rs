@@ -153,7 +153,7 @@ impl TextRenderer {
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
                 .blend_alpha_blending()
-                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+                .render_pass(Subpass::from(render_pass, 0).unwrap())
                 .build(device.clone())
                 .unwrap(),
         );
@@ -205,7 +205,7 @@ impl TextRenderer {
 
         let layout = pipeline.layout().descriptor_set_layouts()[0].clone();
         let descriptor_set = Arc::new(
-            PersistentDescriptorSet::start(layout.clone())
+            PersistentDescriptorSet::start(layout)
                 .add_sampled_image(texture, sampler.clone())
                 .unwrap()
                 .build()
@@ -312,7 +312,7 @@ impl TextRenderer {
 
             let layout = self.pipeline.layout().descriptor_set_layouts()[0].clone();
             self.descriptor_set = Arc::new(
-                PersistentDescriptorSet::start(layout.clone())
+                PersistentDescriptorSet::start(layout)
                     .add_sampled_image(texture, self.sampler.clone())
                     .unwrap()
                     .build()

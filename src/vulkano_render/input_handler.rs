@@ -72,19 +72,15 @@ impl InputHandler {
                         updated = true;
                     }
                 }
-                if self.cursor_pressed {
-                    if render_object.rect.contains(self.cursor_position) {
-                        input_state.clicked = true;
-                        on_click(context.clone(), true);
-                        updated = true;
-                    }
+                if self.cursor_pressed && render_object.rect.contains(self.cursor_position) {
+                    input_state.clicked = true;
+                    on_click(context.clone(), true);
+                    updated = true;
                 }
-                if self.cursor_released {
-                    if input_state.clicked {
-                        input_state.clicked = false;
-                        on_click(context.clone(), false);
-                        updated = true;
-                    }
+                if self.cursor_released && input_state.clicked {
+                    input_state.clicked = false;
+                    on_click(context.clone(), false);
+                    updated = true;
                 }
             }
         }

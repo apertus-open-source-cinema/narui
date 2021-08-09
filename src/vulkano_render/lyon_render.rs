@@ -97,7 +97,7 @@ impl LyonRenderer {
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
                 .blend_alpha_blending()
-                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+                .render_pass(Subpass::from(render_pass, 0).unwrap())
                 .build(device.clone())
                 .unwrap(),
         );
