@@ -46,7 +46,7 @@ impl ContextEffect for Context {
         if *self.listen_ref(deps_listenable) != some_deps {
             self.shout(deps_listenable, some_deps);
             let handle = callback();
-            self.global.write().set(key, Box::new(handle))
+            self.global.write().tree.set(key, Box::new(handle))
         }
         EffectHandle { key, context: self.clone(), phantom: Default::default() }
     }

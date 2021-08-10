@@ -34,7 +34,7 @@ impl<T: LayoutTree> Evaluator<T> {
             Evaluator { context: Default::default(), layout_tree, deps_map: Default::default() };
         let top_gen = Arc::new(move |_context| top_node.clone());
         let _root = evaluator.evaluate_unconditional(top_gen, evaluator.context.clone());
-        evaluator.context.global.write().update_tree();
+        evaluator.context.global.write().tree.update_tree();
         evaluator.layout_tree.update();
 
         evaluator
@@ -88,7 +88,7 @@ impl<T: LayoutTree> Evaluator<T> {
     }
     fn update_once(&mut self) -> bool {
         let mut to_update: HashMap<Key, Arc<RefCell<EvaluatedEvalObject>>> = HashMap::new();
-        let touched_keys = self.context.global.write().update_tree();
+        let touched_keys = self.context.global.write().tree.update_tree();
         if touched_keys.is_empty() {
             return false;
         }
@@ -154,7 +154,7 @@ impl<T: LayoutTree> Evaluator<T> {
         // TODO handle removal of layout objects
         let frag = tree.borrow();
         if top {
-            self.context.global.write().remove(frag.key);
+            self.context.global.write().tree.remove(frag.key);
         }
         for child in frag.children.iter() {
             self.remove_tree(child, false);

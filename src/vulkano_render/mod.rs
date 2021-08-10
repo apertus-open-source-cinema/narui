@@ -127,8 +127,8 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
     let mut layouted: Vec<PositionedRenderObject> = vec![];
     let mut recreate_swapchain = false;
-
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
+    let mut has_update = true;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 70));
@@ -146,13 +146,13 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             }
             Event::MainEventsCleared => {
                 input_handler.handle_input(layouted.clone(), evaluator.context.clone());
-                if evaluator.update()
-                    && (acquired_images.len() >= (caps.min_image_count) as usize - 1)
-                {
+                has_update |= evaluator.update();
+                if has_update && (acquired_images.len() >= (caps.min_image_count) as usize - 1) {
                     surface.window().request_redraw();
                 }
             }
             Event::RedrawRequested(_) => {
+                has_update = false;
                 let (image_num, acquire_future) = acquired_images.pop_front().unwrap();
 
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
@@ -209,8 +209,14 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                         previous_frame_end = Some(sync::now(device.clone()).boxed());
                     }
                 }
-            }
 
+                let context = evaluator.context.clone();
+                let callbacks: Vec<_> =
+                    context.global.write().after_frame_callbacks.drain(..).collect();
+                for callback in callbacks {
+                    callback(context.clone());
+                }
+            }
             _e => {}
         }
 

@@ -1,3 +1,4 @@
+use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 use parking_lot::{Mutex, RwLock};
 use std::{
@@ -176,6 +177,16 @@ impl PatchedTree {
     }
 }
 
+pub type AfterFrameCallback = Box<dyn Fn(Context) + Send + Sync>;
+
+#[derive(Derivative, Default)]
+#[derivative(Debug)]
+pub struct ApplicationGlobalContext {
+    pub tree: PatchedTree,
+    #[derivative(Debug = "ignore")]
+    pub after_frame_callbacks: Vec<AfterFrameCallback>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct WidgetLocalContext {
     pub key: Key,
@@ -188,7 +199,7 @@ impl WidgetLocalContext {
 
 #[derive(Clone, Debug, Default)]
 pub struct Context {
-    pub global: Arc<RwLock<PatchedTree>>,
+    pub global: Arc<RwLock<ApplicationGlobalContext>>,
     pub widget_local: WidgetLocalContext,
 }
 impl Context {

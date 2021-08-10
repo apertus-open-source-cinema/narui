@@ -1,4 +1,4 @@
-use crate::heart::{Context, Key, PatchedTree};
+use crate::heart::{Context, Key};
 use parking_lot::RwLockReadGuard;
 use std::{marker::PhantomData, ops::Deref};
 
@@ -18,7 +18,7 @@ pub trait ContextListenable {
 impl ContextListenable for Context {
     fn listenable_key<T: Send + Sync + 'static>(&self, key: Key, initial: T) -> Listenable<T> {
         let listenable = Listenable { key, phantom_data: Default::default() };
-        if self.global.read().get(listenable.key).is_none() {
+        if self.global.read().tree.get(listenable.key).is_none() {
             self.shout_unconditional(listenable, initial)
         };
         listenable
@@ -29,13 +29,13 @@ impl ContextListenable for Context {
 
     fn shout<T: Send + Sync + 'static + PartialEq>(&self, listenable: Listenable<T>, new_value: T) {
         let mut lock = self.global.write();
-        match lock.get(listenable.key) {
-            None => lock.set(listenable.key, Box::new(new_value)),
+        match lock.tree.get(listenable.key) {
+            None => lock.tree.set(listenable.key, Box::new(new_value)),
             Some(old_value) => {
                 if (&**old_value).downcast_ref::<T>().expect("old value has wrong type")
                     != &new_value
                 {
-                    lock.set(listenable.key, Box::new(new_value))
+                    lock.tree.set(listenable.key, Box::new(new_value))
                 }
             }
         }
@@ -46,7 +46,7 @@ impl ContextListenable for Context {
         new_value: T,
     ) {
         let mut lock = self.global.write();
-        lock.set(listenable.key, Box::new(new_value))
+        lock.tree.set(listenable.key, Box::new(new_value))
     }
 
     fn listen<T: Send + Sync + 'static>(&self, listenable: Listenable<T>) -> T
@@ -56,6 +56,7 @@ impl ContextListenable for Context {
         self.widget_local.mark_used(listenable.key);
         self.global
             .read()
+            .tree
             .get(listenable.key)
             .expect("cant find key of listenable in Context")
             .downcast_ref::<T>()
@@ -78,19 +79,20 @@ macro_rules! shout_ {
         fn constrain_type<T>(_a: &Listenable<T>, _b: &T) {}
         constrain_type(&$listenable, &$value);
         let mut lock = $context.global.write();
-        match lock.get($listenable.key) {
-            None => lock.set($listenable.key, Box::new($value)),
+        match lock.tree.get($listenable.key) {
+            None => lock.tree.set($listenable.key, Box::new($value)),
             Some(old_value) => {
                 let old = (&**old_value).downcast_ref().expect("old value has wrong type");
                 fn constrain_type<T>(_a: &T, _b: &T) {}
                 constrain_type(old, &$value);
                 if !all_eq!(old, &$value) {
-                    lock.set($listenable.key, Box::new($value));
+                    lock.tree.set($listenable.key, Box::new($value));
                 }
             }
         }
     }};
 }
+use crate::ApplicationGlobalContext;
 pub use shout_ as shout;
 
 pub struct Listenable<T> {
@@ -108,7 +110,7 @@ impl<T> Clone for Listenable<T> {
 impl<T> Copy for Listenable<T> {}
 
 pub struct ListenableGuard<'l, T> {
-    pub(crate) rw_lock_guard: RwLockReadGuard<'l, PatchedTree>,
+    pub(crate) rw_lock_guard: RwLockReadGuard<'l, ApplicationGlobalContext>,
     pub(crate) phantom: PhantomData<T>,
     pub(crate) path: Key,
 }
@@ -117,6 +119,7 @@ impl<'l, T: 'static> Deref for ListenableGuard<'l, T> {
 
     fn deref(&self) -> &Self::Target {
         self.rw_lock_guard
+            .tree
             .get(self.path)
             .expect("cant find key of ListenableGuard in Context")
             .downcast_ref()
