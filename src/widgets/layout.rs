@@ -1,14 +1,18 @@
-use crate::*;
-use stretch::{
-    geometry::{Rect, Size},
-    style::{AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, Style},
-};
+use crate::{style::*, *};
 
 fn layout_block(style: Style, children: Fragment, context: &Context) -> Fragment {
     Fragment {
         key: context.widget_local.key,
         children: children.into(),
         layout_object: Some(LayoutObject { style, measure_function: None, render_objects: vec![] }),
+    }
+}
+
+pub(crate) fn fill_parent_helper(style: Style, fill_parent: bool) -> Style {
+    if fill_parent {
+        style.width(Percent(1.0)).height(Percent(1.0))
+    } else {
+        style
     }
 }
 
@@ -26,17 +30,11 @@ pub fn column(
     children: Fragment,
     context: Context,
 ) -> Fragment {
-    let style = Style {
-        flex_direction: FlexDirection::Column,
-        flex_wrap: FlexWrap::NoWrap,
-        size: Size {
-            height: if fill_parent { Dimension::Percent(1.0) } else { Default::default() },
-            width: if fill_parent { Dimension::Percent(1.0) } else { Default::default() },
-        },
-        justify_content,
-        align_items,
-        ..style
-    };
+    let style = fill_parent_helper(style, fill_parent)
+        .flex_direction(Column)
+        .flex_wrap(NoWrap)
+        .justify_content(justify_content)
+        .align_items(align_items);
     layout_block(style, children, &context)
 }
 
@@ -49,56 +47,11 @@ pub fn row(
     children: Fragment,
     context: Context,
 ) -> Fragment {
-    let style = Style {
-        flex_direction: FlexDirection::Row,
-        flex_wrap: FlexWrap::NoWrap,
-        size: Size {
-            height: if fill_parent { Dimension::Percent(1.0) } else { Default::default() },
-            width: if fill_parent { Dimension::Percent(1.0) } else { Default::default() },
-        },
-        justify_content,
-        align_items,
-        ..style
-    };
-    layout_block(style, children, &context)
-}
-
-#[widget(all=Default::default(), top_bottom=Default::default(), left_right=Default::default(), top=Default::default(), bottom=Default::default(), left=Default::default(), right=Default::default(), style = Default::default())]
-pub fn padding(
-    all: Dimension,
-    top_bottom: Dimension,
-    left_right: Dimension,
-    top: Dimension,
-    bottom: Dimension,
-    left: Dimension,
-    right: Dimension,
-    style: Style,
-    children: Fragment,
-    context: Context,
-) -> Fragment {
-    let (mut t, mut b, mut l, mut r) = (all, all, all, all);
-    if top_bottom != Dimension::default() {
-        t = top_bottom;
-        b = top_bottom;
-    }
-    if left_right != Dimension::default() {
-        l = left_right;
-        r = left_right;
-    }
-    if top != Dimension::default() {
-        t = top
-    }
-    if bottom != Dimension::default() {
-        b = bottom
-    }
-    if left != Dimension::default() {
-        l = left
-    }
-    if right != Dimension::default() {
-        r = right
-    }
-
-    let style = Style { padding: Rect { start: l, end: r, top: t, bottom: b }, ..style };
+    let style = fill_parent_helper(style, fill_parent)
+        .flex_direction(Row)
+        .flex_wrap(NoWrap)
+        .justify_content(justify_content)
+        .align_items(align_items);
     layout_block(style, children, &context)
 }
 
@@ -110,6 +63,6 @@ pub fn min_size(
     children: Fragment,
     context: Context,
 ) -> Fragment {
-    let style = Style { min_size: Size { height, width }, ..style };
+    let style = style.min_width(width).min_height(height);
     layout_block(style, children, &context)
 }

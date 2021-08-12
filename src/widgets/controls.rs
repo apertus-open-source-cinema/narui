@@ -1,9 +1,6 @@
-use crate::*;
+use crate::{style::*, *};
 use palette::Shade;
-use stretch::{
-    geometry::Size,
-    style::{AlignItems, Dimension, FlexDirection, JustifyContent, PositionType, Style},
-};
+
 
 #[widget(on_click = (| _context, _clicked | {}), color = crate::theme::BG)]
 pub fn button(
@@ -25,10 +22,8 @@ pub fn button(
 
     rsx! {
         <rounded_rect fill_color=Some(color)>
-            <input on_click=callback>
-                <padding all=Dimension::Points(10.)>
-                    {children}
-                </padding>
+            <input on_click=callback style={STYLE.padding(Points(10.))}>
+                {children}
             </input>
         </rounded_rect>
     }
@@ -70,34 +65,17 @@ pub fn slider(
         }
     };
 
-    let slide_style = Style {
-        size: Size { width: Dimension::Percent(1.0), height: Dimension::Points(5.0) },
-        ..Default::default()
-    };
-    let handle_container_style = Style {
-        position_type: PositionType::Absolute,
-        position: stretch::geometry::Rect {
-            top: Dimension::Points(0.0),
-            start: Dimension::Percent((val - min) / (max - min)),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let handle_input_style = Style {
-        position: stretch::geometry::Rect { start: Dimension::Points(-10.), ..Default::default() },
-        ..Default::default()
-    };
-    let handle_rect_style = Style {
-        size: Size { width: Dimension::Points(20.0), height: Dimension::Points(20.0) },
-        ..Default::default()
-    };
-    let top_style = Style {
-        size: Size { width: Dimension::Points(width), height: Dimension::Points(20.) },
-        flex_direction: FlexDirection::Column,
-        align_items: AlignItems::Stretch,
-        justify_content: JustifyContent::Center,
-        ..Default::default()
-    };
+    let slide_style = STYLE.width(Percent(1.0)).height(Points(5.0));
+    let handle_container_style =
+        STYLE.position_type(Absolute).top(Points(0.0)).left(Percent((val - min) / (max - min)));
+    let handle_input_style = STYLE.left(Points(-10.));
+    let handle_rect_style = STYLE.width(Points(20.)).height(Points(20.));
+    let top_style = STYLE
+        .width(Points(width))
+        .height(Points(20.))
+        .flex_direction(Column)
+        .align_items(AlignItems::Stretch)
+        .justify_content(JustifyContent::Center);
     rsx! {
          <input on_move=on_move style=top_style>
             <rounded_rect style=slide_style fill_color=Some(slide_color) />

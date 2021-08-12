@@ -1,6 +1,5 @@
 use crate::*;
 use std::sync::Arc;
-use stretch::style::Style;
 
 #[widget(on_click = (|_context, _clicked| {}), on_hover = (|_context, _hovered| {}), on_move = (|_context, _position| {}), style = Default::default())]
 pub fn input(

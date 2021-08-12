@@ -13,10 +13,9 @@ pub mod widgets;
 pub(crate) use crate as narui;
 pub use narui_macros as macros;
 
-pub use heart::*;
+pub use heart::{style, *};
 pub use hooks::*;
 pub use macros::*;
-pub use stretch::style;
 pub use theme::*;
 pub use util::*;
 pub use vulkano_render::*;

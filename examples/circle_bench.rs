@@ -1,5 +1,4 @@
-use narui::*;
-use stretch::style::{AlignItems, Dimension, JustifyContent};
+use narui::{style::*, *};
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 

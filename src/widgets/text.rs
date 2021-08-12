@@ -1,6 +1,4 @@
-use crate::*;
-
-use crate::vulkano_render::text_render::FONT;
+use crate::{style::*, vulkano_render::text_render::FONT, *};
 use glyph_brush::{
     ab_glyph::{Font, ScaleFont},
     FontId,
@@ -10,24 +8,11 @@ use glyph_brush::{
     SectionText,
 };
 use std::sync::Arc;
-use stretch::{
-    geometry::Size,
-    number::Number,
-    style::{Dimension, Style},
-};
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
-#[widget(size = 24.0, color = crate::theme::TEXT_WHITE, width = Default::default(), height = Default::default())]
-pub fn text(
-    size: f32,
-    children: String,
-    color: Color,
-    width: Dimension,
-    height: Dimension,
-    context: Context,
-) -> Fragment {
-    let style = Style { size: Size { width, height }, ..Default::default() };
+#[widget(size = 24.0, color = crate::theme::TEXT_WHITE, style = Default::default())]
+pub fn text(size: f32, children: String, color: Color, style: Style, context: Context) -> Fragment {
     let children_ = children.clone();
     let measurement_function = move |bounds: Size<Number>| -> Size<f32> {
         let fonts = &[FONT.clone()];

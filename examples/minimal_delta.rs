@@ -1,6 +1,5 @@
-use narui::*;
+use narui::{style::*, *};
 use narui_macros::rsx_toplevel;
-use stretch::style::{AlignItems, Dimension, JustifyContent};
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 #[widget]
@@ -15,7 +14,7 @@ pub fn btn(context: Context) -> Fragment {
     rsx! {
         <rounded_rect fill_color=Some(color)>
             <input on_click=callback.clone()>
-                <min_size width={Dimension::Points(100.0)} height={Dimension::Points(100.0)} />
+                <min_size width={Points(100.0)} height={Points(100.0)} />
             </input>
         </rounded_rect>
     }

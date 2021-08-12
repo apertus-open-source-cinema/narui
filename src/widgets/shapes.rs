@@ -1,6 +1,4 @@
-use crate::{heart::*, macros::widget};
-
-use crate::hooks::*;
+use crate::{heart::*, hooks::*, macros::widget, style::Size};
 use lyon::{
     math::rect,
     path::{builder::*, Winding},
@@ -10,7 +8,6 @@ use lyon::{
     },
 };
 use std::sync::Arc;
-use stretch::{geometry::Size, style::Style};
 
 #[widget(
     style = Default::default(),

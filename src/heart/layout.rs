@@ -1,4 +1,7 @@
-use crate::heart::*;
+use crate::{
+    heart::*,
+    style::{AlignItems, JustifyContent},
+};
 use hashbrown::HashMap;
 use stretch::{
     node::{MeasureFunc, Node},
@@ -61,6 +64,8 @@ impl Layouter {
             Default::default(),
             Style {
                 size: Size { height: Dimension::Percent(1.0), width: Dimension::Percent(1.0) },
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 ..Default::default()
             },
         ));
@@ -158,18 +163,20 @@ impl LayoutTree for Layouter {
                         let measure_function = measure_function.clone();
                         MeasureFunc::Boxed(Box::new(move |size| measure_function(size)))
                     };
-                    self.stretch.new_leaf(layout_object.style, measure_function).unwrap()
+                    self.stretch
+                        .new_leaf(*layout_object.style.stretch_style(), measure_function)
+                        .unwrap()
                 }
                 None => {
                     self.changed_layout = true;
-                    self.stretch.new_node(layout_object.style, &[]).unwrap()
+                    self.stretch.new_node(*layout_object.style.stretch_style(), &[]).unwrap()
                 }
             },
             Some(old_node) => {
                 let old_node = *old_node;
-                if self.stretch.style(old_node).unwrap() != &layout_object.style {
+                if self.stretch.style(old_node).unwrap() != layout_object.style.stretch_style() {
                     self.changed_layout = true;
-                    self.stretch.set_style(old_node, layout_object.style).unwrap();
+                    self.stretch.set_style(old_node, *layout_object.style.stretch_style()).unwrap();
                 }
                 match layout_object.measure_function {
                     Some(measure_function) => {

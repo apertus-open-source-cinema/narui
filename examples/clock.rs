@@ -1,9 +1,8 @@
-use narui::*;
+use narui::{style::*, *};
 use std::{
     sync::mpsc::RecvTimeoutError,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use stretch::style::{AlignItems, Dimension, JustifyContent, Style};
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 #[derive(Clone)]
@@ -42,7 +41,7 @@ pub fn slider_clock(context: Context) -> Fragment {
     rsx! {
         <column fill_parent=true align_items=AlignItems::Center justify_content=JustifyContent::Center>
             <column fill_parent=false align_items=AlignItems::Center>
-                <min_size height=Dimension::Points(300.0) style={Style { align_items: AlignItems::FlexEnd, ..Default::default() }}>
+                <min_size height=Dimension::Points(300.0) style={STYLE.align_items(AlignItems::FlexEnd)}>
                     <clock font_size=context.listen(slider_value) />
                 </min_size>
                 <slider

@@ -4,11 +4,15 @@ Composed Widgets are functions that return either other Composed Widgets or Prim
 For layout we create `TreeNodes` with stretch Style attributes.
 */
 
-use crate::{heart::*, hooks::Listenable};
+use crate::{
+    heart::*,
+    hooks::Listenable,
+    style::{Number, Size},
+    KeyPart::FragmentKey,
+};
 use derivative::Derivative;
 use lyon::{path::Path, tessellation::StrokeOptions};
 use std::sync::Arc;
-use stretch::{geometry::Size, number::Number, style::Style};
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
     render_pass::RenderPass,
