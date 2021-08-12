@@ -6,7 +6,7 @@ pub mod util;
 
 pub use util::VulkanContext;
 
-use crate::{heart::*, raw_render::RawRenderer, theme};
+use crate::{heart::*, raw_render::RawRenderer, theme, util::FPSReporter};
 use input_handler::InputHandler;
 use lyon_render::LyonRenderer;
 use palette::Pixel;

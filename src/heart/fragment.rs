@@ -38,7 +38,7 @@ pub type Fragment = EvalObject;
 #[derivative(Debug)]
 pub struct EvalObject {
     pub key: Key,
-    #[derivative(Debug = "ignore")]
+    #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub children: Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
     pub layout_object: Option<LayoutObject>,
 }

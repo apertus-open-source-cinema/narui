@@ -3,6 +3,7 @@
 pub mod heart;
 pub mod hooks;
 pub mod theme;
+pub mod util;
 pub mod vulkano_render;
 pub mod widgets;
 
@@ -17,6 +18,7 @@ pub use hooks::*;
 pub use macros::*;
 pub use stretch::style;
 pub use theme::*;
+pub use util::*;
 pub use vulkano_render::*;
 pub use widgets::*;
 

@@ -183,7 +183,7 @@ pub type AfterFrameCallback = Box<dyn Fn(Context) + Send + Sync>;
 #[derivative(Debug)]
 pub struct ApplicationGlobalContext {
     pub tree: PatchedTree,
-    #[derivative(Debug = "ignore")]
+    #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub after_frame_callbacks: Vec<AfterFrameCallback>,
 }
 
