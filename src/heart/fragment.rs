@@ -47,19 +47,25 @@ impl From<EvalObject> for Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send
         vec![(KeyPart::Nop, Arc::new(move |_context| eval_obj.clone()))]
     }
 }
-pub trait ToFragment {
-    fn to_fragment(self, context: Context) -> EvalObject;
+pub trait CollectFragment {
+    fn collect_fragment(self, context: Context) -> EvalObject;
 }
-impl<T: IntoIterator<Item = EvalObject>> ToFragment for T {
-    fn to_fragment(self, context: Context) -> EvalObject {
-        EvalObject {
-            key: context.widget_local.key,
-            children: self
-                .into_iter()
-                .map(|x| (x.key.last_part(), Arc::new(move |_context| x.clone()) as _))
-                .collect(),
-            layout_object: None,
-        }
+impl<T: IntoIterator<Item = EvalObject>> CollectFragment for T {
+    fn collect_fragment(self, context: Context) -> Fragment {
+        let children: Vec<_> = self
+            .into_iter()
+            .flat_map(|x: Fragment| {
+                let Fragment { children, layout_object, .. } = x;
+                assert!(layout_object.is_none());
+                assert!(
+                    children.iter().all(|(key_part, _gen)| matches!(key_part, FragmentKey { .. })),
+                    "all fragments collected from an iterator must use unique keys"
+                );
+                children
+            })
+            .collect();
+
+        EvalObject { key: context.widget_local.key, children, layout_object: None }
     }
 }
 impl PartialEq for EvalObject {

@@ -25,9 +25,9 @@ fn main() {
                             >
                                 <min_size width={Dimension::Points(10.0)} height={Dimension::Points(10.0)} />
                             </rounded_rect>
-                        }).to_fragment(context.clone())}
+                        }).collect_fragment(context.clone())}
                     </column>
-                }).to_fragment(context.clone())}
+                }).collect_fragment(context.clone())}
             </row>
         },
     );
