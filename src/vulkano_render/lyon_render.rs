@@ -1,5 +1,5 @@
 use super::VulkanContext;
-use crate::{heart::*, hooks::ContextListenable};
+use crate::heart::*;
 use hashbrown::HashMap;
 use lyon::{
     algorithms::path::{geom::rect, Winding},
@@ -119,7 +119,6 @@ impl LyonRenderer {
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
         render_objects: Vec<PositionedRenderObject>,
-        context: Context,
     ) {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
@@ -129,7 +128,7 @@ impl LyonRenderer {
             let (buffer, color) = match render_object.render_object {
                 RenderObject::FillPath { path_gen, color } => {
                     let color = [color.red, color.green, color.blue, color.alpha];
-                    let path_gen = context.listen(path_gen);
+                    let path_gen = path_gen;
                     let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
                     let buffer = self.fill_tessellate_with_cache(
                         path_gen,
@@ -140,7 +139,7 @@ impl LyonRenderer {
                 }
                 RenderObject::StrokePath { path_gen, color, stroke_options } => {
                     let color = [color.red, color.green, color.blue, color.alpha];
-                    let path_gen = context.listen(path_gen);
+                    let path_gen = path_gen;
                     let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
                     let buffer = self.stroke_tessellate_with_cache(
                         path_gen,

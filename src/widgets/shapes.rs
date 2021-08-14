@@ -1,4 +1,4 @@
-use crate::{heart::*, hooks::*, macros::widget, style::Size};
+use crate::{heart::*, macros::widget, style::Size};
 use lyon::{
     math::rect,
     path::{builder::*, Winding},
@@ -31,12 +31,7 @@ pub fn rounded_rect(
 
     context: Context,
 ) -> Fragment {
-    let path_gen = context.memoize_key(
-        Key::default().with(KeyPart::Sideband {
-            hash: KeyPart::calculate_hash(&("rounded_rect", (border_radius * 1000.0) as u64)),
-        }),
-        || {
-            let closure: Arc<PathGenInner> = Arc::new(move |size: Size<f32>| {
+    let path_gen = Arc::new(move |size: Size<f32>| {
                 let mut builder = Builder::new();
                 builder.add_rounded_rectangle(
                     &rect(0.0, 0.0, size.width, size.height),
@@ -50,22 +45,22 @@ pub fn rounded_rect(
                 );
                 builder.build()
             });
-            closure
-        },
-        (),
-    );
 
     let mut render_objects = vec![];
     if let Some(fill_color) = fill_color {
         render_objects.push((
             KeyPart::RenderObject(0),
-            RenderObject::FillPath { path_gen, color: fill_color },
+            RenderObject::FillPath { path_gen: path_gen.clone(), color: fill_color },
         ));
     }
     if let Some(stroke_color) = stroke_color {
         render_objects.push((
             KeyPart::RenderObject(1),
-            RenderObject::StrokePath { path_gen, color: stroke_color, stroke_options },
+            RenderObject::StrokePath {
+                path_gen: path_gen.clone(),
+                color: stroke_color,
+                stroke_options,
+            },
         ));
     }
 

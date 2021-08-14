@@ -174,13 +174,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 layouted = layouter.do_layout(dimensions.into()).unwrap();
 
                 raw_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
-                lyon_renderer.render(
-                    &mut builder,
-                    &dynamic_state,
-                    &dimensions,
-                    layouted.clone(),
-                    evaluator.context.clone(),
-                );
+                lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
                 text_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
 
                 builder.end_render_pass().unwrap();

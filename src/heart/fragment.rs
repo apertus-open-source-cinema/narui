@@ -6,7 +6,6 @@ For layout we create `TreeNodes` with stretch Style attributes.
 
 use crate::{
     heart::*,
-    hooks::Listenable,
     style::{Number, Size},
     KeyPart::FragmentKey,
 };
@@ -90,7 +89,6 @@ pub struct LayoutObject {
 }
 
 pub type PathGenInner = dyn (Fn(Size<f32>) -> Path) + Send + Sync;
-pub type PathGen = Listenable<Arc<PathGenInner>>;
 pub type RenderFnInner = dyn Fn(
         Arc<RenderPass>,
         &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
@@ -105,12 +103,12 @@ pub enum RenderObject {
     DebugRect,
     FillPath {
         #[derivative(Debug = "ignore")]
-        path_gen: PathGen,
+        path_gen: Arc<PathGenInner>,
         color: Color,
     },
     StrokePath {
         #[derivative(Debug = "ignore")]
-        path_gen: PathGen,
+        path_gen: Arc<PathGenInner>,
         color: Color,
         stroke_options: StrokeOptions,
     },
