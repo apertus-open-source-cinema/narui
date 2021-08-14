@@ -1,5 +1,9 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
@@ -21,7 +25,11 @@ fn handle_rsx_nodes(input: &Vec<Node>, parent: &str) -> (TokenStream, TokenStrea
         let (beginning, inplace): (Vec<_>, Vec<_>) = input.iter().map(|x| {
             let name = x.name.as_ref().unwrap();
             let name_str = name.to_string();
-            let loc = format!("{}_{}", name.span().start().line, name.span().start().column);
+            let loc = {
+                let mut s = DefaultHasher::new();
+                (format!("{:?}", name.span())).hash(&mut s);
+                format!("{}", s.finish())
+            };
 
             let args_listenable_ident = Ident::new(&format!("__{}_{}_args", name_str, loc), Span::call_site());
 

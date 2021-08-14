@@ -127,7 +127,6 @@ pub fn widget(
             })
             .collect();
 
-
         quote! {
             (@shout_args context=$context:ident, $($args:tt)*) => {
                 {
