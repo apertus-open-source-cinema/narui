@@ -1,3 +1,4 @@
+use crate::PositionedRenderObject;
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 use parking_lot::{Mutex, RwLock};
@@ -185,6 +186,7 @@ pub struct ApplicationGlobalContext {
     pub tree: PatchedTree,
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub after_frame_callbacks: Vec<AfterFrameCallback>,
+    pub last_layout: Option<Arc<Vec<PositionedRenderObject>>>,
 }
 
 #[derive(Clone, Debug, Default)]

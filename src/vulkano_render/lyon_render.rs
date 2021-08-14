@@ -118,20 +118,20 @@ impl LyonRenderer {
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
-        render_objects: Vec<PositionedRenderObject>,
+        render_objects: Arc<Vec<PositionedRenderObject>>,
     ) {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
         let mut last_index = 0;
 
-        for render_object in render_objects {
-            let (buffer, color) = match render_object.render_object {
+        for render_object in render_objects.iter() {
+            let (buffer, color) = match &render_object.render_object {
                 RenderObject::FillPath { path_gen, color } => {
                     let color = [color.red, color.green, color.blue, color.alpha];
                     let path_gen = path_gen;
                     let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
                     let buffer = self.fill_tessellate_with_cache(
-                        path_gen,
+                        path_gen.clone(),
                         render_object.rect.size,
                         path_gen_key,
                     );
@@ -142,8 +142,8 @@ impl LyonRenderer {
                     let path_gen = path_gen;
                     let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
                     let buffer = self.stroke_tessellate_with_cache(
-                        path_gen,
-                        stroke_options,
+                        path_gen.clone(),
+                        stroke_options.clone(),
                         render_object.rect.size,
                         path_gen_key,
                     );

@@ -125,7 +125,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let layouter = Layouter::new(false);
     let mut evaluator = Evaluator::new(top_node, layouter);
 
-    let mut layouted: Vec<PositionedRenderObject> = vec![];
+    let mut layouted: Arc<Vec<PositionedRenderObject>> = Default::default();
     let mut recreate_swapchain = false;
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
     let mut has_update = true;
@@ -171,7 +171,8 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                     .unwrap();
 
                 let layouter = &mut evaluator.layout_tree.layout_tree;
-                layouted = layouter.do_layout(dimensions.into()).unwrap();
+                layouted = Arc::new(layouter.do_layout(dimensions.into()).unwrap());
+                evaluator.context.global.write().last_layout = Some(layouted.clone());
 
                 raw_render.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());
                 lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouted.clone());

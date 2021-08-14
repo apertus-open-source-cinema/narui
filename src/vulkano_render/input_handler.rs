@@ -1,5 +1,6 @@
 use crate::heart::{RenderObject::Input, *};
 use hashbrown::HashMap;
+use std::sync::Arc;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
 #[derive(Default)]
@@ -48,7 +49,7 @@ impl InputHandler {
     }
     pub fn handle_input(
         &mut self,
-        render_objects: Vec<PositionedRenderObject>,
+        render_objects: Arc<Vec<PositionedRenderObject>>,
         context: Context,
     ) -> bool {
         if !self.cursor_moved && !self.cursor_pressed && !self.cursor_released {
@@ -56,7 +57,7 @@ impl InputHandler {
         }
 
         let mut updated = false;
-        for render_object in render_objects.clone() {
+        for render_object in render_objects.iter() {
             if let Input { on_hover, on_move, on_click } = render_object.clone().render_object {
                 let input_state =
                     self.input_states.entry(render_object.key).or_insert(Default::default());

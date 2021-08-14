@@ -231,16 +231,16 @@ impl TextRenderer {
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
-        render_objects: Vec<PositionedRenderObject>,
+        render_objects: Arc<Vec<PositionedRenderObject>>,
     ) {
-        for render_object in render_objects {
-            if let RenderObject::Text { text, size, color } = render_object.render_object {
+        for render_object in render_objects.iter() {
+            if let RenderObject::Text { text, size, color } = &render_object.render_object {
                 self.glyph_brush.queue(
                     Section::default()
                         .add_text(
                             Text::new(&*text)
                                 .with_color(color.into_format().into_raw::<[f32; 4]>())
-                                .with_scale(PxScale::from(size)),
+                                .with_scale(PxScale::from(*size)),
                         )
                         .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
                         .with_bounds(Into::<(f32, f32)>::into(

@@ -15,10 +15,10 @@ impl RawRenderer {
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         _dimensions: &[u32; 2],
-        render_objects: Vec<PositionedRenderObject>,
+        render_objects: Arc<Vec<PositionedRenderObject>>,
     ) {
-        for render_object in render_objects {
-            if let RenderObject::Raw { render_fn } = render_object.render_object {
+        for render_object in render_objects.iter() {
+            if let RenderObject::Raw { render_fn } = &render_object.render_object {
                 render_fn(
                     self.render_pass.clone(),
                     buffer_builder,

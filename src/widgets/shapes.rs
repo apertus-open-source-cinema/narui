@@ -32,19 +32,19 @@ pub fn rounded_rect(
     context: Context,
 ) -> Fragment {
     let path_gen = Arc::new(move |size: Size<f32>| {
-                let mut builder = Builder::new();
-                builder.add_rounded_rectangle(
-                    &rect(0.0, 0.0, size.width, size.height),
-                    &BorderRadii {
-                        top_left: border_radius,
-                        top_right: border_radius,
-                        bottom_left: border_radius,
-                        bottom_right: border_radius,
-                    },
-                    Winding::Positive,
-                );
-                builder.build()
-            });
+        let mut builder = Builder::new();
+        builder.add_rounded_rectangle(
+            &rect(0.0, 0.0, size.width, size.height),
+            &BorderRadii {
+                top_left: border_radius,
+                top_right: border_radius,
+                bottom_left: border_radius,
+                bottom_right: border_radius,
+            },
+            Winding::Positive,
+        );
+        builder.build()
+    });
 
     let mut render_objects = vec![];
     if let Some(fill_color) = fill_color {
