@@ -34,6 +34,7 @@ pub struct Layouter {
     top_node: Option<Node>,
 
     key_node_map: HashMap<Key, Node>,
+    node_key_map: HashMap<Node, Key>,
     render_object_map: HashMap<Node, Vec<(Key, RenderObject)>>,
 
     // this is a dirty hack because stretch does not support getting this information by itself.
@@ -55,6 +56,7 @@ impl Layouter {
             top_node: None,
             debug_layout_bounds,
             key_node_map: HashMap::new(),
+            node_key_map: HashMap::new(),
             render_object_map: HashMap::new(),
             changed_layout: true,
             last_size: Vec2::zero(),
@@ -93,11 +95,19 @@ impl Layouter {
         let layout = self.stretch.layout(node).unwrap();
         let pos = parent_position + layout.location.into();
 
+        // we need to insert the layoutObjects here for later inspection by the measure_* hooks
+        positioned_widgets.push(PositionedRenderObject {
+            key: self.node_key_map[&node],
+            render_object: RenderObject::None,
+            rect: Rect { pos, size: layout.size.into() },
+            z_index: 0,
+        });
+
         if self.debug_layout_bounds {
             positioned_widgets.push(PositionedRenderObject {
                 // in principle this violates the key contract of uniqueness but it should not
                 // matter here.
-                key: Key::default().with(KeyPart::DebugLayoutBounds),
+                key: self.node_key_map[&node].with(KeyPart::DebugLayoutBounds),
                 render_object: RenderObject::DebugRect,
                 rect: Rect { pos, size: layout.size.into() },
                 z_index: 0,
@@ -120,7 +130,7 @@ impl Layouter {
     }
 
     pub fn layout_repr(&self, node: Node) -> String {
-        let (key, _) = self.key_node_map.iter().find(|(_, n)| **n == node).unwrap();
+        let key = self.node_key_map[&node];
         let mut to_return = format!(
             "{:?}\t{:?}\t{:?}\n",
             key,
@@ -139,6 +149,7 @@ impl Layouter {
         }
         let new_node = self.stretch.new_node(style, &[]).unwrap();
         self.key_node_map.insert(key, new_node);
+        self.node_key_map.insert(new_node, key);
         self.node_has_measure.insert(new_node, false);
         new_node
     }
@@ -199,6 +210,7 @@ impl LayoutTree for Layouter {
             }
         };
         self.key_node_map.insert(key, node);
+        self.node_key_map.insert(node, key);
         self.node_has_measure.insert(node, has_measure_function);
         self.render_object_map.insert(
             node,
