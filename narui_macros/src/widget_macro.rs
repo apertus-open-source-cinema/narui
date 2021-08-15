@@ -120,7 +120,7 @@ pub fn widget(
             .map(|(i, ident)| {
                 let i = i as u64;
                 quote! {{
-                    let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with(KeyPart::Arg(#i))) };
+                    let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with($key_part).with(KeyPart::Arg(#i))) };
                     shout!($context, listenable, #ident);
                     listenable
                 }}
@@ -128,7 +128,7 @@ pub fn widget(
             .collect();
 
         quote! {
-            (@shout_args context=$context:ident, $($args:tt)*) => {
+            (@shout_args context=$context:ident, key_part=$key_part:expr, $($args:tt)*) => {
                 {
                     #(#initializers;)*
                     #macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);

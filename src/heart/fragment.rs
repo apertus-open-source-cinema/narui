@@ -72,7 +72,9 @@ impl<T: IntoIterator<Item = EvalObject>> CollectFragment for T {
     }
 }
 impl PartialEq for EvalObject {
-    fn eq(&self, other: &Self) -> bool { self.key == other.key }
+    fn eq(&self, other: &Self) -> bool {
+        (self.key == other.key) && self.children.iter().zip(other.children.iter()).all(|(a, b)| {a.0 == b.0})
+    }
 }
 
 // A part of the layout tree additionally containing information to render the
@@ -131,4 +133,5 @@ pub enum RenderObject {
         #[derivative(Debug = "ignore")]
         render_fn: Arc<RenderFnInner>,
     },
+    None,
 }

@@ -8,7 +8,13 @@ use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     let parsed = syn_rsx::parse2(input.into()).unwrap();
-    let (begining, inplace) = handle_rsx_nodes(&parsed, "rsx");
+    let loc = {
+        let mut s = DefaultHasher::new();
+        (format!("{:?}", Span::call_site())).hash(&mut s);
+        s.finish()
+    };
+    let key = quote! {context.widget_local.key.with(KeyPart::Rsx(#loc))};
+    let (begining, inplace) = handle_rsx_nodes(&parsed, "rsx", key);
     let transformed = quote! {{
         #begining
 
@@ -18,7 +24,7 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     transformed.into()
 }
 
-fn handle_rsx_nodes(input: &Vec<Node>, parent: &str) -> (TokenStream, TokenStream) {
+fn handle_rsx_nodes(input: &Vec<Node>, parent: &str, parent_key: TokenStream) -> (TokenStream, TokenStream) {
     let fragment_ident = Ident::new(&format!("__{}_children", parent), Span::call_site());
 
     if input.iter().all(|x| x.node_type == NodeType::Element) {
@@ -50,7 +56,7 @@ fn handle_rsx_nodes(input: &Vec<Node>, parent: &str) -> (TokenStream, TokenStrea
             let (beginning, children_processed) = if x.children.is_empty() {
                 (quote! {}, quote! {})
             } else {
-                let (begining, inplace) = handle_rsx_nodes(&x.children, this_str);
+                let (begining, inplace) = handle_rsx_nodes(&x.children, this_str, quote! {#parent_key.with(#key)});
                 (begining, quote! {
                     children=#inplace,
                 })
@@ -58,19 +64,18 @@ fn handle_rsx_nodes(input: &Vec<Node>, parent: &str) -> (TokenStream, TokenStrea
 
             let beginning = quote! {
                 #beginning
-                let #args_listenable_ident = {
-                    let context = {
-                        let mut context = context.clone();  // TODO our handling of args which listen ist DUMB!
-                        context.widget_local.key = context.widget_local.key.with(#key);
-                        context
-                    };
-                    #constructor_ident!(@shout_args context=context, #(#processed_attributes,)* #children_processed)
-                };
+                let #args_listenable_ident = #constructor_ident!(
+                    @shout_args
+                    context=context,
+                    key_part=(#key),
+                    #(#processed_attributes,)*
+                    #children_processed
+                );
             };
             let inplace = quote! {(
                 #key,
                 std::sync::Arc::new(move |context: Context| {
-                    #constructor_ident!(@construct listenable=#args_listenable_ident, context=context )
+                    #constructor_ident!(@construct listenable=#args_listenable_ident, context=context)
                 })
             )};
 
@@ -81,7 +86,7 @@ fn handle_rsx_nodes(input: &Vec<Node>, parent: &str) -> (TokenStream, TokenStrea
             #(#beginning)*
 
             let #fragment_ident = Fragment {
-                key: context.widget_local.key,
+                key: #parent_key,
                 children: vec![#(#inplace,)*],
                 layout_object: None,
             };

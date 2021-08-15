@@ -92,6 +92,7 @@ pub enum KeyPart {
     Arg(u64),
     Hook(u64),
     RenderObject(u64),
+    Rsx(u64),
 
     Sideband { hash: u64 },
 
@@ -121,12 +122,13 @@ impl Debug for KeyPart {
             KeyPart::Widget => write!(f, "Widget"),
             KeyPart::Deps => write!(f, "Deps"),
             KeyPart::Sideband { hash } => write!(f, "Sideband_{}", hash),
-            KeyPart::Hook(number) => write!(f, "Sideband_{}", number),
+            KeyPart::Hook(number) => write!(f, "Hook_{}", number),
             KeyPart::RenderObject(number) => write!(f, "RenderObject_{}", number),
             KeyPart::Fragment { name, loc } => write!(f, "Fragment_{}_{}", name, loc),
             KeyPart::FragmentKey { name, loc, hash } => {
                 write!(f, "Fragment_{}_{}_{}", name, loc, hash)
             }
+            KeyPart::Rsx(hash) => write!(f, "Rsx_{}", hash),
         }
     }
 }
