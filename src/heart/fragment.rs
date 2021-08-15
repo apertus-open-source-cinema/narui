@@ -16,6 +16,8 @@ use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
     render_pass::RenderPass,
 };
+use std::fmt;
+use std::fmt::Debug;
 
 /*
 The general flow of a frame in narui:
@@ -41,9 +43,13 @@ pub type Fragment = EvalObject;
 #[derivative(Debug)]
 pub struct EvalObject {
     pub key: Key,
-    #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
+    #[derivative(Debug(format_with = "crate::heart::fragment::print_children"))]
     pub children: Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
     pub layout_object: Option<LayoutObject>,
+}
+pub(crate) fn print_children(vec: &Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>, fmt: &mut fmt::Formatter) -> fmt::Result {
+    let vec : Vec<_> = vec.iter().map(|x| x.0).collect();
+    vec.fmt(fmt)
 }
 impl From<EvalObject> for Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
     fn from(eval_obj: EvalObject) -> Self {
