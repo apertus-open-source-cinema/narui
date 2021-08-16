@@ -1,6 +1,10 @@
-use crate::heart::Context;
-use crate::{Vec2, Key, PositionedRenderObject};
-use crate::hooks::measure::MeasureError::{NoPreviousLayout, KeyNotFound, KeyAmbigous};
+use crate::{
+    heart::Context,
+    hooks::measure::MeasureError::{KeyAmbigous, KeyNotFound, NoPreviousLayout},
+    Key,
+    PositionedRenderObject,
+    Vec2,
+};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum MeasureError {
@@ -26,7 +30,10 @@ impl ContextMeasure for Context {
     }
 }
 
-fn get_positioned_render_object(context: &Context, key: Key) -> Result<PositionedRenderObject, MeasureError> {
+fn get_positioned_render_object(
+    context: &Context,
+    key: Key,
+) -> Result<PositionedRenderObject, MeasureError> {
     let layout = context.global.read().last_layout.clone().ok_or(NoPreviousLayout)?;
     let target_len = layout
         .iter()
@@ -34,13 +41,12 @@ fn get_positioned_render_object(context: &Context, key: Key) -> Result<Positione
         .map(|x| x.key.len())
         .min()
         .ok_or(KeyNotFound)?;
-    let render_objects: Vec<_> = layout
-       .iter()
-        .filter(|x| x.key.starts_with(&key) && x.key.len() == target_len)
-        .collect();
-    if render_objects.len() > 1 && !render_objects.iter().all(|x| x.rect == render_objects[0].rect) {
+    let render_objects: Vec<_> =
+        layout.iter().filter(|x| x.key.starts_with(&key) && x.key.len() == target_len).collect();
+    if render_objects.len() > 1 && !render_objects.iter().all(|x| x.rect == render_objects[0].rect)
+    {
         dbg!(key, &layout, target_len, render_objects);
-        return Err(KeyAmbigous)
+        return Err(KeyAmbigous);
     } else {
         Ok(render_objects[0].clone())
     }

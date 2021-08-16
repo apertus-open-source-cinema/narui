@@ -1,11 +1,12 @@
+use lyon::{
+    lyon_tessellation::path::geom::Point,
+    tessellation::{path::path::Builder, LineCap, StrokeOptions},
+};
 use narui::{style::*, *};
 use narui_macros::rsx_toplevel;
 use palette::Shade;
-use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 use std::sync::Arc;
-use lyon::tessellation::path::path::Builder;
-use lyon::lyon_tessellation::path::geom::Point;
-use lyon::tessellation::{StrokeOptions, LineCap};
+use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 
 #[widget(style = Default::default(), on_drag = (|_context, _pos| {}), on_start = (|_context| {}), on_end = (|_context| {}))]
@@ -14,7 +15,7 @@ pub fn drag_detector(
     on_drag: impl Fn(Context, Vec2) + Clone + Sync + Send + 'static,
     on_start: impl Fn(Context) + Clone + Sync + Send + 'static,
     on_end: impl Fn(Context) + Clone + Sync + Send + 'static,
-    children: Fragment,
+    children: Vec<Fragment>,
     context: Context,
 ) -> Fragment {
     let click_start_position = context.listenable(Vec2::zero());
@@ -84,20 +85,14 @@ pub fn handle(
 }
 
 #[widget]
-pub fn connection(
-    start: Vec2,
-    end: Vec2,
-    color: Color,
-    context: Context,
-) -> Fragment {
-    dbg!(context.widget_local.key);
+pub fn connection(start: Vec2, end: Vec2, color: Color, context: Context) -> FragmentInner {
     let path_gen = Arc::new(move |size: Size<f32>| {
         let mut builder = Builder::new();
         builder.begin(Point::new(0., 0.));
         builder.cubic_bezier_to(
             Point::new(size.width / 2.0, 0.0),
             Point::new(size.width / 2.0, size.height),
-            Point::new(size.width, size.height)
+            Point::new(size.width, size.height),
         );
         builder.end(false);
         builder.build()
@@ -107,16 +102,10 @@ pub fn connection(
     stroke_options.end_cap = LineCap::Round;
     stroke_options.start_cap = LineCap::Round;
 
-    let render_objects = vec![
-        (
-            KeyPart::RenderObject(0),
-            RenderObject::StrokePath {
-                path_gen,
-                color,
-                stroke_options,
-            },
-        )
-    ];
+    let render_objects = vec![(
+        KeyPart::RenderObject(0),
+        RenderObject::StrokePath { path_gen, color, stroke_options },
+    )];
 
     let style = STYLE
         .position_type(Absolute)
@@ -125,8 +114,7 @@ pub fn connection(
         .width(Points(end.x - start.x))
         .height(Points(end.y - start.y));
 
-    Fragment {
-        key: context.widget_local.key,
+    FragmentInner {
         children: vec![],
         layout_object: Some(LayoutObject { style, measure_function: None, render_objects }),
     }
@@ -216,14 +204,14 @@ pub fn node_graph(context: Context) -> Fragment {
                         on_handle_drag_end=on_handle_drag_end.clone()
                     />
                 }
-            }).collect_fragment(context.clone())}
+            }).collect()}
         </fragment>
         <fragment>
             {
                 if let Some((start, end, color)) = context.listen(connections) {
-                    rsx! { <connection start=start end=end color=color /> }
+                    vec![rsx! { <connection start=start end=end color=color /> }]
                 } else {
-                    rsx! { <connection start=Vec2::zero() end=Vec2::new(100.0, 200.0) color=color!(#ffffff) /> }
+                    vec![rsx! { <connection start=Vec2::zero() end=Vec2::new(100.0, 200.0) color=color!(#ffffff) /> }]
                 }
             }
         </fragment>

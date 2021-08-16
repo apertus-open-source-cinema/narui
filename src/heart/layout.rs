@@ -95,7 +95,8 @@ impl Layouter {
         let layout = self.stretch.layout(node).unwrap();
         let pos = parent_position + layout.location.into();
 
-        // we need to insert the layoutObjects here for later inspection by the measure_* hooks
+        // we need to insert the layoutObjects here for later inspection by the
+        // measure_* hooks
         positioned_widgets.push(PositionedRenderObject {
             key: self.node_key_map[&node],
             render_object: RenderObject::None,

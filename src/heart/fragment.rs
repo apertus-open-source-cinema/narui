@@ -7,7 +7,6 @@ For layout we create `TreeNodes` with stretch Style attributes.
 use crate::{
     heart::*,
     style::{Number, Size},
-    KeyPart::FragmentKey,
 };
 use derivative::Derivative;
 use lyon::{path::Path, tessellation::StrokeOptions};
@@ -16,8 +15,6 @@ use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
     render_pass::RenderPass,
 };
-use std::fmt;
-use std::fmt::Debug;
 
 /*
 The general flow of a frame in narui:
@@ -34,53 +31,31 @@ the output of this stage is the visual output :). profit!
 
  */
 
-
-pub type Fragment = EvalObject;
-// The data structure that is input into the Evaluator Pass. When a EvalObject
+// The data structure that is input into the Evaluator Pass. When a Fragment
 // has both a layout_object and children, the children are the children of the
 // LayoutObject
-#[derive(Clone, Default, Derivative)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct EvalObject {
+pub struct Fragment {
     pub key: Key,
-    #[derivative(Debug(format_with = "crate::heart::fragment::print_children"))]
-    pub children: Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>,
+    #[derivative(Debug = "ignore")]
+    pub gen: Arc<dyn Fn(Context) -> FragmentInner + Send + Sync>,
+}
+impl Fragment {
+    pub fn from_fragment_inner(context: Context, result: FragmentInner) -> Fragment {
+        Fragment {
+            key: context.widget_local.key,
+            gen: Arc::new(move |_context: Context| result.clone()),
+        }
+    }
+}
+#[derive(Clone, Default, Debug)]
+pub struct FragmentInner {
+    pub children: Vec<Fragment>,
     pub layout_object: Option<LayoutObject>,
 }
-pub(crate) fn print_children(vec: &Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)>, fmt: &mut fmt::Formatter) -> fmt::Result {
-    let vec : Vec<_> = vec.iter().map(|x| x.0).collect();
-    vec.fmt(fmt)
-}
-impl From<EvalObject> for Vec<(KeyPart, Arc<dyn Fn(Context) -> EvalObject + Send + Sync>)> {
-    fn from(eval_obj: EvalObject) -> Self {
-        vec![(KeyPart::Nop, Arc::new(move |_context| eval_obj.clone()))]
-    }
-}
-pub trait CollectFragment {
-    fn collect_fragment(self, context: Context) -> EvalObject;
-}
-impl<T: IntoIterator<Item = EvalObject>> CollectFragment for T {
-    fn collect_fragment(self, context: Context) -> Fragment {
-        let children: Vec<_> = self
-            .into_iter()
-            .flat_map(|x: Fragment| {
-                let Fragment { children, layout_object, .. } = x;
-                assert!(layout_object.is_none());
-                assert!(
-                    children.iter().all(|(key_part, _gen)| matches!(key_part, FragmentKey { .. })),
-                    "all fragments collected from an iterator must use unique keys"
-                );
-                children
-            })
-            .collect();
-
-        EvalObject { key: context.widget_local.key, children, layout_object: None }
-    }
-}
-impl PartialEq for EvalObject {
-    fn eq(&self, other: &Self) -> bool {
-        (self.key == other.key) && self.children.iter().zip(other.children.iter()).all(|(a, b)| {a.0 == b.0})
-    }
+impl PartialEq for Fragment {
+    fn eq(&self, other: &Self) -> bool { self.key == other.key }
 }
 
 // A part of the layout tree additionally containing information to render the

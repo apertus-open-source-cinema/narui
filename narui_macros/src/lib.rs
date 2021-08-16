@@ -15,8 +15,10 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     (quote! {
         Fragment {
             key: Default::default(),
-            children: vec![(KeyPart::Nop, std::sync::Arc::new(|context| { #rsx }))],
-            layout_object: None,
+            gen: std::sync::Arc::new(|context| { FragmentInner {
+                children: vec![ #rsx ],
+                layout_object: None,
+            } }),
         }
     })
     .into()

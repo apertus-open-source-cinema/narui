@@ -6,7 +6,7 @@ use palette::Shade;
 pub fn button(
     on_click: impl Fn(Context, bool) + Clone + Sync + Send + 'static,
     color: Color,
-    children: Fragment,
+    children: Vec<Fragment>,
     context: Context,
 ) -> Fragment {
     let clicked = context.listenable(false);

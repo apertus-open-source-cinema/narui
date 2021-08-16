@@ -21,7 +21,7 @@ use std::sync::Arc;
 )]
 pub fn rounded_rect(
     style: Style,
-    children: Fragment,
+    children: Vec<Fragment>,
 
     border_radius: f32,
 
@@ -30,7 +30,7 @@ pub fn rounded_rect(
     stroke_options: StrokeOptions,
 
     context: Context,
-) -> Fragment {
+) -> FragmentInner {
     let path_gen = Arc::new(move |size: Size<f32>| {
         let mut builder = Builder::new();
         builder.add_rounded_rectangle(
@@ -64,9 +64,8 @@ pub fn rounded_rect(
         ));
     }
 
-    Fragment {
-        key: context.widget_local.key,
-        children: children.into(),
+    FragmentInner {
+        children,
         layout_object: Some(LayoutObject { style, measure_function: None, render_objects }),
     }
 }

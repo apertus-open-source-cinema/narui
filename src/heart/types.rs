@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Div, Mul};
+use std::ops::{Add, Div, Mul, Sub};
 use stretch::geometry::{Point, Size};
 use winit::dpi::PhysicalPosition;
 
@@ -27,16 +27,12 @@ impl Sub for Vec2 {
 impl Div for Vec2 {
     type Output = Vec2;
 
-    fn div(self, rhs: Self) -> Self::Output {
-        Vec2 { x: self.x / rhs.x, y: self.y / rhs.y }
-    }
+    fn div(self, rhs: Self) -> Self::Output { Vec2 { x: self.x / rhs.x, y: self.y / rhs.y } }
 }
 impl Mul for Vec2 {
     type Output = Vec2;
 
-    fn mul(self, rhs: Self) -> Self::Output {
-        Vec2 { x: self.x * rhs.x, y: self.y * rhs.y }
-    }
+    fn mul(self, rhs: Self) -> Self::Output { Vec2 { x: self.x * rhs.x, y: self.y * rhs.y } }
 }
 
 macro_rules! implement_convert {

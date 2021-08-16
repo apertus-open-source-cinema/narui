@@ -89,7 +89,7 @@ pub enum KeyPart {
     Widget,
     Deps,
 
-    Arg(u64),
+    Arg(&'static str),
     Hook(u64),
     RenderObject(u64),
     Rsx(u64),
@@ -117,7 +117,7 @@ impl Debug for KeyPart {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             KeyPart::Nop => write!(f, "Nop"),
-            KeyPart::Arg(n) => write!(f, "Arg_{}", n),
+            KeyPart::Arg(s) => write!(f, "Arg_{}", s),
             KeyPart::DebugLayoutBounds => write!(f, "DebugLayoutBounds"),
             KeyPart::Widget => write!(f, "Widget"),
             KeyPart::Deps => write!(f, "Deps"),

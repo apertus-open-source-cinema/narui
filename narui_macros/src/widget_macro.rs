@@ -48,7 +48,6 @@ pub fn widget(
     assert_eq!(last_name.to_string(), "context");
 
     let return_type = function.sig.output.clone().to_token_stream().to_string().replace("-> ", "");
-    assert_eq!(return_type, "Fragment");
 
     // parse & format the default arguments
     let parser = Punctuated::<AttributeParameter, Token![,]>::parse_terminated;
@@ -115,12 +114,10 @@ pub fn widget(
         let arg_names_listenables: Vec<_> = get_arg_names(&function)
             .into_iter()
             .filter(|ident| get_arg_types(&function)[&ident.to_string()].to_token_stream().to_string() != "Context")
-            .map(|ident| desinfect_ident(&ident))
-            .enumerate()
-            .map(|(i, ident)| {
-                let i = i as u64;
+            .map(|ident| (format!("{}", ident), desinfect_ident(&ident)))
+            .map(|(string, ident)| {
                 quote! {{
-                    let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with($key_part).with(KeyPart::Arg(#i))) };
+                    let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with(KeyPart::Arg(#string))) };
                     shout!($context, listenable, #ident);
                     listenable
                 }}
@@ -128,7 +125,7 @@ pub fn widget(
             .collect();
 
         quote! {
-            (@shout_args context=$context:ident, key_part=$key_part:expr, $($args:tt)*) => {
+            (@shout_args context=$context:expr, $($args:tt)*) => {
                 {
                     #(#initializers;)*
                     #macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
@@ -149,6 +146,26 @@ pub fn widget(
             .map(|i| Literal::usize_unsuffixed(i))
             .collect();
 
+        let transformer = if return_type == "FragmentInner" {
+            quote! {
+                fn transformer(input: FragmentInner) -> FragmentInner {
+                    input
+                }
+            }
+        } else if return_type == "Fragment" {
+            quote! {
+                fn transformer(input: Fragment) -> FragmentInner {
+                    FragmentInner {
+                        children: vec![ input ],
+                        layout_object: None,
+                    }
+                }
+            }
+        } else {
+            panic!("widgets need to either return Fragment or FragmentInner, not {}", return_type)
+        };
+
+
         quote! {
             #[macro_export]
             macro_rules! #macro_ident {
@@ -157,8 +174,9 @@ pub fn widget(
                 #(#match_arms)*
                 (@parse_args [#($#arg_names:ident,)*] ) => { };
 
-                (@construct listenable=$listenable:ident, context=$context:ident) => {{
-                    #function_ident(#($context.listen($listenable.#arg_numbers),)* $context)
+                (@construct listenable=$listenable:ident, context=$context:expr) => {{
+                    #transformer
+                    transformer(#function_ident(#($context.listen($listenable.#arg_numbers),)* $context))
                 }}
             }
 
@@ -220,8 +238,7 @@ fn transform_function_args_to_context(function: ItemFn) -> proc_macro2::TokenStr
             let to_return = {
                 #(#stmts)*
             };
-
-            std::mem::drop(#context_ident);  // we consume the context here to prevent the other widgets from giving it out
+            std::mem::drop(&#context_ident);
             to_return
         }
     };

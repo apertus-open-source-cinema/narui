@@ -75,10 +75,11 @@ impl ContextListenable for Context {
 
 #[macro_export]
 macro_rules! shout_ {
-    ($context:ident, $listenable:ident, $value:expr) => {{
+    ($context:expr, $listenable:ident, $value:expr) => {{
         fn constrain_type<T>(_a: &Listenable<T>, _b: &T) {}
         constrain_type(&$listenable, &$value);
-        let mut lock = $context.global.write();
+        let context = $context;
+        let mut lock = context.global.write();
         match lock.tree.get($listenable.key) {
             None => lock.tree.set($listenable.key, Box::new($value)),
             Some(old_value) => {

@@ -7,12 +7,11 @@ pub fn input(
     on_hover: impl Fn(Context, bool) + Clone + Sync + Send + 'static,
     on_move: impl Fn(Context, Vec2) + Clone + Sync + Send + 'static,
     style: Style,
-    children: Fragment,
+    children: Vec<Fragment>,
     context: Context,
-) -> Fragment {
-    Fragment {
-        key: context.widget_local.key,
-        children: children.into(),
+) -> FragmentInner {
+    FragmentInner {
+        children,
         layout_object: Some(LayoutObject {
             style,
             measure_function: None,

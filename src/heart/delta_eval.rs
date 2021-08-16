@@ -1,23 +1,29 @@
 // do partial re evaluation of the changed widget tree
 
-use crate::heart::{Context, EvalObject, Key, LayoutObject, LayoutTree};
+use crate::{
+    heart::{Context, Fragment, Key, LayoutObject, LayoutTree},
+    FragmentInner,
+};
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 use std::{cell::RefCell, sync::Arc};
 
-
-type Deps = HashSet<Key>;
 // EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally
 // contains the dependencies of Node for allowing partial rebuild.
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct EvaluatedEvalObject {
+pub struct EvaluatedFragment {
+    // these fields are part of the original Fragment
     pub key: Key,
-    pub deps: Deps,
     #[derivative(Debug = "ignore")]
-    pub gen: Arc<dyn Fn(Context) -> EvalObject + Send + Sync>,
+    pub gen: Arc<dyn Fn(Context) -> FragmentInner + Send + Sync>,
+
+    // this field is information that is gathered by the delta evaluator
+    pub deps: HashSet<Key>,
+
+    // these fields are part of the FragmentResult
     pub layout_object: Option<LayoutObject>,
-    pub children: Vec<Arc<RefCell<EvaluatedEvalObject>>>,
+    pub children: Vec<Arc<RefCell<EvaluatedFragment>>>,
 }
 
 // The evaluator outputs nothing but rather communicates with the layouter with
@@ -25,15 +31,14 @@ pub struct EvaluatedEvalObject {
 pub struct Evaluator<T: LayoutTree> {
     pub context: Context,
     pub layout_tree: LayoutTreeFilter<T>,
-    deps_map: HashMap<Key, Vec<Arc<RefCell<EvaluatedEvalObject>>>>,
+    deps_map: HashMap<Key, Vec<Arc<RefCell<EvaluatedFragment>>>>,
 }
 impl<T: LayoutTree> Evaluator<T> {
-    pub fn new(top_node: EvalObject, layout_tree: T) -> Self {
+    pub fn new(top_node: Fragment, layout_tree: T) -> Self {
         let layout_tree = LayoutTreeFilter::new(layout_tree);
         let mut evaluator =
             Evaluator { context: Default::default(), layout_tree, deps_map: Default::default() };
-        let top_gen = Arc::new(move |_context| top_node.clone());
-        let _root = evaluator.evaluate_unconditional(top_gen, evaluator.context.clone());
+        let _root = evaluator.evaluate_unconditional(top_node, evaluator.context.clone());
         evaluator.context.global.write().tree.update_tree();
         evaluator.layout_tree.update();
 
@@ -41,35 +46,30 @@ impl<T: LayoutTree> Evaluator<T> {
     }
     fn evaluate_unconditional(
         &mut self,
-        gen: Arc<dyn Fn(Context) -> EvalObject + Send + Sync>,
+        fragment: Fragment,
         context: Context,
-    ) -> Arc<RefCell<EvaluatedEvalObject>> {
-        let key = context.widget_local.key;
-        let evaluated: EvalObject = gen(context.clone());
+    ) -> Arc<RefCell<EvaluatedFragment>> {
+        let context = context.with_key_widget(fragment.key);
+        let evaluated: FragmentInner = (fragment.gen)(context.clone());
         let deps = context.widget_local.used.lock().clone();
 
-        let to_return = Arc::new(RefCell::new(EvaluatedEvalObject {
-            key,
-            gen,
+        let to_return = Arc::new(RefCell::new(EvaluatedFragment {
+            key: fragment.key,
+            gen: fragment.gen,
             deps: deps.clone(),
             layout_object: evaluated.layout_object.clone(),
             children: vec![],
         }));
 
-        let mut children_keys = Vec::with_capacity(10);
         let children: Vec<_> = evaluated
             .children
             .into_iter()
-            .map(|(key_part, gen)| {
-                let key = context.widget_local.key.with(key_part);
-                children_keys.push(key);
-                let context = context.with_key_widget(key);
-                self.evaluate_unconditional(gen, context)
-            })
+            .map(|fragment| self.evaluate_unconditional(fragment, context.clone()))
             .collect();
+        let children_keys = children.iter().map(|c| c.borrow().key).collect();
         to_return.borrow_mut().children = children;
 
-        self.layout_tree.set_node(key, evaluated.layout_object, children_keys);
+        self.layout_tree.set_node(fragment.key, evaluated.layout_object, children_keys);
 
         for key in deps {
             self.deps_map.entry(key).or_default().push(to_return.clone());
@@ -87,7 +87,7 @@ impl<T: LayoutTree> Evaluator<T> {
         panic!("did not converge");
     }
     fn update_once(&mut self) -> bool {
-        let mut to_update: HashMap<Key, Arc<RefCell<EvaluatedEvalObject>>> = HashMap::new();
+        let mut to_update: HashMap<Key, Arc<RefCell<EvaluatedFragment>>> = HashMap::new();
         let touched_keys = self.context.global.write().tree.update_tree();
         if touched_keys.is_empty() {
             return false;
@@ -106,11 +106,11 @@ impl<T: LayoutTree> Evaluator<T> {
 
         true
     }
-    fn re_eval_fragment(&mut self, frag_cell: Arc<RefCell<EvaluatedEvalObject>>) {
+    fn re_eval_fragment(&mut self, frag_cell: Arc<RefCell<EvaluatedFragment>>) {
         let mut frag = frag_cell.borrow_mut();
 
         let context = self.context.with_key_widget(frag.key);
-        let evaluated: EvalObject = (frag.gen)(context.clone());
+        let evaluated: FragmentInner = (frag.gen)(context.clone());
 
         let new_deps = &mut *context.widget_local.used.lock();
         for to_remove in frag.deps.difference(new_deps) {
@@ -127,17 +127,12 @@ impl<T: LayoutTree> Evaluator<T> {
         frag.children = evaluated
             .children
             .iter()
-            .map(|(key_part, child)| {
+            .map(|f| {
                 frag.children
                     .iter()
-                    .find(|candidate| candidate.borrow().key.last_part() == *key_part)
+                    .find(|candidate| candidate.borrow().key == f.key)
                     .cloned()
-                    .unwrap_or_else(|| {
-                        self.evaluate_unconditional(
-                            child.clone(),
-                            context.with_key_widget(context.widget_local.key.with(*key_part)),
-                        )
-                    })
+                    .unwrap_or_else(|| self.evaluate_unconditional(f.clone(), context.clone()))
             })
             .collect();
 
@@ -150,7 +145,7 @@ impl<T: LayoutTree> Evaluator<T> {
             }
         }
     }
-    fn remove_tree(&mut self, tree: &RefCell<EvaluatedEvalObject>, top: bool) {
+    fn remove_tree(&mut self, tree: &RefCell<EvaluatedFragment>, top: bool) {
         // TODO handle removal of layout objects
         let frag = tree.borrow();
         if top {
@@ -191,6 +186,7 @@ impl<T: LayoutTree> LayoutTreeFilter<T> {
         children_keys: Vec<Key>,
     ) {
         for child_key in children_keys.clone() {
+            assert!(child_key != key, "{:?}", key);
             self.parent_map.insert(child_key, key);
         }
         self.children_map.insert(key, children_keys);

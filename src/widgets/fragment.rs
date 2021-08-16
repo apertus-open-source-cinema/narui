@@ -1,12 +1,6 @@
-use crate::{Fragment, Context, widget};
+use crate::{widget, Context, Fragment, FragmentInner};
 
 #[widget]
-pub fn fragment(children: Fragment, context: Context) -> Fragment {
-    dbg!("re_render fragment {}", context.widget_local.key);
-    dbg!(&children);
-    Fragment {
-        key: context.widget_local.key,
-        children: children.into(),
-        layout_object: None,
-    }
+pub fn fragment(children: Vec<Fragment>, context: Context) -> FragmentInner {
+    FragmentInner { children, layout_object: None }
 }

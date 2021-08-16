@@ -12,7 +12,13 @@ use std::sync::Arc;
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
 #[widget(size = 24.0, color = crate::theme::TEXT_WHITE, style = Default::default())]
-pub fn text(size: f32, children: String, color: Color, style: Style, context: Context) -> Fragment {
+pub fn text(
+    size: f32,
+    children: String,
+    color: Color,
+    style: Style,
+    context: Context,
+) -> FragmentInner {
     let children_ = children.clone();
     let measurement_function = move |bounds: Size<Number>| -> Size<f32> {
         let fonts = &[FONT.clone()];
@@ -43,8 +49,7 @@ pub fn text(size: f32, children: String, color: Color, style: Style, context: Co
 
     let primitive_text = RenderObject::Text { text: children, size, color };
 
-    Fragment {
-        key: context.widget_local.key,
+    FragmentInner {
         children: vec![],
         layout_object: Some(LayoutObject {
             style,
