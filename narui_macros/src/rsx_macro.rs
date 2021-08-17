@@ -8,6 +8,22 @@ use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     let mut parsed = syn_rsx::parse2(input.into()).unwrap();
+    if parsed.len() == 0 {
+        let loc = {
+            let mut s = DefaultHasher::new();
+            (format!("{:?}", Span::call_site())).hash(&mut s);
+            s.finish()
+        };
+        return quote! {{
+            Fragment {
+                key: context.widget_local.key.with(KeyPart::Rsx(#loc)),
+                gen: std::sync::Arc::new(move |_context| FragmentInner {
+                    layout_object: None,
+                    children: vec![],
+                }),
+            }
+        }}
+    }
     assert!(parsed.len() == 1);
     let (begining, inplace) = handle_rsx_node(parsed.remove(0));
 
