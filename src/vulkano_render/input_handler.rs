@@ -78,7 +78,9 @@ impl InputHandler {
                     on_click(context.clone(), true);
                     updated = true;
                 }
-                if self.cursor_released && input_state.clicked {
+                if self.cursor_released
+                    && (input_state.clicked || render_object.rect.contains(self.cursor_position))
+                {
                     input_state.clicked = false;
                     on_click(context.clone(), false);
                     updated = true;

@@ -29,6 +29,13 @@ impl Key {
         new.len += 1;
         new
     }
+    pub fn parent(&self) -> Self {
+        let mut new = *self;
+        let tail = new.data[self.len() - 1];
+        new.hash = self.hash.overflowing_sub(KeyPart::calculate_hash(&tail)).0;
+        new.len -= 1;
+        new
+    }
     pub fn len(&self) -> usize { self.len }
     pub fn last_part(&self) -> KeyPart { self.data[self.len() - 1] }
     pub fn starts_with(&self, start: &Key) -> bool {

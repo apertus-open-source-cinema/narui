@@ -9,25 +9,26 @@ use std::sync::Arc;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 
-#[widget(style = Default::default(), on_drag = (|_context, _pos| {}), on_start = (|_context| {}), on_end = (|_context| {}))]
+#[widget(style = Default::default(), on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}))]
 pub fn drag_detector(
     style: Style,
     on_drag: impl Fn(Context, Vec2) + Clone + Sync + Send + 'static,
-    on_start: impl Fn(Context) + Clone + Sync + Send + 'static,
-    on_end: impl Fn(Context) + Clone + Sync + Send + 'static,
+    on_start: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
+    on_end: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
     children: Vec<Fragment>,
     context: Context,
 ) -> Fragment {
     let click_start_position = context.listenable(Vec2::zero());
     let click_started = context.listenable(false);
     let clicked = context.listenable(false);
+    let key = context.widget_local.key;
     let on_click = move |context: Context, clicked_current| {
         context.shout(clicked, clicked_current);
         if clicked_current {
             context.shout(click_started, true);
-            on_start(context.clone())
+            on_start(context.clone(), key)
         } else {
-            on_end(context.clone())
+            on_end(context.clone(), key)
         }
     };
     let on_move = move |context: Context, position| {
@@ -61,7 +62,8 @@ pub fn handle(
     size: f32,
     graph_root: Key,
     on_drag: impl Fn(Context, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
-    on_drag_end: impl Fn(Context) + Clone + Sync + Send + 'static,
+    on_drag_end: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
+    on_drag_start: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
     context: Context,
 ) -> Fragment {
     let this_key = context.widget_local.key;
@@ -74,7 +76,7 @@ pub fn handle(
     };
 
     rsx! {
-        <drag_detector on_drag=on_drag on_end=on_drag_end>
+        <drag_detector on_drag=on_drag on_end=on_drag_end on_start=on_drag_start>
             <rounded_rect
                 fill_color=Some(color)
                 border_radius=size
@@ -120,13 +122,18 @@ pub fn connection(start: Vec2, end: Vec2, color: Color, context: Context) -> Fra
     }
 }
 
+fn get_handle_offset(context: Context, key: Key) -> Result<Vec2, MeasureError> {
+    Ok(context.measure_offset(key.parent().parent().parent().parent(), key)?
+        + (context.measure_size(key)? / Vec2::new(2., 2.)))
+}
 
 #[widget(style = Default::default())]
 pub fn node(
     style: Style,
     on_drag: impl Fn(Context, Vec2) + Clone + Sync + Send + 'static,
     on_handle_drag: impl Fn(Context, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
-    on_handle_drag_end: impl Fn(Context) + Clone + Sync + Send + 'static,
+    on_handle_drag_start: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
+    on_handle_drag_end: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
     graph_root: Key,
     context: Context,
 ) -> Fragment {
@@ -150,11 +157,11 @@ pub fn node(
 
             <min_size width={Points(250.0)} height={Points(150.0)} >
                 <container style={handle_container_style.left(Points(-10.))}>
-                    <handle on_drag_end=on_handle_drag_end.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#ffff00)} />
-                    <handle on_drag_end=on_handle_drag_end.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#00ffff)} />
+                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#ffff00)} />
+                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#00ffff)} />
                 </container>
                 <container style={handle_container_style.right(Points(-10.))}>
-                    <handle on_drag_end=on_handle_drag_end.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#ff00ff)} />
+                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#ff00ff)} />
                 </container>
 
                 /* TODO: add controls, etc in this area */
@@ -169,21 +176,44 @@ pub fn node_graph(context: Context) -> Fragment {
     let this_key = context.widget_local.key;
 
     let positions = context.listenable(vec![
+        Vec2::zero(),
         Vec2::new(300., 400.),
         Vec2::new(600., 400.),
         Vec2::new(500., 700.),
-        Vec2::zero(),
     ]);
     let current_positions = context.listen(positions);
     let current_positions_clone = current_positions.clone();
 
-    let connections = context.listenable(None);
+    let current_connection = context.listenable(None);
+    let settled_connections: Listenable<Vec<((usize, Vec2), (usize, Vec2), Color)>> =
+        context.listenable(vec![]);
     let on_handle_drag = move |context: Context, start: Vec2, end: Vec2, color: Color| {
-        context.shout(connections, Some((start, end, color)))
+        context.shout(current_connection, Some((start, end, color)))
     };
-    let on_handle_drag_end = move |context: Context| {
-        context.shout(connections, None);
-    };
+    let drop_handle: Listenable<Option<(Key, usize)>> = context.listenable(None);
+    let drag_handle: Listenable<Option<(Key, usize)>> = context.listenable(None);
+    context.after_frame(move |context| {
+        if context.listen(drop_handle).is_some() {
+            let start = context.listen(drag_handle).unwrap();
+            let end = context.listen(drop_handle).unwrap();
+            let connection = (
+                (start.1, get_handle_offset(context.clone(), start.0).unwrap()),
+                (end.1, get_handle_offset(context.clone(), end.0).unwrap()),
+                color!(#ffffff),
+            );
+            let mut connections = context.listen(settled_connections).clone();
+            if let Some(i) = connections.iter().position(|x| x == &connection) {
+                connections.remove(i);
+            } else {
+                connections.push(connection);
+            }
+            context.shout(settled_connections, connections);
+
+            context.shout(drag_handle, None);
+            context.shout(drop_handle, None);
+        }
+    });
+
     rsx! {
         <container style=STYLE.width(Percent(1.0)).height(Percent(1.0))>
             <fragment>
@@ -201,18 +231,39 @@ pub fn node_graph(context: Context) -> Fragment {
                             context.shout(positions, new_positions);
                         }}
                         on_handle_drag=on_handle_drag.clone()
-                        on_handle_drag_end=on_handle_drag_end.clone()
+                        on_handle_drag_end={move |context: Context, key: Key| {
+                            if key != context.listen(drag_handle).unwrap().0 {
+                                context.shout(drop_handle, Some((key, i)));
+                            }
+                            context.shout(current_connection, None);
+                        }}
+                        on_handle_drag_start={move |context: Context, key: Key| {
+                            context.shout(drag_handle, Some((key, i)));
+                        }}
                     />
                 }
             }).collect()}
         </fragment>
         <fragment>
             {
-                if let Some((start, end, color)) = context.listen(connections) {
+                if let Some((start, end, color)) = context.listen(current_connection) {
                     vec![rsx! { <connection start=start end=end color=color /> }]
-                } else {
-                    vec![rsx! { <connection start=Vec2::zero() end=Vec2::new(100.0, 200.0) color=color!(#ffffff) /> }]
-                }
+                } else { vec![] }
+            }
+        </fragment>
+        <fragment>
+            {
+                context.listen(settled_connections).iter().enumerate().map(|(i, (start, end, color))| {
+                    let start = {
+                        let (i, vec) = start;
+                        context.listen(positions)[*i] + *vec
+                    };
+                    let end = {
+                        let (i, vec) = end;
+                        context.listen(positions)[*i] + *vec
+                    };
+                    rsx! {<connection key=&i start=start end=end color=*color />}
+                }).collect()
             }
         </fragment>
     </container>
