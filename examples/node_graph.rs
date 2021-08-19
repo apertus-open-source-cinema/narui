@@ -50,9 +50,9 @@ pub fn drag_detector(
 #[widget]
 pub fn hr(color: Color, context: Context) -> Fragment {
     rsx! {
-        <rounded_rect border_radius=0.0 fill_color=Some(color) >
+        <rect fill_color=Some(color) >
             <min_size width={Percent(1.0)} height={Points(2.0)} />
-        </rounded_rect>
+        </rect>
     }
 }
 
@@ -77,9 +77,9 @@ pub fn handle(
 
     rsx! {
         <drag_detector on_drag=on_drag on_end=on_drag_end on_start=on_drag_start>
-            <rounded_rect
+            <rect
                 fill_color=Some(color)
-                border_radius=size
+                border_radius=Points(size)
                 style={STYLE.width(Points(size)).height(Points(size))}
             />
         </drag_detector>
@@ -137,8 +137,8 @@ pub fn node(
     graph_root: Key,
     context: Context,
 ) -> Fragment {
-    let fill_color = Shade::lighten(&BG_DARK, 0.1);
-    let stroke_color = Shade::lighten(&BG_LIGHT, 0.2);
+    let fill_color = Color::from_linear(Shade::lighten(&BG_DARK.into_linear(), 0.1));
+    let stroke_color = Color::from_linear(Shade::lighten(&BG_LIGHT.into_linear(), 0.2));
 
     let handle_container_style = STYLE
         .position_type(Absolute)
@@ -147,7 +147,7 @@ pub fn node(
         .justify_content(SpaceEvenly);
 
     rsx! {
-        <rounded_rect fill_color=Some(fill_color) stroke_color=Some(stroke_color) style={style.flex_direction(Column).align_items(AlignItems::Stretch)}>
+        <rect fill_color=Some(fill_color) stroke_color=Some(stroke_color) style={style.flex_direction(Column).align_items(AlignItems::Stretch)}>
             <drag_detector on_drag=on_drag style={STYLE.flex_direction(Column).flex_grow(1.0)} >
                 <text style={STYLE.align_self(AlignSelf::Center)}>
                     {"GpuBitDepthConverter".to_string()}
@@ -166,7 +166,7 @@ pub fn node(
 
                 /* TODO: add controls, etc in this area */
             </min_size>
-        </rounded_rect>
+        </rect>
     }
 }
 

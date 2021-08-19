@@ -12,11 +12,11 @@ pub fn btn(context: Context) -> Fragment {
     };
 
     rsx! {
-        <rounded_rect fill_color=Some(color)>
+        <rect fill_color=Some(color)>
             <input on_click=callback.clone()>
                 <min_size width={Points(100.0)} height={Points(100.0)} />
             </input>
-        </rounded_rect>
+        </rect>
     }
 }
 

@@ -5,7 +5,7 @@ use crate::{
 };
 pub use lyon::tessellation::StrokeOptions;
 use lyon::{
-    math::rect,
+    math::rect as lyon_rect,
     path::{builder::*, Winding},
     tessellation::path::{builder::BorderRadii, path::Builder},
 };
@@ -21,7 +21,7 @@ use std::sync::Arc;
     stroke_color = None,
     stroke_options = Default::default()
 )]
-pub fn rounded_rect(
+pub fn rect(
     style: Style,
     children: Vec<Fragment>,
 
@@ -44,7 +44,7 @@ pub fn rounded_rect(
             }
         };
         builder.add_rounded_rectangle(
-            &rect(0.0, 0.0, size.width, size.height),
+            &lyon_rect(0.0, 0.0, size.width, size.height),
             &BorderRadii {
                 top_left: border_radius_px,
                 top_right: border_radius_px,

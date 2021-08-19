@@ -25,11 +25,11 @@ pub fn button(
     };
 
     rsx! {
-        <rounded_rect fill_color=Some(color)>
+        <rect fill_color=Some(color)>
             <input on_click=callback style={STYLE.padding(Points(10.))}>
                 {children}
             </input>
-        </rounded_rect>
+        </rect>
     }
 }
 
@@ -82,10 +82,10 @@ pub fn slider(
         .justify_content(JustifyContent::Center);
     rsx! {
          <input on_move=on_move style=top_style>
-            <rounded_rect style=slide_style fill_color=Some(slide_color) />
+            <rect style=slide_style fill_color=Some(slide_color) />
             <container style=handle_container_style>
                 <input on_click=on_click style=handle_input_style>
-                    <rounded_rect border_radius=Percent(1.) style=handle_rect_style fill_color=Some(knob_color) />
+                    <rect border_radius=Percent(1.) style=handle_rect_style fill_color=Some(knob_color) />
                 </input>
             </container>
          </input>

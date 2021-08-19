@@ -14,7 +14,7 @@ fn main() {
                 {(0..50).map(|x| rsx!{
                     <column justify_content={JustifyContent::SpaceEvenly} align_items={AlignItems::Center} fill_parent=true key=&x>
                         {(0..50).map(|y| rsx!{
-                            <rounded_rect
+                            <rect
                                 key=&y
                                 fill_color={
                                     let listenable: Listenable<u64> = unsafe { Listenable::uninitialized(Key::default().with(KeyPart::sideband("frame_counter"))) };
@@ -23,7 +23,7 @@ fn main() {
                                 }
                             >
                                 <min_size width={Dimension::Points(10.0)} height={Dimension::Points(10.0)} />
-                            </rounded_rect>
+                            </rect>
                         }).collect()}
                     </column>
                 }).collect()}
