@@ -77,6 +77,7 @@ pub type RenderFnInner = dyn Fn(
         &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         &DynamicState,
         Rect,
+        Vec2,
     ) + Send
     + Sync;
 // RenderObject is the data structure that really defines _what_ is rendered

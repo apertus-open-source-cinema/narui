@@ -14,7 +14,7 @@ impl RawRenderer {
         &mut self,
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
-        _dimensions: &[u32; 2],
+        dimensions: &[u32; 2],
         render_objects: Arc<Vec<PositionedRenderObject>>,
     ) {
         for render_object in render_objects.iter() {
@@ -24,6 +24,7 @@ impl RawRenderer {
                     buffer_builder,
                     dynamic_state,
                     render_object.rect,
+                    (*dimensions).into(),
                 );
             }
         }
