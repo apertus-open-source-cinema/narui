@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul, Sub};
 use stretch::geometry::{Point, Size};
 use winit::dpi::PhysicalPosition;
 
-pub use palette::LinSrgba as Color;
+pub use palette::{rgb::Rgb as __Rgb, Srgba as Color};
 use stretch::number::Number;
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]

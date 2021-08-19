@@ -24,7 +24,7 @@ use vulkano::{
         SubpassContents,
     },
     device::DeviceOwned,
-    format::ClearValue,
+    format::{ClearValue, Format},
     image::{
         view::ImageView,
         AttachmentImage,
@@ -65,14 +65,13 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let caps = surface.capabilities(device.physical_device()).unwrap();
     let (mut swapchain, images) = {
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
-        let format = caps.supported_formats[0].0;
         dimensions = surface.window().inner_size().into();
         Swapchain::start(device.clone(), surface.clone())
             .usage(ImageUsage::color_attachment())
             .num_images(caps.min_image_count)
             .composite_alpha(alpha)
             .dimensions(dimensions)
-            .format(format)
+            .format(Format::B8G8R8A8Srgb)
             .build()
             .expect("cant create swapchain")
     };
@@ -157,8 +156,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-                let clear_values =
-                    vec![theme::BG.into_format().into_raw::<[f32; 4]>().into(), ClearValue::None];
+                let clear_values = vec![theme::BG.into_raw::<[f32; 4]>().into(), ClearValue::None];
                 let mut builder = AutoCommandBufferBuilder::primary(
                     device.clone(),
                     queue.family(),

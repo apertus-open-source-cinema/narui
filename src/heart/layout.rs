@@ -5,7 +5,7 @@ use crate::{
 use hashbrown::HashMap;
 use stretch::{
     node::{MeasureFunc, Node},
-    prelude::{Dimension, Size, Style},
+    prelude::Style,
     Stretch,
 };
 

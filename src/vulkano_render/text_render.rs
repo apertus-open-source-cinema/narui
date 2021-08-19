@@ -239,7 +239,7 @@ impl TextRenderer {
                     Section::default()
                         .add_text(
                             Text::new(&*text)
-                                .with_color(color.into_format().into_raw::<[f32; 4]>())
+                                .with_color(color.into_linear().into_raw::<[f32; 4]>())
                                 .with_scale(PxScale::from(*size)),
                         )
                         .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))

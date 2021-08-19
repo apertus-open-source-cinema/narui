@@ -45,7 +45,7 @@ pub fn color(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let b = str_to_float(&trimmed[4..6]);
             (quote! {
                 Color {
-                    color: palette::rgb::Rgb {
+                    color: narui::__Rgb {
                         red: #r,
                         green: #g,
                         blue: #b,

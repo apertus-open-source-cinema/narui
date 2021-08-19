@@ -11,7 +11,11 @@ pub fn button(
 ) -> Fragment {
     let clicked = context.listenable(false);
 
-    let color = if context.listen(clicked) { color.lighten(0.1) } else { color };
+    let color = if context.listen(clicked) {
+        Color::from_linear(color.into_linear().lighten(0.1))
+    } else {
+        color
+    };
 
     let callback = move |context: Context, is_clicked| {
         context.shout(clicked, is_clicked);

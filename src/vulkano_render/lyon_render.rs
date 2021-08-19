@@ -19,6 +19,7 @@ use lyon::{
         StrokeVertex,
     },
 };
+use palette::Pixel;
 use std::{mem, mem::size_of, ops::Deref, sync::Arc};
 use stretch::geometry::Size;
 use vulkano::{
@@ -127,7 +128,7 @@ impl LyonRenderer {
         for render_object in render_objects.iter() {
             let (buffer, color) = match &render_object.render_object {
                 RenderObject::FillPath { path_gen, color } => {
-                    let color = [color.red, color.green, color.blue, color.alpha];
+                    let color = color.into_linear().into_raw::<[f32; 4]>();
                     let path_gen = path_gen;
                     let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
                     let buffer = self.fill_tessellate_with_cache(

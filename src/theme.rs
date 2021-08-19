@@ -1,4 +1,4 @@
-use crate::{heart::Color, macros::color};
+use crate::*;
 
 pub static BG: Color = color!(#282828);
 pub static BG_LIGHT: Color = color!(#505050);
