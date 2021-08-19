@@ -59,7 +59,7 @@ macro_rules! rect_setter {
         }
         pub fn $name_bottom(self, $name_bottom: Dimension) -> Self {
             Self(StretchStyle {
-                $accessor: Rect { start: $name_bottom, ..self.0.$accessor },
+                $accessor: Rect { bottom: $name_bottom, ..self.0.$accessor },
                 ..self.0
             })
         }
@@ -109,6 +109,10 @@ impl Style {
     size_setter!(size, width, height);
     size_setter!(min_size, min_width, min_height);
     size_setter!(max_size, max_width, max_height);
+
+    pub fn width_fill(&self) -> Style { self.width(Percent(1.0)) }
+    pub fn height_fill(&self) -> Style { self.height(Percent(1.0)) }
+    pub fn fill(&self) -> Style { self.width_fill().height_fill() }
 
     pub(crate) fn stretch_style(&self) -> &StretchStyle { &self.0 }
 }

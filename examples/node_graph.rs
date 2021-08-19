@@ -51,7 +51,7 @@ pub fn drag_detector(
 pub fn hr(color: Color, context: Context) -> Fragment {
     rsx! {
         <rounded_rect border_radius=0.0 fill_color=Some(color) >
-            <min_size width={Dimension::Percent(1.0)} height={Dimension::Points(2.0)} />
+            <min_size width={Percent(1.0)} height={Points(2.0)} />
         </rounded_rect>
     }
 }
@@ -142,7 +142,7 @@ pub fn node(
 
     let handle_container_style = STYLE
         .position_type(Absolute)
-        .height(Percent(1.0))
+        .height_fill()
         .flex_direction(Column)
         .justify_content(SpaceEvenly);
 
@@ -215,7 +215,7 @@ pub fn node_graph(context: Context) -> Fragment {
     });
 
     rsx! {
-        <container style=STYLE.width(Percent(1.0)).height(Percent(1.0))>
+        <container style=STYLE.fill()>
             <fragment>
             {current_positions.iter().cloned().enumerate().map(|(i, position)| {
                 let current_positions_clone = current_positions_clone.clone();

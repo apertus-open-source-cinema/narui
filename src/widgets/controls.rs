@@ -85,7 +85,7 @@ pub fn slider(
             <rounded_rect style=slide_style fill_color=Some(slide_color) />
             <container style=handle_container_style>
                 <input on_click=on_click style=handle_input_style>
-                    <rounded_rect border_radius=10.0 style=handle_rect_style fill_color=Some(knob_color) />
+                    <rounded_rect border_radius=Percent(1.) style=handle_rect_style fill_color=Some(knob_color) />
                 </input>
             </container>
          </input>

@@ -62,15 +62,16 @@ impl Layouter {
             last_size: Vec2::zero(),
             node_has_measure: Default::default(),
         };
-        layouter.top_node = Some(layouter.node(
-            Default::default(),
-            Style {
-                size: Size { height: Dimension::Percent(1.0), width: Dimension::Percent(1.0) },
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..Default::default()
-            },
-        ));
+        layouter.top_node = Some(
+            layouter.node(
+                Default::default(),
+                *STYLE
+                    .fill()
+                    .align_items(AlignItems::Center)
+                    .justify_content(JustifyContent::Center)
+                    .stretch_style(),
+            ),
+        );
         layouter
     }
     pub fn do_layout(&mut self, size: Vec2) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
@@ -79,7 +80,10 @@ impl Layouter {
             self.changed_layout = false;
             self.last_size = size;
         }
-        // println!("layout_repr: \n{}", self.layout_repr(self.top_node.unwrap()));
+
+        if self.debug_layout_bounds {
+            println!("layout_repr: \n{}", self.layout_repr(self.top_node.unwrap()));
+        }
 
         let mut to_return = Vec::with_capacity(self.render_object_map.len());
         self.get_absolute_positions(self.top_node.unwrap(), Vec2::zero(), &mut to_return);
@@ -93,7 +97,7 @@ impl Layouter {
         positioned_widgets: &mut Vec<PositionedRenderObject>,
     ) {
         let layout = self.stretch.layout(node).unwrap();
-        let pos = parent_position + layout.location.into();
+        let pos = parent_position + Vec2::from(layout.location);
 
         // we need to insert the layoutObjects here for later inspection by the
         // measure_* hooks

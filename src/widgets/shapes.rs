@@ -1,11 +1,13 @@
-use crate::{heart::*, macros::widget, style::Size};
+use crate::{
+    heart::*,
+    macros::widget,
+    style::{Dimension, Size},
+};
+pub use lyon::tessellation::StrokeOptions;
 use lyon::{
     math::rect,
     path::{builder::*, Winding},
-    tessellation::{
-        path::{builder::BorderRadii, path::Builder},
-        StrokeOptions,
-    },
+    tessellation::path::{builder::BorderRadii, path::Builder},
 };
 use std::sync::Arc;
 
@@ -13,9 +15,9 @@ use std::sync::Arc;
     style = Default::default(),
     children = Default::default(),
 
-    border_radius = 7.5,
+    border_radius = Default::default(),
 
-    fill_color = Some(narui::theme::BG_LIGHT),
+    fill_color = None,
     stroke_color = None,
     stroke_options = Default::default()
 )]
@@ -23,7 +25,7 @@ pub fn rounded_rect(
     style: Style,
     children: Vec<Fragment>,
 
-    border_radius: f32,
+    border_radius: Dimension,
 
     fill_color: Option<Color>,
     stroke_color: Option<Color>,
@@ -33,13 +35,21 @@ pub fn rounded_rect(
 ) -> FragmentInner {
     let path_gen = Arc::new(move |size: Size<f32>| {
         let mut builder = Builder::new();
+        let border_radius_px = match border_radius {
+            Dimension::Undefined => 0.0,
+            Dimension::Auto => 0.0,
+            Dimension::Points(px) => px,
+            Dimension::Percent(percent) => {
+                (if size.width > size.height { size.height } else { size.width }) * percent
+            }
+        };
         builder.add_rounded_rectangle(
             &rect(0.0, 0.0, size.width, size.height),
             &BorderRadii {
-                top_left: border_radius,
-                top_right: border_radius,
-                bottom_left: border_radius,
-                bottom_right: border_radius,
+                top_left: border_radius_px,
+                top_right: border_radius_px,
+                bottom_left: border_radius_px,
+                bottom_right: border_radius_px,
             },
             Winding::Positive,
         );

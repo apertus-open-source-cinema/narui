@@ -9,13 +9,13 @@ fn layout_block(style: Style, children: Vec<Fragment>) -> FragmentInner {
 
 pub(crate) fn fill_parent_helper(style: Style, fill_parent: bool) -> Style {
     if fill_parent {
-        style.width(Percent(1.0)).height(Percent(1.0))
+        style.fill()
     } else {
         style
     }
 }
 
-#[widget(style = Default::default())]
+#[widget(style = Default::default(), children = Default::default())]
 pub fn container(style: Style, children: Vec<Fragment>, context: Context) -> FragmentInner {
     layout_block(style, children)
 }
