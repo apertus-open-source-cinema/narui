@@ -1,14 +1,22 @@
 #[allow(clippy::too_many_arguments)]
-pub mod controls;
-pub mod fragment;
-pub mod input;
-pub mod layout;
-pub mod shapes;
-pub mod text;
-
+mod controls;
 pub use controls::*;
-pub use fragment::*;
-pub use input::*;
+
+#[path = "fragment.rs"]
+mod fragment_widget;
+pub use fragment_widget::*;
+
+mod layout;
 pub use layout::*;
-pub use shapes::*;
-pub use text::*;
+
+#[path = "input.rs"]
+mod input_widget;
+pub use input_widget::*;
+
+#[path = "rect.rs"]
+mod rect_widget;
+pub use rect_widget::*;
+
+#[path = "text.rs"]
+mod text_widget;
+pub use text_widget::*;

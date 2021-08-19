@@ -22,7 +22,7 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
                     children: vec![],
                 }),
             }
-        }}
+        }};
     }
     assert!(parsed.len() == 1);
     let (begining, inplace) = handle_rsx_node(parsed.remove(0));
@@ -46,10 +46,16 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         };
         let loc_str = format!("{}", loc);
 
-        let args_listenable_ident = Ident::new(&format!("__{}_{}_args", name_str, loc_str), Span::call_site());
+        let args_listenable_ident =
+            Ident::new(&format!("__{}_{}_args", name_str, loc_str), Span::call_site());
         let mut key = quote! {KeyPart::Fragment { name: #name_str, loc: #loc_str }};
 
-        let constructor_ident = Ident::new(&format!("__{}_constructor", name), Span::call_site());
+        let constructor_path = {
+            let constructor_ident =
+                Ident::new(&format!("__{}_constructor", name), Span::call_site());
+            let mod_ident = Ident::new(&format!("{}", name), Span::call_site());
+            quote! {#mod_ident::#constructor_ident}
+        };
         let mut processed_attributes = vec![];
         for attribute in &x.attributes {
             let name = attribute.name.as_ref().unwrap();
@@ -66,35 +72,34 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             let value = x.children[0].value.as_ref().unwrap();
             (quote! {}, quote! {children=(#value),})
         } else {
-            let (beginning, inplace): (Vec<_>, Vec<_>) = x.children.into_iter().map(|child| {
-                handle_rsx_node(child)
-            }).unzip();
+            let (beginning, inplace): (Vec<_>, Vec<_>) =
+                x.children.into_iter().map(|child| handle_rsx_node(child)).unzip();
             (quote! {#(#beginning)*}, quote! {children={vec![#(#inplace,)*]},})
         };
 
         let beginning = quote! {
-                let #args_listenable_ident = {
-                    let context = {
-                        let mut context = context.clone();
-                        context.widget_local.key = context.widget_local.key.with(#key);
-                        context
-                    };
-
-                    #beginning
-
-                    #constructor_ident!(
-                        @shout_args
-                        context=(context.clone()),
-                        #(#processed_attributes,)*
-                        #children_processed
-                    )
+            let #args_listenable_ident = {
+                let context = {
+                    let mut context = context.clone();
+                    context.widget_local.key = context.widget_local.key.with(#key);
+                    context
                 };
+
+                #beginning
+
+                #constructor_path!(
+                    @shout_args
+                    context=(context.clone()),
+                    #(#processed_attributes,)*
+                    #children_processed
+                )
             };
+        };
         let inplace = quote! {
             Fragment {
                 key: context.widget_local.key.with(#key),
                 gen: std::sync::Arc::new(move |context: Context| {
-                    #constructor_ident!(@construct listenable=#args_listenable_ident, context=context)
+                    #constructor_path!(@construct listenable=#args_listenable_ident, context=context)
                 })
             }
         };

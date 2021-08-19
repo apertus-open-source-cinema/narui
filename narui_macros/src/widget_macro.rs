@@ -41,6 +41,7 @@ pub fn widget(
     let parsed: Result<ItemFn, _> = syn::parse2(item.into());
     let function = parsed.unwrap();
     let function_ident = function.sig.ident.clone();
+    let mod_ident = Ident::new(&format!("{}", function_ident.clone()), Span::call_site());
 
     let last_name = get_arg_names(&function).into_iter().last().unwrap().to_string();
     let last_type = get_arg_types(&function)[&last_name].clone();
@@ -92,7 +93,7 @@ pub fn widget(
                     (@parse_args [#($#arg_names:ident,)*] #unhygienic = $value:expr,$($rest:tt)*) => {
                         #[allow(unused_braces)]
                         let $#unhygienic = #value;
-                        #macro_ident_pub!(@parse_args [#($#arg_names,)*] $($rest)*);
+                        #mod_ident::#macro_ident_pub!(@parse_args [#($#arg_names,)*] $($rest)*);
                     };
                 }
             })
@@ -128,7 +129,7 @@ pub fn widget(
             (@shout_args context=$context:expr, $($args:tt)*) => {
                 {
                     #(#initializers;)*
-                    #macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
+                    #mod_ident::#macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
 
                     (#(#arg_names_listenables,)*)
                 }
@@ -176,7 +177,7 @@ pub fn widget(
 
                 (@construct listenable=$listenable:ident, context=$context:expr) => {{
                     #transformer
-                    transformer(#function_ident(#($context.listen($listenable.#arg_numbers),)* $context))
+                    transformer(#mod_ident::#function_ident(#($context.listen($listenable.#arg_numbers),)* $context))
                 }}
             }
 
@@ -186,14 +187,18 @@ pub fn widget(
         }
     };
 
-    let transformed_function = transform_function_args_to_context(function);
+    let (transformed_function, original_ident, new_ident) =
+        transform_function_args_to_context(function.clone());
+    let function_vis = function.vis;
 
     let transformed = quote! {
-        #constructor_macro
-
         #transformed_function
+        #function_vis mod #mod_ident {
+            #constructor_macro
+            pub use super::#new_ident as #original_ident;
+        }
     };
-    //println!("widget: \n{}\n\n", transformed.clone());
+    // println!("widget: \n{}\n\n", transformed.clone());
     transformed.into()
 }
 // a (simplified) example of the kind of macro this proc macro generates:
@@ -221,9 +226,14 @@ macro_rules! button_constructor {
 
 // adds the function arguments to the context as a `Listenable` and listen on it
 // for partial re-evaluation.
-fn transform_function_args_to_context(function: ItemFn) -> proc_macro2::TokenStream {
+fn transform_function_args_to_context(
+    function: ItemFn,
+) -> (proc_macro2::TokenStream, Ident, Ident) {
     let function_clone = function.clone();
-    let ItemFn { attrs, vis, sig, block } = function;
+    let ItemFn { attrs, vis: _, mut sig, block } = function;
+    let original_ident = sig.ident;
+    let new_ident = desinfect_ident(&original_ident);
+    sig.ident = new_ident.clone();
     let stmts = &block.stmts;
     let context_string = get_arg_types(&function_clone)
         .iter()
@@ -234,7 +244,7 @@ fn transform_function_args_to_context(function: ItemFn) -> proc_macro2::TokenStr
         .to_string();
     let context_ident = Ident::new(&context_string, Span::call_site());
     let function_transformed = quote! {
-        #(#attrs)* #vis #sig {
+        #(#attrs)* pub #sig {
             let to_return = {
                 #(#stmts)*
             };
@@ -242,7 +252,7 @@ fn transform_function_args_to_context(function: ItemFn) -> proc_macro2::TokenStr
             to_return
         }
     };
-    function_transformed
+    (function_transformed, original_ident, new_ident)
 }
 
 fn get_arg_names(function: &ItemFn) -> Vec<Ident> {

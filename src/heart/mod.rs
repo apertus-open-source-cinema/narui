@@ -1,10 +1,10 @@
-pub mod all_eq;
-pub mod context;
-pub mod delta_eval;
-pub mod fragment;
-pub mod layout;
+mod all_eq;
+mod context;
+mod delta_eval;
+mod fragment;
+mod layout;
 pub mod style;
-pub mod types;
+mod types;
 
 pub use all_eq::*;
 pub use context::*;
