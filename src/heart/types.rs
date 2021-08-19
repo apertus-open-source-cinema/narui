@@ -19,20 +19,40 @@ impl Add for Vec2 {
 
     fn add(self, rhs: Self) -> Self::Output { Vec2 { x: self.x + rhs.x, y: self.y + rhs.y } }
 }
+impl Add<f32> for Vec2 {
+    type Output = Vec2;
+
+    fn add(self, rhs: f32) -> Self::Output { Vec2 { x: self.x + rhs, y: self.y + rhs } }
+}
 impl Sub for Vec2 {
     type Output = Vec2;
 
     fn sub(self, rhs: Self) -> Self::Output { Vec2 { x: self.x - rhs.x, y: self.y - rhs.y } }
+}
+impl Sub<f32> for Vec2 {
+    type Output = Vec2;
+
+    fn sub(self, rhs: f32) -> Self::Output { Vec2 { x: self.x - rhs, y: self.y - rhs } }
 }
 impl Div for Vec2 {
     type Output = Vec2;
 
     fn div(self, rhs: Self) -> Self::Output { Vec2 { x: self.x / rhs.x, y: self.y / rhs.y } }
 }
+impl Div<f32> for Vec2 {
+    type Output = Vec2;
+
+    fn div(self, rhs: f32) -> Self::Output { Vec2 { x: self.x / rhs, y: self.y / rhs } }
+}
 impl Mul for Vec2 {
     type Output = Vec2;
 
     fn mul(self, rhs: Self) -> Self::Output { Vec2 { x: self.x * rhs.x, y: self.y * rhs.y } }
+}
+impl Mul<f32> for Vec2 {
+    type Output = Vec2;
+
+    fn mul(self, rhs: f32) -> Self::Output { Vec2 { x: self.x * rhs, y: self.y * rhs } }
 }
 
 macro_rules! implement_convert {

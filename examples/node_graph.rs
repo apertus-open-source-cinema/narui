@@ -70,7 +70,7 @@ pub fn handle(
     let on_drag = move |context: Context, pos: Vec2| {
         let size = context.measure_size(this_key).unwrap();
         let position = context.measure_offset(graph_root, this_key).unwrap();
-        let start = position + (size / Vec2::new(2.0, 2.0));
+        let start = position + (size / 2.);
         let end = start + pos;
         on_drag(context, start, end, color);
     };
@@ -124,7 +124,7 @@ pub fn connection(start: Vec2, end: Vec2, color: Color, context: Context) -> Fra
 
 fn get_handle_offset(context: Context, key: Key) -> Result<Vec2, MeasureError> {
     Ok(context.measure_offset(key.parent().parent().parent().parent(), key)?
-        + (context.measure_size(key)? / Vec2::new(2., 2.)))
+        + (context.measure_size(key)? / 2.))
 }
 
 #[widget(style = Default::default())]

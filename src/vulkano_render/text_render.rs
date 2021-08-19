@@ -244,7 +244,7 @@ impl TextRenderer {
                         )
                         .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
                         .with_bounds(Into::<(f32, f32)>::into(
-                            render_object.rect.size + Vec2::new(1., 1.),
+                            render_object.rect.size + 1.,
                         )), // we seem to have some numerical instability issues here
                 );
             }
