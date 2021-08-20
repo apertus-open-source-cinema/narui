@@ -121,7 +121,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut raw_render = RawRenderer::new(render_pass.clone());
     let mut input_handler = InputHandler::new();
 
-    let layouter = Layouter::new(false);
+    let layouter = Layouter::new();
     let mut evaluator = Evaluator::new(top_node, layouter);
 
     let mut layouted: Arc<Vec<PositionedRenderObject>> = Default::default();

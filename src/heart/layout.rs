@@ -8,6 +8,7 @@ use stretch::{
     prelude::Style,
     Stretch,
 };
+use std::env;
 
 
 // PositionedRenderObject is the main output data structure of the Layouting
@@ -49,7 +50,9 @@ pub struct Layouter {
 }
 
 impl Layouter {
-    pub fn new(debug_layout_bounds: bool) -> Self {
+    pub fn new() -> Self {
+        let debug_layout_bounds = env::var("NARUI_LAYOUT_BOUNDS").is_ok();
+
         let stretch = Stretch::new();
         let mut layouter = Layouter {
             stretch,
