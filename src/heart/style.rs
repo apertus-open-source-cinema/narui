@@ -30,7 +30,10 @@ lazy_static! {
 
 macro_rules! normal_setter {
     ($name:ident, $type:ty) => {
-        pub fn $name(self, $name: $type) -> Self { Self(StretchStyle { $name, ..self.0 }) }
+        pub fn $name(self, $name: $type) -> Self { Self(StretchStyle {
+            $name: if self.0.$name != Default::default() { self.0.$name } else { $name },
+            ..self.0
+        }) }
     };
 }
 
@@ -70,13 +73,19 @@ macro_rules! size_setter {
     ($accessor:tt, $name_width:ident, $name_height:ident) => {
         pub fn $name_width(self, $name_width: Dimension) -> Self {
             Self(StretchStyle {
-                $accessor: Size { width: $name_width, ..self.0.$accessor },
+                $accessor: Size {
+                    width: (if self.0.$accessor.width != Dimension::Auto { self.0.$accessor.width } else { $name_width }),
+                    ..self.0.$accessor
+                },
                 ..self.0
             })
         }
         pub fn $name_height(self, $name_height: Dimension) -> Self {
             Self(StretchStyle {
-                $accessor: Size { height: $name_height, ..self.0.$accessor },
+                $accessor: Size {
+                    height: (if self.0.$accessor.height != Dimension::Auto { self.0.$accessor.height } else { $name_height }),
+                    ..self.0.$accessor
+                },
                 ..self.0
             })
         }
