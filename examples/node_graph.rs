@@ -129,6 +129,7 @@ fn get_handle_offset(context: Context, key: Key) -> Result<Vec2, MeasureError> {
 
 #[widget(style = Default::default())]
 pub fn node(
+    name: impl ToString + Clone + Send + Sync + 'static,
     style: Style,
     on_drag: impl Fn(Context, Vec2) + Clone + Sync + Send + 'static,
     on_handle_drag: impl Fn(Context, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
@@ -147,10 +148,15 @@ pub fn node(
         .justify_content(SpaceEvenly);
 
     rsx! {
-        <rect fill_color=Some(fill_color) stroke_color=Some(stroke_color) style={style.flex_direction(Column).align_items(AlignItems::Stretch)}>
+        <rect
+            border_radius=Points(10.0)
+            fill_color=Some(fill_color)
+            stroke_color=Some(stroke_color)
+            style={style.flex_direction(Column).align_items(AlignItems::Stretch)}
+        >
             <drag_detector on_drag=on_drag style={STYLE.flex_direction(Column).flex_grow(1.0)} >
                 <text style={STYLE.align_self(AlignSelf::Center)}>
-                    {"GpuBitDepthConverter".to_string()}
+                    {name}
                 </text>
                <hr color=stroke_color />
             </drag_detector>
@@ -170,19 +176,17 @@ pub fn node(
     }
 }
 
-
 #[widget]
 pub fn node_graph(context: Context) -> Fragment {
     let this_key = context.widget_local.key;
 
-    let positions = context.listenable(vec![
-        Vec2::zero(),
-        Vec2::new(300., 400.),
-        Vec2::new(600., 400.),
-        Vec2::new(500., 700.),
+    let nodes = context.listenable(vec![
+        ("narui", Vec2::zero()),
+        ("rocks", Vec2::new(300., 400.)),
+        ("hard", Vec2::new(600., 400.)),
     ]);
-    let current_positions = context.listen(positions);
-    let current_positions_clone = current_positions.clone();
+    let current_nodes = context.listen(nodes);
+    let current_nodes_clone = current_nodes.clone();
 
     let current_connection = context.listenable(None);
     let settled_connections: Listenable<Vec<((usize, Vec2), (usize, Vec2), Color)>> =
@@ -217,18 +221,19 @@ pub fn node_graph(context: Context) -> Fragment {
     rsx! {
         <container style=STYLE.fill()>
             <fragment>
-            {current_positions.iter().cloned().enumerate().map(|(i, position)| {
-                let current_positions_clone = current_positions_clone.clone();
+            {current_nodes.iter().cloned().enumerate().map(|(i, (name, position))| {
+                let current_nodes_clone = current_nodes_clone.clone();
 
                 rsx! {
                      <node
+                        name=name
                         key=&i
                         graph_root=this_key
                         style={STYLE.position_type(Absolute).top(Points(position.y)).left(Points(position.x))}
                         on_drag={move |context: Context, pos: Vec2| {
-                            let mut new_positions = current_positions_clone.clone();
-                            new_positions[i] = position + pos;
-                            context.shout(positions, new_positions);
+                            let mut new_positions = current_nodes_clone.clone();
+                            new_positions[i].1 = position + pos;
+                            context.shout(nodes, new_positions);
                         }}
                         on_handle_drag=on_handle_drag.clone()
                         on_handle_drag_end={move |context: Context, key: Key| {
@@ -256,11 +261,11 @@ pub fn node_graph(context: Context) -> Fragment {
                 context.listen(settled_connections).iter().enumerate().map(|(i, (start, end, color))| {
                     let start = {
                         let (i, vec) = start;
-                        context.listen(positions)[*i] + *vec
+                        context.listen(nodes)[*i].1 + *vec
                     };
                     let end = {
                         let (i, vec) = end;
-                        context.listen(positions)[*i] + *vec
+                        context.listen(nodes)[*i].1 + *vec
                     };
                     rsx! {<connection key=&i start=start end=end color=*color />}
                 }).collect()

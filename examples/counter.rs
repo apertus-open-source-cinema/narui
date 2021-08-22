@@ -6,14 +6,18 @@ pub fn counter(initial_value: i32, context: Context) -> Fragment {
     let count = context.listenable(initial_value);
     let value = context.listen(count);
 
+    let button_style = STYLE.margin(Points(10.));
+
     rsx! {
          <row align_items=AlignItems::Center justify_content=JustifyContent::Center>
-            <button on_click=move |context: Context, _state| context.shout(count, context.listen(count) - 1)>
-                <text>{" - ".to_string()}</text>
+            <button style=button_style on_click=move |context: Context| context.shout(count, context.listen(count) - 1)>
+                <text>{" - "}</text>
             </button>
+
             <text style={STYLE.padding(Points(10.))}>{format!("{}", value)}</text>
-            <button on_click=move |context: Context, _state| context.shout(count, context.listen(count) + 1)>
-                <text>{" + ".to_string()}</text>
+
+            <button style=button_style on_click=move |context: Context| context.shout(count, context.listen(count) + 1)>
+                <text>{" + "}</text>
             </button>
          </row>
     }
