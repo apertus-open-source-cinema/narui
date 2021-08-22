@@ -1,4 +1,5 @@
-# `narui`
+<h1 align="center"><code>narui</code></h1>
+
 A react-inspired UI library for building multimedia desktop apps with rust and vulkan.
 
 * Ergonomics similar to React with hooks
