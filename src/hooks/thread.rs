@@ -7,18 +7,26 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
+#[derive(Debug, Clone)]
 pub struct ThreadHandle<T> {
     sender: SyncSender<T>,
-    join_handle: Option<JoinHandle<()>>,
+    join_handle: Option<Arc<JoinHandle<()>>>,
     stop_value: Option<T>,
+}
+impl<T> ThreadHandle<T> {
+    pub fn send(&self, msg: T) -> Result<(), std::sync::mpsc::SendError<T>> {
+        self.sender.send(msg)
+    }
 }
 impl<T> Drop for ThreadHandle<T> {
     fn drop(&mut self) {
         self.sender.send(self.stop_value.take().unwrap()).unwrap();
-        self.join_handle.take().unwrap().join().expect("error joining thread");
+        Arc::try_unwrap(self.join_handle.take().unwrap())
+            .unwrap()
+            .join()
+            .expect("error joining thread");
     }
 }
-
 
 pub trait ContextThread {
     fn thread_key<T: Send + Sync + Clone + 'static>(
@@ -56,7 +64,7 @@ impl ContextThread for Context {
                 });
 
                 ThreadHandle {
-                    join_handle: Some(join_handle),
+                    join_handle: Some(Arc::new(join_handle)),
                     sender,
                     stop_value: Some(stop_value.clone()),
                 }

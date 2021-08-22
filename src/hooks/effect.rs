@@ -6,6 +6,7 @@ use crate::{
 };
 use std::marker::PhantomData;
 
+#[derive(Debug, Clone)]
 pub struct EffectHandle<T> {
     key: Key,
     context: Context,
