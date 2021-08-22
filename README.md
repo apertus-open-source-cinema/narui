@@ -79,7 +79,7 @@ rsx! {
     <colored_container>
         {
             (0..10).map(|i| {
-                rsx!{ 
+                rsx! { 
                     <text key=&i> // <-- explicit key is given here
                         {format!("{}", i)}
                     </text> 
@@ -94,7 +94,7 @@ rsx! {
 
 ### State, Hooks & Input handling
 
-All state management is done with the `context` struct that is passed to every widget. The context acts like a pointer into the widget tree (and can therefore be cheaply copied), and is used to associate data to a specific widget.
+The `context`, that is passed to every widget, acts like a pointer into the widget tree (and can therefore be cheaply copied), and is used to associate data to a specific widget.
 
 State management in `narui` is done using `hooks`. 
 Hooks work similiar to react hooks. The most simple hook is the `context.listenable` hook, which is used to store state. Widgets can subscribe to `Listenable`s with the `context.listen` method and get reevaluated when the state that they listen to changed. Similiarily, the value of a listenable can be updated by using the `context.shout` method.
