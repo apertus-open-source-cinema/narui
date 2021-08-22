@@ -1,5 +1,4 @@
 use narui::{style::*, *};
-use narui_macros::rsx_toplevel;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 #[widget]

@@ -3,7 +3,6 @@ use lyon::{
     tessellation::{path::path::Builder, LineCap, StrokeOptions},
 };
 use narui::{style::*, *};
-use narui_macros::rsx_toplevel;
 use palette::Shade;
 use std::sync::Arc;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
