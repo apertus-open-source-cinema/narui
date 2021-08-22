@@ -14,12 +14,12 @@ use std::sync::Arc;
 #[widget(size = 24.0, color = crate::theme::TEXT_WHITE, style = Default::default())]
 pub fn text(
     size: f32,
-    children: String,
+    children: impl ToString,
     color: Color,
     style: Style,
     context: Context,
 ) -> FragmentInner {
-    let children_ = children.clone();
+    let children_ = children.to_string().clone();
     let measurement_function = move |bounds: Size<Number>| -> Size<f32> {
         let fonts = &[FONT.clone()];
         let sfont = fonts[0].as_scaled(size);
@@ -47,7 +47,7 @@ pub fn text(
         Size { width: calculated_width, height: calculated_height }
     };
 
-    let primitive_text = RenderObject::Text { text: children, size, color };
+    let primitive_text = RenderObject::Text { text: children.to_string(), size, color };
 
     FragmentInner {
         children: vec![],
