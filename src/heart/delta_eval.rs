@@ -66,7 +66,14 @@ impl<T: LayoutTree> Evaluator<T> {
             .into_iter()
             .map(|fragment| self.evaluate_unconditional(fragment, context.clone()))
             .collect();
-        let children_keys = children.iter().map(|c| c.borrow().key).collect();
+        let children_keys: Vec<_> = children.iter().map(|c| c.borrow().key).collect();
+        let has_duplicates =
+            (1..children_keys.len()).any(|i| children_keys[i..].contains(&children_keys[i - 1]));
+        assert!(
+            !has_duplicates,
+            "elements need to have unique keys but do not. consider passing an explicit key."
+        );
+
         to_return.borrow_mut().children = children;
 
         self.layout_tree.set_node(fragment.key, evaluated.layout_object, children_keys);
@@ -136,7 +143,13 @@ impl<T: LayoutTree> Evaluator<T> {
             })
             .collect();
 
-        let children_keys = frag.children.iter().map(|child| child.borrow().key).collect();
+        let children_keys: Vec<_> = frag.children.iter().map(|child| child.borrow().key).collect();
+        let has_duplicates =
+            (1..children_keys.len()).any(|i| children_keys[i..].contains(&children_keys[i - 1]));
+        assert!(
+            !has_duplicates,
+            "elements need to have unique keys but do not. consider passing an explicit key."
+        );
         self.layout_tree.set_node(frag.key, frag.layout_object.clone(), children_keys);
 
         for child in old_children {
