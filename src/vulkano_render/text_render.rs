@@ -243,9 +243,7 @@ impl TextRenderer {
                                 .with_scale(PxScale::from(*size)),
                         )
                         .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
-                        .with_bounds(Into::<(f32, f32)>::into(
-                            render_object.rect.size + 1.,
-                        )), // we seem to have some numerical instability issues here
+                        .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size + 1.)), // we seem to have some numerical instability issues here
                 );
             }
         }
