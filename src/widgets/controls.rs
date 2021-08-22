@@ -1,12 +1,20 @@
 use crate::{style::*, *};
 use palette::Shade;
 
-
-#[widget(on_click = (| _context, _clicked | {}), color = crate::theme::BG)]
+#[widget(
+    on_click = (| _context | {}),
+    border_radius = Points(10.),
+    color = crate::theme::BG,
+    stroke_color = crate::theme::FG,
+    style=Default::default(),
+)]
 pub fn button(
-    on_click: impl Fn(Context, bool) + Clone + Sync + Send + 'static,
+    on_click: impl Fn(Context) + Clone + Sync + Send + 'static,
+    border_radius: Dimension,
     color: Color,
+    stroke_color: Color,
     children: Vec<Fragment>,
+    style: Style,
     context: Context,
 ) -> Fragment {
     let clicked = context.listenable(false);
@@ -20,12 +28,12 @@ pub fn button(
     let callback = move |context: Context, is_clicked| {
         context.shout(clicked, is_clicked);
         if is_clicked {
-            on_click(context, is_clicked);
+            on_click(context);
         }
     };
 
     rsx! {
-        <rect fill_color=Some(color)>
+        <rect style=style fill_color=Some(color) stroke_color=Some(stroke_color) border_radius=border_radius>
             <input on_click=callback style={STYLE.padding(Points(10.))}>
                 {children}
             </input>
@@ -33,7 +41,7 @@ pub fn button(
     }
 }
 
-#[widget(min = 0.0, max = 1.0, width = 500.0, slide_color = crate::theme::BG, knob_color = crate::theme::BG_LIGHT)]
+#[widget(min = 0.0, max = 1.0, width = 500.0, slide_color = crate::theme::BG_LIGHT, knob_color = crate::theme::FG)]
 pub fn slider(
     val: f32,
     on_change: impl Fn(Context, f32) + Clone + Send + Sync + 'static,
