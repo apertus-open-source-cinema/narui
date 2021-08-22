@@ -2,20 +2,24 @@
 
 A react-inspired UI library for building multimedia desktop apps with rust and vulkan.
 
-* Ergonomics similar to React with hooks
+* Declarative UI with Ergonomics similar to React with hooks
 * JSX-like syntax for composing widgets
 * clean, readable & familiar looking application code
 
 ![narui node graph demo gif](./node_graph_demo.gif)
 
 ## Usage
-Here is a small introduction of the basic concepts of `narui`. Many things might sound familiar if you used modern react or flutter. 
+Here is a small introduction of the basic concepts of `narui`. 
+Many things might sound familiar if you used modern react or flutter. 
 
 Make sure to also check out the [examples/](examples/) that cover some more advanced topics and contain more complicated code.
 
 ### Basics
 
-`narui` UIs are composed of `widgets`. These building blocks can be anything from a simple box to a complex node graph node or even a whole application. `widgets` are functions that are annotated with the `widget` attribute macro and return either `Fragment` for composed widgets or `FragmentInner` for primitive widgets.
+`narui` UIs are composed of `widgets`. These building blocks can be anything from a simple box to a complex node graph node or even a whole application. The Widgets of an application form a tree, that is partially re-evaluated when needed.
+
+`widgets` are functions that are annotated with the `widget` attribute macro and return either `Fragment` for composed widgets or `FragmentInner` for primitive widgets.
+
 ```rust
 #[widget]
 pub fn square(context: Context) -> Fragment {
@@ -70,11 +74,31 @@ rsx! {
     }
 ```
 
+If we programatically generate Widgets, we have to manually specify a `key` so that each widget has its own "identity":
+```rust
+rsx! {
+    <colored_container>
+        {
+            (0..10).map(|i| {
+                rsx!{ 
+                    <text key=&i> // <-- explicit key is given here
+                        {format!("{}", i)}
+                    </text> 
+                }
+            })
+        }
+    </colored_container>
+}
+```
+
 
 
 ### State, Hooks & Input handling
 
-State management in `narui` is done using `hooks`. This is also where the ominous `context` struct that is passed to every widget comes into play. Hooks work similiar to react hooks. The most simple hook is the `context.listenable` hook, which is used to store state. Widgets can subscribe to `Listenable`s with the `context.listen` method and get reevaluated when the state that they listen changed. Similiarily, the value of a listenable can be updated by using the `context.shout` method. Listenables should not be updated during the evaluation of a widget but only in reaction to external events. This way, re-render loops can be avoided in a clean and easy way.
+All state managementis done with the `context` struct that is passed to every widget comes into play. The context acts like a pointer into the widget tree (and can therefore be cheaply copied), which is used to associate data to a specific widget.
+
+State management in `narui` is done using `hooks`. 
+Hooks work similiar to react hooks. The most simple hook is the `context.listenable` hook, which is used to store state. Widgets can subscribe to `Listenable`s with the `context.listen` method and get reevaluated when the state that they listen changed. Similiarily, the value of a listenable can be updated by using the `context.shout` method.
 
 ```rust
 #[widget(initial_value = 1)]
@@ -93,6 +117,13 @@ pub fn counter(initial_value: i32, context: Context) -> Fragment {
     }
 }
 ```
+
+### Animations
+
+Usually widgets change state in reaction to a outside event like a mouse click or a message sent over a mpsc channel. Sometimes however it can be useful to drive a state change by the widget itself (for example to create animations).
+Listenables should not be updated during the evaluation of a widget but only in reaction to external events. This way, re-render loops can be avoided in a clean and easy way.
+
+To create animations despite the existance of that rule, one can use the `context.after_frame` hook, which allows widgets to run a closure after each frame is rendered. This allows widgets to change `Listenables` in each frame and therfore create animations.
 
 
 ### Business logic interaction & interfacing the rest of the world
