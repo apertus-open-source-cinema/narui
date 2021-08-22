@@ -23,12 +23,13 @@ impl VulkanContext {
         let physical = PhysicalDevice::enumerate(&instance)
             .next()
             .ok_or_else(|| anyhow!("No physical device found"))?;
+
         let queue_family = physical.queue_families().map(|qf| (qf, 0.5)); // All queues have the same priority
         let device_ext = DeviceExtensions {
             khr_swapchain: true,
             khr_storage_buffer_storage_class: true,
             khr_8bit_storage: true,
-            ..DeviceExtensions::none()
+            ..(*physical.required_extensions())
         };
         let (device, queues) =
             Device::new(physical, physical.supported_features(), &device_ext, queue_family)?;
