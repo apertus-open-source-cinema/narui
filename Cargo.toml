@@ -9,6 +9,7 @@ name = "narui"
 
 [dependencies]
 narui_macros = { path = "narui_macros" }
+rutter_layout = { path = "rutter_layout" }
 lyon = "0.17.5"
 stretch = { git = "https://github.com/vislyhq/stretch" }
 winit = "0.25.0"
