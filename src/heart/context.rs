@@ -1,4 +1,4 @@
-use crate::PositionedRenderObject;
+use crate::{PositionedRenderObject, LayoutTree};
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 use parking_lot::{Mutex, RwLock};
@@ -189,13 +189,14 @@ impl PatchedTree {
 
 pub type AfterFrameCallback = Box<dyn Fn(Context) + Send + Sync>;
 
-#[derive(Derivative, Default)]
+#[derive(Derivative)]
 #[derivative(Debug)]
 pub struct ApplicationGlobalContext {
     pub tree: PatchedTree,
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub after_frame_callbacks: Vec<AfterFrameCallback>,
-    pub last_layout: Option<Arc<Vec<PositionedRenderObject>>>,
+    #[derivative(Debug = "ignore")]
+    pub layout_tree: Arc<dyn LayoutTree>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -208,12 +209,23 @@ impl WidgetLocalContext {
     pub fn mark_used(&self, key: Key) { self.used.lock().insert(key); }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Context {
     pub global: Arc<RwLock<ApplicationGlobalContext>>,
     pub widget_local: WidgetLocalContext,
 }
 impl Context {
+    pub fn new(layout_tree: Arc<dyn LayoutTree>) -> Self {
+        Self {
+            global: Arc::new(RwLock::new(ApplicationGlobalContext {
+                tree: Default::default(),
+                after_frame_callbacks: Default::default(),
+                layout_tree
+            })),
+            widget_local: Default::default()
+        }
+    }
+
     pub fn with_key_widget(&self, key: Key) -> Context {
         Context {
             global: self.global.clone(),

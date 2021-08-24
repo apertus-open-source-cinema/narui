@@ -1,4 +1,4 @@
-use crate::{BoxConstraints, Layoutable, LayoutableChild, LayoutableChildren, Offset, Size};
+use crate::{BoxConstraints, Layout, LayoutableChild, LayoutableChildren, Offset, Size};
 use std::any::Any;
 
 pub mod column;
@@ -32,7 +32,7 @@ impl Flexible {
     }
 }
 
-impl Layoutable for Flexible {
+impl Layout for Flexible {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
         assert!(children.len() <= 1);
         if let Some(child) = children.into_iter().last() {

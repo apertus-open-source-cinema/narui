@@ -1,9 +1,7 @@
 use std::ops::{Add, Div, Mul, Sub};
-use stretch::geometry::{Point, Size};
 use winit::dpi::PhysicalPosition;
 
 pub use palette::{rgb::Rgb as __Rgb, Srgba as Color};
-use stretch::number::Number;
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vec2 {
@@ -92,25 +90,29 @@ impl_convert_tuple_arr2!(i64);
 impl_convert_tuple_arr2!(u32);
 impl_convert_tuple_arr2!(u64);
 
-implement_convert!(Point<f64>, v, v.x as f32, v.y as f32, Point { x: v.x as f64, y: v.y as f64 });
-implement_convert!(Point<f32>, v, v.x as f32, v.y as f32, Point { x: v.x as f32, y: v.y as f32 });
 implement_convert!(
-    Size<f64>,
+    Size,
     v,
-    v.width as f32,
-    v.height as f32,
-    Size { width: v.x as f64, height: v.y as f64 }
+    v.width,
+    v.height,
+    Size { width: v.x, height: v.y }
 );
+
 implement_convert!(
-    Size<f32>,
+    rutter_layout::Offset,
     v,
-    v.width as f32,
-    v.height as f32,
-    Size { width: v.x as f32, height: v.y as f32 }
+    v.x,
+    v.y,
+    rutter_layout::Offset { x: v.x, y: v.y }
 );
-impl From<Vec2> for Size<Number> {
-    fn from(v: Vec2) -> Self { Size { width: Number::Defined(v.x), height: Number::Defined(v.y) } }
-}
+
+implement_convert!(
+    rutter_layout::Size,
+    v,
+    v.width,
+    v.height,
+    rutter_layout::Size { width: v.x, height: v.y }
+);
 
 implement_convert!(
     PhysicalPosition<f64>,
@@ -136,4 +138,15 @@ impl Rect {
             && point.y <= self.bottom_right().y
     }
     pub fn bottom_right(&self) -> Vec2 { self.pos + self.size }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum BorderRadius {
+    Points(f32),
+    Percent(f32)
+}
+
+pub struct Size {
+    pub width: f32,
+    pub height: f32
 }

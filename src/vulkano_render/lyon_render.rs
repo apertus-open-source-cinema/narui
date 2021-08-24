@@ -21,7 +21,6 @@ use lyon::{
 };
 use palette::Pixel;
 use std::{mem, mem::size_of, ops::Deref, sync::Arc};
-use stretch::geometry::Size;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
@@ -130,7 +129,7 @@ impl LyonRenderer {
                 RenderObject::FillPath { path_gen, color } => {
                     let color = color.into_linear().into_raw::<[f32; 4]>();
                     let path_gen = path_gen;
-                    let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
+                    let path_gen_key = path_gen.as_ref() as *const _ as usize;
                     let buffer = self.fill_tessellate_with_cache(
                         path_gen.clone(),
                         render_object.rect.size,
@@ -153,7 +152,7 @@ impl LyonRenderer {
                 RenderObject::DebugRect => {
                     let color = [1.0, 0.0, 0.0, 0.5];
                     let buffer = self.stroke_tessellate_with_cache(
-                        (&|size: Size<f32>| {
+                        (&|size: Size| {
                             let mut builder = Builder::new();
                             builder.add_rectangle(
                                 &rect(0.0, 0.0, size.width, size.height),

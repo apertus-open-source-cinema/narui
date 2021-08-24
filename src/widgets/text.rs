@@ -1,4 +1,4 @@
-use crate::{style::*, vulkano_render::text_render::FONT, *};
+use crate::{vulkano_render::text_render::FONT, *};
 use glyph_brush::{
     ab_glyph::{Font, ScaleFont},
     FontId,
@@ -8,6 +8,7 @@ use glyph_brush::{
     SectionText,
 };
 use std::sync::Arc;
+/*
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
@@ -58,3 +59,5 @@ pub fn text(
         }),
     }
 }
+
+ */

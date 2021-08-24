@@ -1,3 +1,4 @@
+/*
 use crate::{style::*, *};
 use palette::Shade;
 
@@ -10,7 +11,7 @@ use palette::Shade;
 )]
 pub fn button(
     on_click: impl Fn(Context) + Clone + Sync + Send + 'static,
-    border_radius: Dimension,
+    border_radius: BorderRadius,
     color: Color,
     stroke_color: Color,
     children: Vec<Fragment>,
@@ -99,3 +100,4 @@ pub fn slider(
          </input>
     }
 }
+ */
