@@ -1,12 +1,12 @@
 use crate::*;
 use std::sync::Arc;
 
+/*
 #[widget(on_click = (|_context, _clicked| {}), on_hover = (|_context, _hovered| {}), on_move = (|_context, _position| {}), style = Default::default())]
 pub fn input(
     on_click: impl Fn(Context, bool) + Clone + Sync + Send + 'static,
     on_hover: impl Fn(Context, bool) + Clone + Sync + Send + 'static,
     on_move: impl Fn(Context, Vec2) + Clone + Sync + Send + 'static,
-    style: Style,
     children: Vec<Fragment>,
     context: Context,
 ) -> FragmentInner {
@@ -26,3 +26,4 @@ pub fn input(
         }),
     }
 }
+*/

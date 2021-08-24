@@ -1,11 +1,11 @@
-use layout::{
+use rutter_layout::{
     BoxConstraints,
     Column,
     CrossAxisAlignment,
     Flex,
     FlexFit,
     Flexible,
-    Layoutable,
+    Layout,
     Layouter,
     MainAxisAlignment,
     MainAxisSize,
@@ -14,14 +14,8 @@ use layout::{
     SizedBox,
 };
 
-// Interesting widgets:
-// Align
-// Positioned
-// Padding
-// FractionallySizedBox
-
 fn main() {
-    let mut layouter = Layouter::<&str, Box<dyn Layoutable>>::new();
+    let mut layouter = Layouter::<&str, Box<dyn Layout>>::new();
     let column = Box::new(Column {
         cross_axis_alignment: CrossAxisAlignment::Center,
         main_axis_alignment: MainAxisAlignment::Start,
@@ -39,15 +33,15 @@ fn main() {
     let box_c = Box::new(SizedBox::new(Size { width: 20.0, height: 10.0 }));
     let box_d = Box::new(SizedBox::new(Size { width: 35.0, height: 25.0 }));
 
-    layouter.set_node("column", column);
-    layouter.set_node("a", box_a);
-    layouter.set_node("b", box_b);
-    layouter.set_node("c", box_c);
-    layouter.set_node("d", box_d);
-    layouter.set_node("flex", flexible);
+    layouter.set_node(&"column", column);
+    layouter.set_node(&"a", box_a);
+    layouter.set_node(&"b", box_b);
+    layouter.set_node(&"c", box_c);
+    layouter.set_node(&"d", box_d);
+    layouter.set_node(&"flex", flexible);
 
-    layouter.set_children("flex", &["b"]);
-    layouter.set_children("column", &["a", "flex", "c", "d"]);
+    layouter.set_children(&"flex", &[&"b"]);
+    layouter.set_children(&"column", &[&"a", &"flex", &"c", &"d"]);
 
     layouter.do_layout(
         BoxConstraints::tight_for(Size { width: 100.0, height: 100.0 }),
@@ -68,7 +62,7 @@ fn main() {
     }));
     let flexible = Box::new(Flexible { flex: Flex { flex: 1.0, fit: FlexFit::Tight } });
 
-    layouter.set_node("flex", flexible);
+    layouter.set_node(&"flex", flexible);
     layouter.do_layout(
         BoxConstraints::tight_for(Size { width: 100.0, height: 100.0 }),
         Offset::zero(),

@@ -22,16 +22,16 @@ impl<A: Hash + Eq + Clone, B: Hash + Eq + Clone> BiMap<A, B> {
 
     pub(crate) fn get_right(&self, right: &B) -> Option<&A> { self.b_to_a.get(right) }
 
-    pub(crate) fn remove_left(&mut self, left: A) -> Option<(A, B)> {
+    pub(crate) fn remove_left(&mut self, left: &A) -> Option<(A, B)> {
         self.a_to_b.remove(&left).map(|right| {
-            self.b_to_a.remove(&right).unwrap();
+            let left = self.b_to_a.remove(&right).unwrap();
             (left, right)
         })
     }
 
-    pub(crate) fn remove_right(&mut self, right: B) -> Option<(A, B)> {
+    pub(crate) fn remove_right(&mut self, right: &B) -> Option<(A, B)> {
         self.b_to_a.remove(&right).map(|left| {
-            self.a_to_b.remove(&left).unwrap();
+            let right = self.a_to_b.remove(&left).unwrap();
             (left, right)
         })
     }

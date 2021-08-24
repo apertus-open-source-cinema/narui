@@ -5,9 +5,8 @@ use crate::{
     Size,
 };
 use std::{any::Any, cell::Cell, hash::Hash, ops::Deref};
-use tinyset::Set64;
 
-pub trait Layoutable: std::fmt::Debug {
+pub trait Layout: std::fmt::Debug {
     fn uses_child_size(&self) -> bool { true }
 
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size;
@@ -21,6 +20,67 @@ pub trait Layoutable: std::fmt::Debug {
     }
 }
 
+pub struct LayoutItem<'a, Key> {
+    pub size: Size,
+    pub pos: Offset,
+    pub key: &'a Key,
+}
+
+impl<'a, Key: Hash + Eq + Clone> LayoutItem<'a, Key> {
+    fn new<T>(layouter: &'a Layouter<Key, T>, idx: Idx) -> Self {
+        let node = &layouter.nodes[idx.get()];
+
+        Self {
+            size: node.size.get().unwrap(),
+            pos: node.abs_pos.get().unwrap(),
+            key: layouter.key_to_idx.get_right(&idx).unwrap(),
+        }
+    }
+}
+
+struct LayoutIter<'a, Key, T> {
+    layouter: &'a Layouter<Key, T>,
+    next_pos: Option<Idx>,
+}
+
+impl<'a, Key, T> LayoutIter<'a, Key, T> {
+    fn new(layouter: &'a Layouter<Key, T>, top: Idx) -> Self {
+        let mut bottom_left = top;
+        while let Some(child) = layouter.nodes[bottom_left.get()].child {
+            bottom_left = child;
+        }
+        Self {
+            layouter,
+            next_pos: Some(bottom_left)
+        }
+    }
+}
+
+impl<'a, Key: Hash + Eq + Clone, T> Iterator for LayoutIter<'a, Key, T> {
+    type Item = LayoutItem<'a, Key,>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(current_pos) = self.next_pos {
+            let current = &self.layouter.nodes[current_pos];
+            match current.next_sibling {
+                Some(idx) => {
+                    let mut next = idx;
+
+                    while let Some(child) = self.layouter.nodes[next.get()].child {
+                        next = child;
+                    }
+
+                    self.next_pos = Some(next);
+                },
+                None => self.next_pos = current.parent
+            }
+            Some(LayoutItem::new(self.layouter, current_pos))
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Layouter<Key, T> {
     key_to_idx: BiMap<Key, Idx>,
@@ -31,16 +91,16 @@ impl<Key, T> Layouter<Key, T> {
     pub fn new() -> Self { Self { key_to_idx: BiMap::new(), nodes: VecWithHoles::new() } }
 }
 
-impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layoutable> + std::fmt::Debug> Layouter<Key, T> {
-    pub fn set_node(&mut self, key: Key, layoutable: T) {
-        match self.key_to_idx.get_left(&key) {
+impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> Layouter<Key, T,> {
+    pub fn set_node(&mut self, key: &Key, layoutable: T) {
+        match self.key_to_idx.get_left(key) {
             Some(idx) => {
                 self.nodes[*idx].obj = layoutable;
                 self.propagate_dirty(*idx);
             }
             None => {
                 let idx = self.nodes.add(PositionedNode::new(layoutable));
-                self.key_to_idx.insert(key, Idx::new(idx));
+                self.key_to_idx.insert(key.clone(), Idx::new(idx));
             }
         }
     }
@@ -62,26 +122,21 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layoutable> + std::fmt::Debug
         }
     }
 
-    pub fn set_children(&mut self, key: Key, children: &[Key]) {
-        let parent_idx = *self.key_to_idx.get_left(&key).unwrap();
+    pub fn set_children<'a,>(&mut self, key: &Key, mut children: impl Iterator<Item = Key>)
+    where Key: 'a
+    {
+        let parent_idx = *self.key_to_idx.get_left(key).unwrap();
+        let mut len = 0;
 
-        let mut old = Set64::new();
-        let mut new = Set64::new();
-
-        let mut old_child_ptr = self.nodes[parent_idx].child;
-        while let Some(old_child_idx) = old_child_ptr {
-            old.insert(old_child_idx.get());
-            old_child_ptr = self.nodes[old_child_idx].next_sibling;
-        }
-
-        if !children.is_empty() {
-            let new_child_idx = *self.key_to_idx.get_left(&children[0]).unwrap();
+        if let Some(first_child) = children.next() {
+            len = 1;
+            let new_child_idx = *self.key_to_idx.get_left(&first_child).unwrap();
             self.nodes[parent_idx].child = Some(new_child_idx);
             let mut last_child_idx = new_child_idx;
 
-            for new_child in &children[1..] {
+            for new_child in children {
+                len += 1;
                 let new_child_idx = *self.key_to_idx.get_left(&new_child).unwrap();
-                new.insert(new_child_idx.get());
 
                 self.nodes[last_child_idx].next_sibling = Some(new_child_idx);
 
@@ -104,20 +159,14 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layoutable> + std::fmt::Debug
             self.nodes[parent_idx].next_sibling = None;
         }
 
-        self.nodes[parent_idx].num_children = children.len();
-
-        for o in old {
-            if !new.contains(o) {
-                self.remove(Idx::new(o));
-            }
-        }
+        self.nodes[parent_idx].num_children = len;
 
         self.propagate_dirty(parent_idx);
     }
 
-    fn remove(&mut self, idx: Idx) {
+    pub fn remove(&mut self, key: &Key) {
+        let (_key, idx) = self.key_to_idx.remove_left(key).unwrap();
         self.nodes.remove(idx.get());
-        self.key_to_idx.remove_right(idx);
     }
 
     pub fn do_layout(&mut self, constraints: BoxConstraints, root_pos: Offset, root: Key) {
@@ -130,6 +179,11 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layoutable> + std::fmt::Debug
         child.set_pos(Offset::zero());
 
         self.propagate_abs_pos(idx, root_pos, true);
+    }
+
+    pub fn iter(&self, top: &Key) -> impl Iterator<Item=LayoutItem<Key>> {
+        let idx = self.key_to_idx.get_left(top).unwrap();
+        LayoutIter::new(self, *idx)
     }
 
     fn propagate_abs_pos(&self, root: Idx, offset: Offset, dirty: bool) {
@@ -160,10 +214,11 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layoutable> + std::fmt::Debug
         node.dirty_abs_pos.set(false);
     }
 
-    pub fn get_layout(&self, key: Key) -> (Offset, Size) {
-        let idx = self.key_to_idx.get_left(&key).unwrap();
-        let node = &self.nodes[idx];
-        (node.abs_pos.get().unwrap(), node.size.get().unwrap())
+    pub fn get_layout(&self, key: &Key) -> Option<(Offset, Size)> {
+        self.key_to_idx.get_left(key).map(|idx| {
+            let node = &self.nodes[idx];
+            (node.abs_pos.get().unwrap(), node.size.get().unwrap())
+        })
     }
 }
 
@@ -202,8 +257,8 @@ impl<T> PositionedNode<T> {
     }
 }
 
-impl<T: Deref<Target = dyn Layoutable> + std::fmt::Debug> PositionedNodeT for PositionedNode<T> {
-    fn obj(&self) -> &dyn Layoutable { &*self.obj }
+impl<T: Deref<Target = dyn Layout> + std::fmt::Debug> PositionedNodeT for PositionedNode<T> {
+    fn obj(&self) -> &dyn Layout { &*self.obj }
 
     fn child(&self) -> Option<Idx> { self.child }
 
@@ -239,7 +294,7 @@ impl<T: Deref<Target = dyn Layoutable> + std::fmt::Debug> PositionedNodeT for Po
 }
 
 trait PositionedNodeT: std::fmt::Debug {
-    fn obj(&self) -> &dyn Layoutable;
+    fn obj(&self) -> &dyn Layout;
 
     fn child(&self) -> Option<Idx>;
     fn num_children(&self) -> usize;

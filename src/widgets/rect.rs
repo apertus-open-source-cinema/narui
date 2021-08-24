@@ -1,7 +1,6 @@
 use crate::{
     heart::*,
     macros::widget,
-    style::{Dimension, Size},
 };
 pub use lyon::tessellation::StrokeOptions;
 use lyon::{
@@ -11,6 +10,7 @@ use lyon::{
 };
 use std::sync::Arc;
 
+/*
 #[widget(
     style = Default::default(),
     children = Default::default(),
@@ -22,7 +22,6 @@ use std::sync::Arc;
     stroke_options = Default::default()
 )]
 pub fn rect(
-    style: Style,
     children: Vec<Fragment>,
 
     border_radius: Dimension,
@@ -33,7 +32,7 @@ pub fn rect(
 
     context: Context,
 ) -> FragmentInner {
-    let path_gen = Arc::new(move |size: Size<f32>| {
+    let path_gen = Arc::new(move |size: Size| {
         let mut builder = Builder::new();
         let border_radius_px = match border_radius {
             Dimension::Undefined => 0.0,
@@ -79,3 +78,4 @@ pub fn rect(
         layout_object: Some(LayoutObject { style, measure_function: None, render_objects }),
     }
 }
+*/

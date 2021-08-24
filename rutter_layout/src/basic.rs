@@ -1,4 +1,4 @@
-use crate::{BoxConstraints, Layoutable, LayoutableChildren, Offset, Size};
+use crate::{BoxConstraints, Layout, LayoutableChildren, Offset, Size};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -12,7 +12,7 @@ impl SizedBox {
     pub fn constrained(constraint: BoxConstraints) -> Self { Self { constraint } }
 }
 
-impl Layoutable for SizedBox {
+impl Layout for SizedBox {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
         assert!(children.len() <= 1);
         if let Some(child) = children.into_iter().last() {
@@ -59,7 +59,7 @@ pub struct SingleChildLayouter<P, C, S, E = Option<Size>> {
     empty_sizer: E,
 }
 
-impl<P: Positioner, C: Constrainer, S: Sizer, E: EmptySizer> Layoutable
+impl<P: Positioner, C: Constrainer, S: Sizer, E: EmptySizer> Layout
     for SingleChildLayouter<P, C, S, E>
 {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
@@ -383,7 +383,7 @@ impl Stack {
     }
 }
 
-impl Layoutable for Stack {
+impl Layout for Stack {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
         let mut max_size = Size::zero();
 

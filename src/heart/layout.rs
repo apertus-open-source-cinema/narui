@@ -1,22 +1,22 @@
+// Qs for rutter_layout integration:
+// - should it return a Vec of PositionedRenderObjects, or rather iter over them, or do Key -> PositionedRenderObjects?
+//
+
 use crate::{
     heart::*,
-    style::{AlignItems, JustifyContent},
 };
 use hashbrown::HashMap;
 use std::env;
-use stretch::{
-    node::{MeasureFunc, Node},
-    prelude::Style,
-    Stretch,
-};
+use std::sync::Arc;
+use rutter_layout::{BoxConstraints, Offset, Layout};
 
 
 // PositionedRenderObject is the main output data structure of the Layouting
 // pass It is like a regular RenderObject but with Positioning information added
 #[derive(Debug, Clone)]
-pub struct PositionedRenderObject {
-    pub key: Key,
-    pub render_object: RenderObject,
+pub struct PositionedRenderObject<'a> {
+    pub key: &'a Key,
+    pub render_object: &'a RenderObject,
     pub rect: Rect,
     pub z_index: i32,
 }
@@ -25,27 +25,15 @@ pub struct PositionedRenderObject {
 // A tree of layout Nodes that can be manipulated.
 // This is the API with which the Evaluator commands the Layouter
 pub trait LayoutTree {
-    fn set_node(&mut self, key: Key, layout_object: LayoutObject);
-    fn remove_node(&mut self, key: Key);
-    fn set_children(&mut self, parent: Key, children: impl Iterator<Item = Key>);
+    fn set_node(&mut self, key: &Key, layout: Arc<dyn Layout>, render_object: Option<RenderObject>);
+    fn remove_node(&mut self, key: &Key);
+    fn set_children(&mut self, parent: &Key, children: &[Key]);
+    fn get_rect(&self, key: &Key) -> Option<Rect>;
 }
 
 pub struct Layouter {
-    stretch: Stretch,
-    top_node: Option<Node>,
-
-    key_node_map: HashMap<Key, Node>,
-    node_key_map: HashMap<Node, Key>,
-    render_object_map: HashMap<Node, Vec<(Key, RenderObject)>>,
-
-    // this is a dirty hack because stretch does not support getting this information by itself.
-    // this is a stretch deficiency
-    node_has_measure: HashMap<Node, bool>,
-
-    // if nothing has changed, we dont need to re-invoke stretch
-    changed_layout: bool,
-    last_size: Vec2,
-
+    layouter: rutter_layout::Layouter<Key, Arc<dyn Layout>>,
+    key_to_render_object: HashMap<Key, Option<RenderObject>>,
     debug_layout_bounds: bool,
 }
 
@@ -53,192 +41,50 @@ impl Layouter {
     pub fn new() -> Self {
         let debug_layout_bounds = env::var("NARUI_LAYOUT_BOUNDS").is_ok();
 
-        let stretch = Stretch::new();
-        let mut layouter = Layouter {
-            stretch,
-            top_node: None,
-            debug_layout_bounds,
-            key_node_map: HashMap::new(),
-            node_key_map: HashMap::new(),
-            render_object_map: HashMap::new(),
-            changed_layout: true,
-            last_size: Vec2::zero(),
-            node_has_measure: Default::default(),
-        };
-        layouter.top_node = Some(
-            layouter.node(
-                Default::default(),
-                *STYLE
-                    .fill()
-                    .align_items(AlignItems::Center)
-                    .justify_content(JustifyContent::Center)
-                    .stretch_style(),
-            ),
-        );
-        layouter
-    }
-    pub fn do_layout(&mut self, size: Vec2) -> Result<Vec<PositionedRenderObject>, stretch::Error> {
-        if self.changed_layout || (size != self.last_size) {
-            self.stretch.compute_layout(self.top_node.unwrap(), size.into())?;
-            self.changed_layout = false;
-            self.last_size = size;
+        Layouter {
+            layouter: rutter_layout::Layouter::new(),
+            key_to_render_object: HashMap::new(),
+            debug_layout_bounds
         }
-
-        if self.debug_layout_bounds {
-            println!("layout_repr: \n{}", self.layout_repr(self.top_node.unwrap()));
-        }
-
-        let mut to_return = Vec::with_capacity(self.render_object_map.len());
-        self.get_absolute_positions(self.top_node.unwrap(), Vec2::zero(), &mut to_return);
-        Ok(to_return)
     }
 
-    fn get_absolute_positions(
-        &mut self,
-        node: Node,
-        parent_position: Vec2,
-        positioned_widgets: &mut Vec<PositionedRenderObject>,
-    ) {
-        let layout = self.stretch.layout(node).unwrap();
-        let pos = parent_position + Vec2::from(layout.location);
+    pub fn do_layout(&mut self, size: Vec2) {
+        self.layouter.do_layout(BoxConstraints::tight_for(size.into()), Offset::zero(), Default::default());
+    }
 
-        // we need to insert the layoutObjects here for later inspection by the
-        // measure_* hooks
-        positioned_widgets.push(PositionedRenderObject {
-            key: self.node_key_map[&node],
-            render_object: RenderObject::None,
-            rect: Rect { pos, size: layout.size.into() },
-            z_index: 0,
-        });
-
-        if self.debug_layout_bounds {
-            positioned_widgets.push(PositionedRenderObject {
-                // in principle this violates the key contract of uniqueness but it should not
-                // matter here.
-                key: self.node_key_map[&node].with(KeyPart::DebugLayoutBounds),
-                render_object: RenderObject::DebugRect,
-                rect: Rect { pos, size: layout.size.into() },
-                z_index: 0,
+    pub fn iter_layouted(&self) -> impl Iterator<Item=PositionedRenderObject> {
+        self.layouter.iter(&Default::default()).filter_map(move |layout_item| {
+            self.key_to_render_object[layout_item.key].as_ref().map(|render_object| {
+                PositionedRenderObject {
+                    key: layout_item.key,
+                    render_object,
+                    rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                    z_index: 0
+                }
             })
-        }
-
-        if self.render_object_map.contains_key(&node) {
-            for (key, render_object) in self.render_object_map.get(&node).unwrap() {
-                positioned_widgets.push(PositionedRenderObject {
-                    key: *key,
-                    render_object: render_object.clone(),
-                    rect: Rect { pos, size: layout.size.into() },
-                    z_index: 0,
-                });
-            }
-        }
-        for child in self.stretch.children(node).unwrap() {
-            self.get_absolute_positions(child, pos, positioned_widgets);
-        }
-    }
-
-    pub fn layout_repr(&self, node: Node) -> String {
-        let key = self.node_key_map[&node];
-        let mut to_return = format!(
-            "{:?}\t{:?}\t{:?}\n",
-            key,
-            self.stretch.layout(node).unwrap(),
-            self.stretch.style(node)
-        );
-        for child in self.stretch.children(node).unwrap() {
-            to_return += indent(self.layout_repr(child), "    ".to_owned()).as_str();
-        }
-        to_return
-    }
-
-    pub fn node(&mut self, key: Key, style: Style) -> Node {
-        if let Some(node) = self.key_node_map.get(&key) {
-            return *node;
-        }
-        let new_node = self.stretch.new_node(style, &[]).unwrap();
-        self.key_node_map.insert(key, new_node);
-        self.node_key_map.insert(new_node, key);
-        self.node_has_measure.insert(new_node, false);
-        new_node
+        })
     }
 }
 
 impl LayoutTree for Layouter {
-    fn set_node(&mut self, key: Key, layout_object: LayoutObject) {
-        let has_measure_function = layout_object.measure_function.is_some();
-        let mut maybe_old_node = self.key_node_map.get(&key);
-        // the maybe_old_node might be invalid, so we need to check if it is still
-        // present in stretch
-        if maybe_old_node.is_some() && self.stretch.style(*maybe_old_node.unwrap()).is_err() {
-            dbg!("bad");
-            maybe_old_node = None;
-        }
+    fn set_node(&mut self, key: &Key, layout: Arc<dyn Layout>, render_object: Option<RenderObject>) {
+        self.layouter.set_node(&key, layout);
+        self.key_to_render_object.insert(key, render_object);
+    }
 
-        let node = match maybe_old_node {
-            None => match layout_object.measure_function {
-                Some(measure_function) => {
-                    self.changed_layout = true;
-                    let measure_function = {
-                        let measure_function = measure_function.clone();
-                        MeasureFunc::Boxed(Box::new(move |size| measure_function(size)))
-                    };
-                    self.stretch
-                        .new_leaf(*layout_object.style.stretch_style(), measure_function)
-                        .unwrap()
-                }
-                None => {
-                    self.changed_layout = true;
-                    self.stretch.new_node(*layout_object.style.stretch_style(), &[]).unwrap()
-                }
-            },
-            Some(old_node) => {
-                let old_node = *old_node;
-                if self.stretch.style(old_node).unwrap() != layout_object.style.stretch_style() {
-                    self.changed_layout = true;
-                    self.stretch.set_style(old_node, *layout_object.style.stretch_style()).unwrap();
-                }
-                match layout_object.measure_function {
-                    Some(measure_function) => {
-                        let measure_function = measure_function.clone();
-                        let measure_function =
-                            MeasureFunc::Boxed(Box::new(move |size| measure_function(size)));
-                        self.stretch.set_measure(old_node, Some(measure_function)).unwrap();
-                        self.stretch.mark_dirty(old_node).unwrap();
-                        self.changed_layout = true;
-                    }
-                    None => {
-                        if *self.node_has_measure.get(&old_node).unwrap() {
-                            self.stretch.set_measure(old_node, None).unwrap();
-                            self.stretch.mark_dirty(old_node).unwrap();
-                            self.changed_layout = true;
-                        }
-                    }
-                }
-                old_node
-            }
-        };
-        self.key_node_map.insert(key, node);
-        self.node_key_map.insert(node, key);
-        self.node_has_measure.insert(node, has_measure_function);
-        self.render_object_map.insert(
-            node,
-            layout_object
-                .render_objects
-                .into_iter()
-                .map(|(key_part, render_object)| (key.with(key_part), render_object))
-                .collect(),
-        );
+    fn remove_node(&mut self, key: &Key) {
+        self.layouter.remove(&key);
+        self.key_to_render_object.remove(&key);
     }
-    fn remove_node(&mut self, key: Key) {
-        let node = self.key_node_map[&key];
-        self.render_object_map.remove(&node).unwrap();
-        self.node_has_measure.remove(&node).unwrap();
-        self.stretch.remove(node);
+
+    fn set_children<'a>(&mut self, parent: &Key, children: &[Key]) {
+        self.layouter.set_children(parent, children)
     }
-    fn set_children(&mut self, parent: Key, children: impl Iterator<Item = Key>) {
-        let parent_node = self.node(parent, Default::default());
-        let children: Vec<_> = children.map(|key| self.node(key, Default::default())).collect();
-        self.stretch.set_children(parent_node, &children).unwrap();
+
+    fn get_rect(&self, key: &Key) -> Option<Rect> {
+        self.layouter.get_layout(key).map(|(offset, size)| {
+            Rect { pos: offset.into(), size: size.into() }
+        })
     }
 }
 

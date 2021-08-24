@@ -4,7 +4,7 @@ use crate::{
     Flex,
     FlexFit,
     Flexible,
-    Layoutable,
+    Layout,
     LayoutableChildren,
     MainAxisAlignment,
     MainAxisSize,
@@ -19,7 +19,7 @@ pub struct Column {
     pub main_axis_size: MainAxisSize,
 }
 
-impl Layoutable for Column {
+impl Layout for Column {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
         let orig_constraint = constraint;
         let constraint = constraint.loosen_width();
