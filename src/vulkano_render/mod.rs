@@ -46,6 +46,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+use hashbrown::HashSet;
 
 pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let event_loop: EventLoop<()> = EventLoop::new();
@@ -127,6 +128,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut recreate_swapchain = false;
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
     let mut has_update = true;
+    let mut input_render_objects: HashSet<Key, ahash::RandomState> = HashSet::default();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 70));
@@ -144,7 +146,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             }
             Event::MainEventsCleared => {
                 input_handler
-                    .handle_input(layouter.iter_layouted(), evaluator.callback_context(&layouter));
+                    .handle_input(&input_render_objects, &layouter, evaluator.callback_context(&layouter));
                 has_update |= evaluator.update(&mut layouter);
                 if has_update && (acquired_images.len() >= (caps.min_image_count) as usize - 1) {
                     surface.window().request_redraw();
@@ -170,24 +172,28 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
                 layouter.do_layout(dimensions.into());
 
-                raw_render.render(
-                    &mut builder,
-                    &dynamic_state,
-                    &dimensions,
-                    layouter.iter_layouted(),
-                );
-                lyon_renderer.render(
-                    &mut builder,
-                    &dynamic_state,
-                    &dimensions,
-                    layouter.iter_layouted(),
-                );
-                text_render.render(
-                    &mut builder,
-                    &dynamic_state,
-                    &dimensions,
-                    layouter.iter_layouted(),
-                );
+                input_render_objects.clear();
+                let mut lyon_state = lyon_renderer.begin();
+                for obj in layouter.iter_layouted() {
+                    raw_render.render(
+                        &mut builder,
+                        &dynamic_state,
+                        &dimensions,
+                        &obj,
+                    );
+                    lyon_renderer.render(
+                        &mut lyon_state,
+                        &obj
+                    );
+                    text_render.render(
+                        &obj,
+                    );
+                    if let PositionedRenderObject { render_object: RenderObject::Input { key, .. }, .. } = &obj {
+                        input_render_objects.insert(*key);
+                    }
+                }
+                lyon_renderer.finish(lyon_state, &mut builder, &dynamic_state, &dimensions);
+                text_render.finish(&mut builder, &dynamic_state, &dimensions);
 
                 builder.end_render_pass().unwrap();
                 let command_buffer = builder.build().unwrap();

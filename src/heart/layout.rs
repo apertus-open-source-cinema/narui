@@ -4,7 +4,6 @@
 //
 
 use crate::heart::*;
-use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 use rutter_layout::{BoxConstraints, Layout, Offset};
 use std::env;
@@ -30,8 +29,8 @@ pub trait LayoutTree {
 
 #[derive(Debug)]
 pub struct Layouter {
-    layouter: rutter_layout::Layouter<Key, Box<dyn Layout>, FxBuildHasher>,
-    key_to_render_object: HashMap<Key, RenderObject, FxBuildHasher>,
+    layouter: rutter_layout::Layouter<Key, Box<dyn Layout>, ahash::RandomState>,
+    key_to_render_object: HashMap<Key, RenderObject, ahash::RandomState>,
     debug_render_object: RenderObject,
     debug_layout_bounds: bool,
 }
@@ -88,12 +87,26 @@ impl Layouter {
         );
     }
 
+    #[cfg(debug_assertions)]
     pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
         self.layouter.iter(&Default::default()).flat_map(move |layout_item| MaybeLayoutDebugIter {
             rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
             item: self.key_to_render_object.get(layout_item.key),
             debug_layout_bounds: self.debug_layout_bounds,
             debug_render_object: &self.debug_render_object,
+        })
+    }
+
+    #[cfg(not(debug_assertions))]
+    pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
+        self.layouter.iter(&Default::default()).filter_map(move |layout_item| {
+            self.key_to_render_object.get(layout_item.key).map(|render_object| {
+                PositionedRenderObject {
+                    rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                    z_index: 0,
+                    render_object,
+                }
+            })
         })
     }
 }
@@ -126,7 +139,6 @@ impl LayoutTree for Layouter {
         })
     }
 }
-
 
 fn indent(text: String, indent_str: String) -> String {
     text.lines().into_iter().map(|line| format!("{}{}\n", indent_str, line)).collect()

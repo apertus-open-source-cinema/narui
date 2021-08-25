@@ -25,9 +25,9 @@ hashbrown = "0.11.2"
 itertools = "0.10.0"
 impls = "1.0.3"
 parking_lot = "0.11.1"
-fxhash = "0.2.1"
 dashmap = "4.0.2"
 ctor = "0.1.20"
+ahash = "0.7.4"
 
 [dev-dependencies]
 narui_widgets = { path = "narui_widgets" }
@@ -36,7 +36,6 @@ narui_widgets = { path = "narui_widgets" }
 jemallocator = "0.3.2"
 
 [profile.release]
-lto = "fat"
 debug = true
 
 

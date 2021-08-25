@@ -228,26 +228,27 @@ impl TextRenderer {
     }
     pub fn render<'a>(
         &mut self,
+        render_object: &PositionedRenderObject<'a>,
+    ) {
+        if let RenderObject::Text { text, size, color } = &render_object.render_object {
+            self.glyph_brush.queue(
+                Section::default()
+                    .add_text(
+                        Text::new(&*text)
+                            .with_color(color.into_linear().into_raw::<[f32; 4]>())
+                            .with_scale(PxScale::from(*size)),
+                    )
+                    .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
+                    .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size + 1.)), // we seem to have some numerical instability issues here
+            );
+        }
+    }
+    pub fn finish(
+        &mut self,
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
-        render_objects: impl Iterator<Item = PositionedRenderObject<'a>>,
     ) {
-        for render_object in render_objects {
-            if let RenderObject::Text { text, size, color } = &render_object.render_object {
-                self.glyph_brush.queue(
-                    Section::default()
-                        .add_text(
-                            Text::new(&*text)
-                                .with_color(color.into_linear().into_raw::<[f32; 4]>())
-                                .with_scale(PxScale::from(*size)),
-                        )
-                        .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
-                        .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size + 1.)), // we seem to have some numerical instability issues here
-                );
-            }
-        }
-
         let (width, height) = self.glyph_brush.texture_dimensions();
         let texture_bytes = &mut self.texture_bytes;
         let mut texture_upload = false;

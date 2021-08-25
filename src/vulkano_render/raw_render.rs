@@ -15,18 +15,16 @@ impl RawRenderer {
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
-        render_objects: impl Iterator<Item = PositionedRenderObject<'a>>,
+        render_object: &PositionedRenderObject<'a>,
     ) {
-        for render_object in render_objects {
-            if let RenderObject::Raw { render_fn } = &render_object.render_object {
-                render_fn(
-                    self.render_pass.clone(),
-                    buffer_builder,
-                    dynamic_state,
-                    render_object.rect,
-                    (*dimensions).into(),
-                );
-            }
+        if let RenderObject::Raw { render_fn } = &render_object.render_object {
+            render_fn(
+                self.render_pass.clone(),
+                buffer_builder,
+                dynamic_state,
+                render_object.rect,
+                (*dimensions).into(),
+            );
         }
     }
 }

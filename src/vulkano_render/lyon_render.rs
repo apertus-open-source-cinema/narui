@@ -72,6 +72,11 @@ struct Vertex {
 }
 vulkano::impl_vertex!(Vertex, position, color);
 
+pub struct LyonRendererState {
+    vertices: Vec<Vertex>,
+    indices: Vec<u16>,
+    last_index: u16
+}
 
 pub struct LyonRenderer {
     device: Arc<Device>,
@@ -113,86 +118,95 @@ impl LyonRenderer {
             stroke_cache: HashMap::new(),
         }
     }
+    pub fn begin(&self) -> LyonRendererState {
+        LyonRendererState {
+            vertices: vec![],
+            indices: vec![],
+            last_index: 0
+        }
+    }
     pub fn render<'a>(
         &mut self,
-        buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-        dynamic_state: &DynamicState,
-        dimensions: &[u32; 2],
-        render_objects: impl Iterator<Item = PositionedRenderObject<'a>>,
+        state: &mut LyonRendererState,
+        render_object: &PositionedRenderObject<'a>
     ) {
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
-        let mut last_index = 0;
+        let LyonRendererState { vertices, indices, last_index } = state;
+        let buffer_color = match render_object.render_object {
+            RenderObject::FillPath { path_gen, color } => {
+                let color = color.into_linear().into_raw::<[f32; 4]>();
+                let path_gen = path_gen;
+                let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
+                let buffer = self.fill_tessellate_with_cache(
+                    path_gen.clone(),
+                    render_object.rect.size,
+                    path_gen_key,
+                );
+                Some((buffer, color))
+            }
+            RenderObject::StrokePath { path_gen, color, stroke_options } => {
+                let color = [color.red, color.green, color.blue, color.alpha];
+                let path_gen = path_gen;
+                let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
+                let buffer = self.stroke_tessellate_with_cache(
+                    path_gen.clone(),
+                    stroke_options.clone(),
+                    render_object.rect.size,
+                    path_gen_key,
+                );
+                Some((buffer, color))
+            }
+            RenderObject::DebugRect => {
+                let color = [1.0, 0.0, 0.0, 0.5];
+                let buffer = self.stroke_tessellate_with_cache(
+                    (&|size: Size| {
+                        let mut builder = Builder::new();
+                        builder.add_rectangle(
+                            &rect(0.0, 0.0, size.width, size.height),
+                            Winding::Positive,
+                        );
+                        builder.build()
+                    }) as &PathGenInner,
+                    StrokeOptions::default(),
+                    render_object.rect.size,
+                    0,
+                );
+                Some((buffer, color))
+            }
+            _ => None
+        };
 
-        for render_object in render_objects {
-            let (buffer, color) = match &render_object.render_object {
-                RenderObject::FillPath { path_gen, color } => {
-                    let color = color.into_linear().into_raw::<[f32; 4]>();
-                    let path_gen = path_gen;
-                    let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
-                    let buffer = self.fill_tessellate_with_cache(
-                        path_gen.clone(),
-                        render_object.rect.size,
-                        path_gen_key,
-                    );
-                    (buffer, color)
-                }
-                RenderObject::StrokePath { path_gen, color, stroke_options } => {
-                    let color = [color.red, color.green, color.blue, color.alpha];
-                    let path_gen = path_gen;
-                    let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
-                    let buffer = self.stroke_tessellate_with_cache(
-                        path_gen.clone(),
-                        stroke_options.clone(),
-                        render_object.rect.size,
-                        path_gen_key,
-                    );
-                    (buffer, color)
-                }
-                RenderObject::DebugRect => {
-                    let color = [1.0, 0.0, 0.0, 0.5];
-                    let buffer = self.stroke_tessellate_with_cache(
-                        (&|size: Size| {
-                            let mut builder = Builder::new();
-                            builder.add_rectangle(
-                                &rect(0.0, 0.0, size.width, size.height),
-                                Winding::Positive,
-                            );
-                            builder.build()
-                        }) as &PathGenInner,
-                        StrokeOptions::default(),
-                        render_object.rect.size,
-                        0,
-                    );
-                    (buffer, color)
-                }
-                _ => continue,
-            };
-
+        if let Some((buffer, color)) = buffer_color {
             for point in &buffer.vertices {
                 vertices.push(Vertex { position: (*point + render_object.rect.pos).into(), color })
             }
             for index in &buffer.indices {
-                indices.push(index + last_index);
+                indices.push(index + *last_index);
             }
-            last_index += buffer.vertices.len() as u16;
+            *last_index = *last_index + buffer.vertices.len() as u16;
         }
-
+    }
+    pub fn finish(
+        &mut self,
+        state: LyonRendererState,
+        buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        dynamic_state: &DynamicState,
+        dimensions: &[u32; 2],
+    ) {
         let vertex_buffer = CpuAccessibleBuffer::<[Vertex]>::from_iter(
             self.device.clone(),
             BufferUsage::all(),
             false,
-            vertices.into_iter(),
+            state.vertices.into_iter(),
         )
-        .unwrap();
+            .unwrap();
 
         let index_buffer = CpuAccessibleBuffer::<[u16]>::from_iter(
             self.device.clone(),
             BufferUsage::all(),
             false,
-            indices.into_iter(),
+            state.indices.into_iter(),
         )
-        .unwrap();
+            .unwrap();
 
         let push_constants =
             vertex_shader::ty::PushConstantData { width: dimensions[0], height: dimensions[1] };
