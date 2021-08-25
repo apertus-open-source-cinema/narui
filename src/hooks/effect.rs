@@ -1,65 +1,60 @@
-/*
-use crate::{
-    heart::{Context, Key},
-    hooks::*,
-    KeyPart,
-    ListenableGuard,
-};
+use crate::{heart::Key, hooks::*, KeyPart, ListenableGuard, WidgetContext, PatchedTree};
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct EffectHandle<T> {
     key: Key,
-    context: Context,
+    tree: Arc<PatchedTree>,
     phantom: PhantomData<T>,
 }
 impl<T> EffectHandle<T> {
     pub fn read(&self) -> ListenableGuard<T> {
         ListenableGuard {
-            rw_lock_guard: self.context.global.read(),
+            entry: self.tree.get_unpatched(&self.key).unwrap(),
             phantom: Default::default(),
-            path: self.key,
         }
     }
 }
 
 pub trait ContextEffect {
     fn effect_key<T: Send + Sync + 'static>(
-        &self,
+        &mut self,
         key: Key,
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T>;
     fn effect<T: Send + Sync + 'static>(
-        &self,
+        &mut self,
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T>;
 }
 
-impl ContextEffect for Context {
+impl<'a> ContextEffect for WidgetContext<'a> {
     fn effect_key<T: Send + Sync + 'static>(
-        &self,
+        &mut self,
         key: Key,
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T> {
         let deps_listenable = self.listenable_key(key.with(KeyPart::Deps), None);
-        let some_deps = Some(deps);
-        if *self.listen_ref(deps_listenable) != some_deps {
-            self.shout(deps_listenable, some_deps);
+        let deps = Some(deps);
+        if *self.listen_ref(deps_listenable) != deps {
+            self.tree.set_unconditional(deps_listenable.key, Box::new(deps));
             let handle = callback();
-            self.global.write().tree.set(key, Box::new(handle))
+            self.tree.set_unconditional(key, Box::new(handle))
         }
-        EffectHandle { key, context: self.clone(), phantom: Default::default() }
+        EffectHandle { key, tree: self.tree.clone(), phantom: Default::default() }
     }
 
     fn effect<T: Send + Sync + 'static>(
-        &self,
+        &mut self,
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T> {
-        self.effect_key(self.key_for_hook(), callback, deps)
+        let key = self.key_for_hook();
+        self.effect_key(key, callback, deps)
     }
 }
 
@@ -72,5 +67,3 @@ impl<T: FnOnce()> DropCallbackHelper<T> {
 impl<T: FnOnce()> Drop for DropCallbackHelper<T> {
     fn drop(&mut self) { (self.callback.take().unwrap())() }
 }
-
-*/

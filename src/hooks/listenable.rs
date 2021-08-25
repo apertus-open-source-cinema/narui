@@ -9,7 +9,7 @@ pub trait ListenableCreate {
 
 pub trait ListenableShout {
     fn shout<T: Send + Sync + 'static + PartialEq>(&self, listenable: Listenable<T>, new_value: T);
-    fn shout_unconditional<T: Send + Sync + 'static>(&self, listenable: Listenable<T>, initial: T);
+    fn shout_non_signalling<T: Send + Sync + 'static>(&self, listenable: Listenable<T>, initial: T);
 }
 
 pub trait ListenableListen {
@@ -31,7 +31,7 @@ impl<'a> ListenableCreate for WidgetContext<'a> {
     fn listenable_key<T: Send + Sync + 'static>(&self, key: Key, initial: T) -> Listenable<T> {
         let listenable = Listenable { key, phantom_data: Default::default() };
         if self.tree.get_unpatched(&listenable.key).is_none() {
-            self.tree.shout_unconditional(listenable, initial)
+            self.tree.shout_non_signalling(listenable, initial)
         };
         listenable
     }
@@ -44,7 +44,7 @@ impl<'a> ListenableCreate for WidgetContext<'a> {
 
 impl ListenableShout for PatchedTree {
     fn shout<T: Send + Sync + 'static + PartialEq>(&self, listenable: Listenable<T>, new_value: T) {
-        match self.get_patched(&listenable.key) {
+        match self.get_unpatched(&listenable.key) {
             None => self.set(listenable.key, Box::new(new_value)),
             Some(old_value) => {
                 // TODO(robin): is this needed for anything other than debugging?
@@ -57,7 +57,7 @@ impl ListenableShout for PatchedTree {
         }
     }
 
-    fn shout_unconditional<T: Send + Sync + 'static>(
+    fn shout_non_signalling<T: Send + Sync + 'static>(
         &self,
         listenable: Listenable<T>,
         new_value: T,
@@ -71,12 +71,12 @@ impl ListenableShout for ThreadContext {
         self.tree.shout(listenable, new_value);
     }
 
-    fn shout_unconditional<T: Send + Sync + 'static>(
+    fn shout_non_signalling<T: Send + Sync + 'static>(
         &self,
         listenable: Listenable<T>,
         new_value: T,
     ) {
-        self.tree.shout_unconditional(listenable, new_value)
+        self.tree.shout_non_signalling(listenable, new_value)
     }
 }
 
@@ -85,12 +85,12 @@ impl<'a> ListenableShout for CallbackContext<'a> {
         self.tree.shout(listenable, new_value);
     }
 
-    fn shout_unconditional<T: Send + Sync + 'static>(
+    fn shout_non_signalling<T: Send + Sync + 'static>(
         &self,
         listenable: Listenable<T>,
         new_value: T,
     ) {
-        self.tree.shout_unconditional(listenable, new_value)
+        self.tree.shout_non_signalling(listenable, new_value)
     }
 }
 

@@ -31,8 +31,8 @@ pub fn button(
     };
 
     rsx! {
-        <stack fit=StackFit::Tight size_using_first=true>
-            <padding><sized_box constraint=BoxConstraints::min_width(100.0)><align factor_height=Some(1.0)>{children}</align></sized_box></padding>
+        <stack fit=StackFit::Loose size_using_first=true>
+            <padding><sized_box constraint=BoxConstraints::min_width(100.0)><align factor_width=Some(1.0) factor_height=Some(1.0)>{children}</align></sized_box></padding>
             <fill_rect color=color border_radius=border_radius />
             <border_rect color=stroke_color border_radius=border_radius />
             <input on_click=callback />
@@ -56,7 +56,6 @@ pub fn slider(
 
     let on_move = move |context: &CallbackContext, position: Vec2| {
         let clicked = context.spy(clicked);
-        dbg!(widget_key);
         let width = context.measure_size(widget_key).unwrap().x - 20.0;
 
         if clicked {

@@ -8,7 +8,7 @@ use lyon::{
 use rutter_layout::Maximal;
 use std::sync::Arc;
 
-fn rounded_rect_builder(border_radius: Dimension) -> Arc<PathGenInner> {
+fn rounded_rect_builder(border_radius: Dimension, border_width: f32) -> Arc<PathGenInner> {
     Arc::new(move |size: Size| {
         let mut builder = Builder::with_capacity(4, 4);
         let border_radius_px = match border_radius {
@@ -18,7 +18,7 @@ fn rounded_rect_builder(border_radius: Dimension) -> Arc<PathGenInner> {
             }
         };
         builder.add_rounded_rectangle(
-            &lyon_rect(0.0, 0.0, size.width, size.height),
+            &lyon_rect(border_width / 2.0, border_width / 2.0, size.width - border_width / 2.0, size.height - border_width / 2.0),
             &BorderRadii {
                 top_left: border_radius_px,
                 top_right: border_radius_px,
@@ -41,7 +41,7 @@ pub fn border_rect(
 ) -> FragmentInner {
     FragmentInner::Leaf {
         render_object: RenderObject::StrokePath {
-            path_gen: rounded_rect_builder(border_radius),
+            path_gen: rounded_rect_builder(border_radius, width),
             color,
             stroke_options: StrokeOptions::default().with_line_width(width),
         },
@@ -57,7 +57,7 @@ pub fn fill_rect(
 ) -> FragmentInner {
     FragmentInner::Leaf {
         render_object: RenderObject::FillPath {
-            path_gen: rounded_rect_builder(border_radius),
+            path_gen: rounded_rect_builder(border_radius, 0.0),
             color,
         },
         layout: Box::new(Maximal),

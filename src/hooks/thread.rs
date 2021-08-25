@@ -1,5 +1,4 @@
-/*
-use crate::{Context, ContextEffect, EffectHandle, Key, WidgetContext, ThreadContext};
+use crate::{ContextEffect, EffectHandle, Key, WidgetContext, ThreadContext};
 use std::{
     sync::{
         mpsc::{sync_channel, Receiver, SyncSender},
@@ -33,24 +32,24 @@ impl<T> Drop for ThreadHandle<T> {
 
 pub trait ContextThread {
     fn thread_key<T: Send + Sync + Clone + 'static>(
-        &self,
+        &mut self,
         key: Key,
-        callback: impl Fn(Context, Receiver<T>) + Sync + Send + 'static,
+        callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
         stop_value: T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<ThreadHandle<T>>;
 
     fn thread<T: Send + Sync + Clone + 'static>(
-        &self,
-        callback: impl Fn(Context, Receiver<T>) + Sync + Send + 'static,
+        &mut self,
+        callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
         stop_value: T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<ThreadHandle<T>>;
 }
 
-impl ContextThread for WidgetContext {
+impl<'a> ContextThread for WidgetContext<'a> {
     fn thread_key<T: Send + Sync + Clone + 'static>(
-        &self,
+        &mut self,
         key: Key,
         callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
         stop_value: T,
@@ -61,11 +60,11 @@ impl ContextThread for WidgetContext {
         self.effect_key(
             key,
             move || {
-                let thread_context = cloned_context.clone();
+                let thread_context = thread_context.clone();
                 let cloned_callback = callback.clone();
                 let (sender, receiver) = sync_channel(8);
                 let join_handle = spawn(move || {
-                    cloned_callback(thread_contexti, receiver);
+                    cloned_callback(thread_context, receiver);
                 });
 
                 ThreadHandle {
@@ -79,12 +78,12 @@ impl ContextThread for WidgetContext {
     }
 
     fn thread<T: Send + Sync + Clone + 'static>(
-        &self,
-        callback: impl Fn(Context, Receiver<T>) + Sync + Send + 'static,
+        &mut self,
+        callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
         stop_value: T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<ThreadHandle<T>> {
-        self.thread_key(self.key_for_hook(), callback, stop_value, deps)
+        let key = self.key_for_hook();
+        self.thread_key(key, callback, stop_value, deps)
     }
 }
-*/

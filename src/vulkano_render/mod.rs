@@ -169,7 +169,6 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                     .unwrap();
 
                 layouter.do_layout(dimensions.into());
-                dbg!(&layouter);
 
                 raw_render.render(
                     &mut builder,
