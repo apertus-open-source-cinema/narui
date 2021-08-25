@@ -53,6 +53,12 @@ impl<'a> WidgetContext<'a> {
         self.widget_local.key.with(KeyPart::Hook(counter))
     }
 
+    pub fn thread_context(&self) -> ThreadContext {
+        ThreadContext {
+            tree: self.tree.clone()
+        }
+    }
+
     pub fn root(
         tree: Arc<PatchedTree>,
         args_tree: &'a mut ArgsTree,
@@ -85,6 +91,7 @@ impl<'a> WidgetContext<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct ThreadContext {
     pub(crate) tree: Arc<PatchedTree>,
 }
@@ -284,6 +291,7 @@ impl<'a> Deref for PatchTreeEntry<'a> {
 
 impl PatchedTree {
     pub fn get_patched(&self, key: &Key) -> Option<PatchTreeEntry> {
+        dbg!("calling get_patched");
         match self.patch.get(key) {
             None => {
                 if let Some(entry) = self.tree.get(key) {
@@ -307,19 +315,26 @@ impl PatchedTree {
         }
     }
 
-    pub fn set(&self, key: Key, value: TreeItem) { self.patch.insert(key, Patch::Set(value)); }
+    pub fn set(&self, key: Key, value: TreeItem) {
+        dbg!("setting", key, &value);
+        self.patch.insert(key, Patch::Set(value));
+        dbg!("done with setting", key);
+    }
     pub fn set_unconditional(&self, key: Key, value: TreeItem) { self.tree.insert(key, value); }
     pub fn remove(&self, key: Key) { self.patch.insert(key, Patch::Remove); }
 
     // apply the patch to the tree starting a new frame
     pub fn update_tree(&self) -> Vec<Key> {
+        dbg!("updating tree");
         let mut keys = vec![];
         for kv in self.patch.iter() {
             keys.push(kv.key().clone());
         }
 
         for key in &keys {
+            dbg!("removing", key);
             let (key, value) = self.patch.remove(key).unwrap();
+            dbg!("done with removing", key, &value);
             match value {
                 Patch::Remove => {
                     for candidate in self.tree.iter().map(|kv| kv.key().clone()) {

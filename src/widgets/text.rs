@@ -40,7 +40,6 @@ pub fn text(
             calculated_width = calculated_width.max(glyph.glyph.position.x + h_advance);
             calculated_height = calculated_height.max(glyph.glyph.position.y);
         }
-        dbg!(constraints, calculated_width);
 
         constraints
             .constrain(rutter_layout::Size { width: calculated_width, height: calculated_height })

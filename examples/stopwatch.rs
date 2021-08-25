@@ -1,4 +1,4 @@
-use narui::{style::*, *};
+use narui::*;
 use std::{
     sync::mpsc::RecvTimeoutError,
     time::{Duration, SystemTime},
@@ -12,7 +12,7 @@ enum Message {
 }
 
 #[widget(font_size = 100.)]
-pub fn stopwatch(font_size: f32, context: Context) -> Fragment {
+pub fn stopwatch(font_size: f32, context: &mut WidgetContext) -> Fragment {
     let time = context.listenable(0.0);
     let button_text = context.listenable("start");
 
@@ -26,6 +26,7 @@ pub fn stopwatch(font_size: f32, context: Context) -> Fragment {
             let start = SystemTime::now();
             loop {
                 let now = SystemTime::now();
+                dbg!(now);
                 context.shout(time, now.duration_since(start).unwrap().as_secs_f32());
                 match rx.recv_timeout(Duration::from_secs_f32(1. / 100.)) {
                     Ok(Message::Stop) => return,
@@ -46,9 +47,9 @@ pub fn stopwatch(font_size: f32, context: Context) -> Fragment {
     );
 
     rsx! {
-        <column style=STYLE.align_items(AlignItems::Center).justify_content(JustifyContent::Center)>
+        <column>
             <text size=font_size>{format!("{:.2}", context.listen(time))}</text>
-            <button on_click={move |_context: Context| { thread_handle.read().send(Message::ButtonClick).unwrap(); }}>
+            <button on_click={move |_context: &CallbackContext| { thread_handle.read().send(Message::ButtonClick).unwrap(); }}>
                 <text>{context.listen(button_text)}</text>
             </button>
         </column>
