@@ -86,7 +86,7 @@ pub enum RenderObject {
         stroke_options: StrokeOptions,
     },
     Text {
-        text: String,
+        text: Rc<String>,
         size: f32,
         color: Color,
     },

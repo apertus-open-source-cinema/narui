@@ -1,10 +1,10 @@
-use crate::{BoxConstraints, Layout, LayoutableChildren, Offset, Size};
+use crate::{BoxConstraints, Layout, LayoutableChildren, Offset, Size, TraitComparable};
 use std::{
     any::Any,
     fmt::{Debug, Formatter},
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Maximal;
 
 impl Layout for Maximal {
@@ -14,7 +14,7 @@ impl Layout for Maximal {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Transparent;
 
 impl Layout for Transparent {
@@ -44,7 +44,7 @@ impl Layout for Transparent {
 }
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SizedBox {
     constraint: BoxConstraints,
 }
@@ -68,19 +68,19 @@ impl Layout for SizedBox {
     }
 }
 
-pub trait Positioner: Debug {
+pub trait Positioner: Debug + PartialEq + 'static {
     fn position(&self, outer_size: Size, inner_size: Size) -> Offset;
 }
 
-pub trait Constrainer: Debug {
+pub trait Constrainer: Debug + PartialEq + 'static {
     fn constrain(&self, input_constraint: BoxConstraints) -> BoxConstraints;
 }
 
-pub trait Sizer: Debug {
+pub trait Sizer: Debug + PartialEq + 'static {
     fn size(&self, input_constraint: BoxConstraints, child_size: Size) -> Size;
 }
 
-pub trait EmptySizer: Debug {
+pub trait EmptySizer: Debug + PartialEq + 'static {
     fn size(&self, input_constraint: BoxConstraints) -> Size;
 }
 
@@ -94,7 +94,7 @@ impl EmptySizer for Option<Size> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SingleChildLayouter<P, C, S, E = Option<Size>> {
     positioner: P,
     constrainer: C,
@@ -118,7 +118,7 @@ impl<P: Positioner, C: Constrainer, S: Sizer, E: EmptySizer> Layout
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LoosenConstrainer;
 
 impl Constrainer for LoosenConstrainer {
@@ -127,7 +127,7 @@ impl Constrainer for LoosenConstrainer {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundedFractionalMaximalSizer {
     width_factor: Option<f32>,
     height_factor: Option<f32>,
@@ -159,7 +159,7 @@ impl Sizer for BoundedFractionalMaximalSizer {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Alignment {
     pub x: f32,
     pub y: f32,
@@ -205,7 +205,7 @@ impl Align {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Dimension {
     Paxel(f32),
     Fraction(f32),
@@ -215,7 +215,7 @@ impl Default for Dimension {
     fn default() -> Self { Self::Paxel(0.0) }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AbsolutePosition {
     pub x: Dimension,
     pub y: Dimension,
@@ -281,7 +281,7 @@ impl Positioned {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct EdgeInsets {
     pub left: f32,
     pub right: f32,
@@ -334,7 +334,7 @@ impl Padding {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FractionalSize {
     x: Option<f32>,
     y: Option<f32>,
@@ -368,7 +368,7 @@ impl EmptySizer for FractionalSize {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PassthroughSizer;
 
 impl Sizer for PassthroughSizer {
@@ -393,7 +393,7 @@ impl FractionallySizedBox {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AspectRatio {
     // width / height
     ratio: f32,
@@ -448,13 +448,13 @@ impl AspectRatioBox {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StackFit {
     Tight,
     Loose,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Stack {
     pub fit: StackFit,
     pub alignment: Alignment,
@@ -515,6 +515,22 @@ impl Debug for ClosureLayout {
         write!(f, "ClosureLayout {{ ... }}")
     }
 }
+
+impl TraitComparable for ClosureLayout {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_trait_comparable(&self) -> &dyn TraitComparable {
+        self
+    }
+
+    // TODO(robin): is there any meaningful way to compare Box<Closure>s?
+    fn eq(&self, other: &dyn TraitComparable) -> bool {
+        false
+    }
+}
+
 impl Layout for ClosureLayout {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
         assert_eq!(children.len(), 0);
