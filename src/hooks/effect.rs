@@ -1,6 +1,5 @@
-use crate::{heart::Key, hooks::*, KeyPart, ListenableGuard, WidgetContext, PatchedTree};
-use std::marker::PhantomData;
-use std::sync::Arc;
+use crate::{heart::Key, hooks::*, KeyPart, ListenableGuard, PatchedTree, WidgetContext};
+use std::{marker::PhantomData, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct EffectHandle<T> {
@@ -38,7 +37,7 @@ impl<'a> ContextEffect for WidgetContext<'a> {
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T> {
-        let deps_listenable = self.listenable_key(key.with(KeyPart::Deps), None);
+        let deps_listenable = self.listenable_key(key.with(KeyPart::Hook(0)), None);
         let deps = Some(deps);
         if *self.listen_ref(deps_listenable) != deps {
             self.tree.set_unconditional(deps_listenable.key, Box::new(deps));

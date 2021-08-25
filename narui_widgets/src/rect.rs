@@ -1,5 +1,5 @@
-use crate::{heart::*, macros::widget};
-pub use lyon::tessellation::StrokeOptions;
+use narui::{heart::*, macros::widget};
+use lyon::tessellation::StrokeOptions;
 use lyon::{
     math::rect as lyon_rect,
     path::{builder::*, Winding},

@@ -4,7 +4,13 @@ use crate::{
     Offset,
     Size,
 };
-use std::{any::Any, cell::Cell, hash::Hash, ops::Deref};
+use std::{
+    any::Any,
+    cell::Cell,
+    collections::hash_map::DefaultHasher,
+    hash::{BuildHasher, Hash},
+    ops::Deref,
+};
 
 
 pub trait TraitComparable: std::fmt::Debug {
@@ -16,13 +22,9 @@ pub trait TraitComparable: std::fmt::Debug {
 }
 
 impl<T: 'static + PartialEq + std::fmt::Debug> TraitComparable for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
+    fn as_any(&self) -> &dyn Any { self }
 
-    fn as_trait_comparable(&self) -> &dyn TraitComparable {
-        self
-    }
+    fn as_trait_comparable(&self) -> &dyn TraitComparable { self }
 
     fn eq(&self, other: &dyn TraitComparable) -> bool {
         other.as_any().downcast_ref::<T>().map_or(false, |other| self == other)
@@ -54,7 +56,7 @@ pub struct LayoutItem<'a, Key> {
 }
 
 impl<'a, Key: Hash + Eq + Clone> LayoutItem<'a, Key> {
-    fn new<T>(layouter: &'a Layouter<Key, T>, idx: Idx) -> Self {
+    fn new<T, H: BuildHasher>(layouter: &'a Layouter<Key, T, H>, idx: Idx) -> Self {
         let node = &layouter.nodes[idx.get()];
 
         Self {
@@ -65,13 +67,13 @@ impl<'a, Key: Hash + Eq + Clone> LayoutItem<'a, Key> {
     }
 }
 
-struct LayoutIter<'a, Key, T> {
-    layouter: &'a Layouter<Key, T>,
+struct LayoutIter<'a, Key, T, H> {
+    layouter: &'a Layouter<Key, T, H>,
     next_pos: Option<Idx>,
 }
 
-impl<'a, Key, T> LayoutIter<'a, Key, T> {
-    fn new(layouter: &'a Layouter<Key, T>, top: Idx) -> Self {
+impl<'a, Key, T, H> LayoutIter<'a, Key, T, H> {
+    fn new(layouter: &'a Layouter<Key, T, H>, top: Idx) -> Self {
         let mut bottom_left = top;
         while let Some(child) = layouter.nodes[bottom_left.get()].child {
             bottom_left = child;
@@ -80,7 +82,7 @@ impl<'a, Key, T> LayoutIter<'a, Key, T> {
     }
 }
 
-impl<'a, Key: Hash + Eq + Clone, T> Iterator for LayoutIter<'a, Key, T> {
+impl<'a, Key: Hash + Eq + Clone, T, H: BuildHasher> Iterator for LayoutIter<'a, Key, T, H> {
     type Item = LayoutItem<'a, Key>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -106,16 +108,18 @@ impl<'a, Key: Hash + Eq + Clone, T> Iterator for LayoutIter<'a, Key, T> {
 }
 
 #[derive(Debug)]
-pub struct Layouter<Key, T> {
-    key_to_idx: BiMap<Key, Idx>,
+pub struct Layouter<Key, T, Hasher = DefaultHasher> {
+    key_to_idx: BiMap<Key, Idx, Hasher>,
     nodes: VecWithHoles<PositionedNode<T>>,
 }
 
-impl<Key, T> Layouter<Key, T> {
+impl<Key, T, H: Default> Layouter<Key, T, H> {
     pub fn new() -> Self { Self { key_to_idx: BiMap::new(), nodes: VecWithHoles::new() } }
 }
 
-impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> Layouter<Key, T> {
+impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H: BuildHasher>
+    Layouter<Key, T, H>
+{
     pub fn set_node(&mut self, key: &Key, layoutable: T) {
         match self.key_to_idx.get_left(key) {
             Some(idx) => {
@@ -405,7 +409,8 @@ impl<'a> LayoutableChild<'a> {
     pub fn uses_child_size(&self) -> bool { self.child.obj().uses_child_size() }
 
     pub fn layout(&self, constraint: BoxConstraints) -> Size {
-        // dbg!("before_layout", self.child.obj(), self.child.any_dirty_children(), constraint, self.child.input_constraints(), self.child.size());
+        // dbg!("before_layout", self.child.obj(), self.child.any_dirty_children(),
+        // constraint, self.child.input_constraints(), self.child.size());
         if !self.child.any_dirty_children() && Some(constraint) == self.child.input_constraints() {
             if let Some(size) = self.child.size() {
                 return size;
@@ -417,7 +422,8 @@ impl<'a> LayoutableChild<'a> {
         self.child.set_input_constraints(Some(constraint));
         self.child.set_any_dirty_children(false);
         self.child.set_size(Some(size));
-        // dbg!("after_layout", self.child.obj(), self.child.any_dirty_children(), constraint, self.child.input_constraints(), self.child.size());
+        // dbg!("after_layout", self.child.obj(), self.child.any_dirty_children(),
+        // constraint, self.child.input_constraints(), self.child.size());
         size
     }
 

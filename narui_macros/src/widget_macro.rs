@@ -1,6 +1,6 @@
 use bind_match::bind_match;
 use core::result::{Result, Result::Ok};
-use proc_macro2::{Ident, Literal, Span};
+use proc_macro2::{Ident, LineColumn, Literal, Span};
 use quote::{quote, ToTokens};
 use std::collections::{HashMap, HashSet};
 use syn::{
@@ -131,24 +131,13 @@ pub fn widget(
             .map(|ident| desinfect_ident(&ident))
             .collect();
 
-        let arg_names_listenables: Vec<_> = get_arg_names(&function)
-            .into_iter()
-            .filter(|ident| get_arg_types(&function)[&ident.to_string()].to_token_stream().to_string() != WIDGET_CONTEXT_TYPE_STRING)
-            .map(|ident| (format!("{}", ident), desinfect_ident(&ident)))
-            .map(|(string, ident)| {
-                quote! {
-                    shout_arg!($context, $context.widget_local.key.with(KeyPart::Arg(#string)), #ident)
-                }
-            })
-            .collect();
-
         quote! {
             (@shout_args context=$context:expr, $($args:tt)*) => {
                 {
                     #(#initializers;)*
                     #mod_ident::#macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
 
-                    (#(#arg_names_listenables,)*)
+                    shout_args!($context, $context.widget_local.key, [#(#arg_names,)*])
                 }
             };
         }
@@ -162,6 +151,9 @@ pub fn widget(
             .collect();
         let arg_numbers: Vec<_> = (0..(get_arg_names(&function).len() - 1))
             .map(|i| Literal::usize_unsuffixed(i))
+            .collect();
+        let arg_numbers_plus_one: Vec<_> = (0..(get_arg_names(&function).len() - 1))
+            .map(|i| Literal::usize_unsuffixed(i + 1))
             .collect();
 
         let transformer = if return_type == "FragmentInner" {
@@ -195,13 +187,44 @@ pub fn widget(
                 (@construct listenable=$listenables:ident, context=$context:expr) => {{
                     use narui::args::ContextArgs;
                     #transformer
-                    transformer(#mod_ident::#function_ident(#($context.listen_arg($listenables.#arg_numbers),)* $context))
+                    let args = $context.listen_args(&$listenables.0);
+                    unsafe {
+                        transformer(#mod_ident::#function_ident(
+                            #($listenables.#arg_numbers_plus_one.parse(&*args[#arg_numbers]).clone(),)*
+                            $context
+                        ))
+                    }
                 }}
             }
 
             // we do this to have correct scoping of the macro. It should not just be placed at the
             // crate root but rather at the path of the original function.
             pub use #macro_ident as #macro_ident_pub;
+        }
+    };
+
+
+    let data_constructor_function = {
+        let span = function_ident.span();
+        let LineColumn { line, column } = span.start();
+        let arg_names =
+            get_arg_names(&function).into_iter().filter(|ident| &ident.to_string() != "context");
+        let source_loc = format!("unknown:{}:{}", line, column);
+
+        quote! {
+            pub static WIDGET_ID: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
+
+            #[narui::internal::ctor]
+            fn _init_widget() {
+                let mut lock = narui::internal::WIDGET_INFO.write();
+                let id = lock.len();
+                WIDGET_ID.store(id as u16, std::sync::atomic::Ordering::SeqCst);
+                lock.push(narui::internal::WidgetDebugInfo {
+                    name: stringify!(#mod_ident).to_string(),
+                    loc: #source_loc.to_string(),
+                    arg_names: vec![#(stringify!(#arg_names).to_string(),)*],
+                })
+            }
         }
     };
 
@@ -212,11 +235,12 @@ pub fn widget(
     let transformed = quote! {
         #transformed_function
         #function_vis mod #mod_ident {
+            #data_constructor_function
             #constructor_macro
             pub use super::#new_ident as #original_ident;
         }
     };
-    // println!("widget: \n{}\n\n", transformed.clone());
+    println!("widget: \n{}\n\n", transformed.clone());
     transformed.into()
 }
 // a (simplified) example of the kind of macro this proc macro generates:

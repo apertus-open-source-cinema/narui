@@ -4,6 +4,7 @@
 //
 
 use crate::heart::*;
+use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 use rutter_layout::{BoxConstraints, Layout, Offset};
 use std::env;
@@ -30,8 +31,8 @@ pub trait LayoutTree {
 
 #[derive(Debug)]
 pub struct Layouter {
-    layouter: rutter_layout::Layouter<Key, Box<dyn Layout>>,
-    key_to_render_object: HashMap<Key, RenderObject>,
+    layouter: rutter_layout::Layouter<Key, Box<dyn Layout>, FxBuildHasher>,
+    key_to_render_object: HashMap<Key, RenderObject, FxBuildHasher>,
     debug_render_object: RenderObject,
     debug_layout_bounds: bool,
 }
@@ -77,7 +78,7 @@ impl Layouter {
 
         Layouter {
             layouter: rutter_layout::Layouter::new(),
-            key_to_render_object: HashMap::new(),
+            key_to_render_object: HashMap::default(),
             debug_render_object: RenderObject::DebugRect,
             debug_layout_bounds,
         }

@@ -167,6 +167,7 @@ impl<'a> ListenableListen for WidgetContext<'a> {
 
 use crate::{CallbackContext, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext};
 use std::{rc::Rc, sync::Arc};
+use std::any::Any;
 
 pub struct Listenable<T> {
     pub key: Key,
@@ -175,6 +176,12 @@ pub struct Listenable<T> {
 impl<T> Listenable<T> {
     pub unsafe fn uninitialized(key: Key) -> Self {
         Listenable { key, phantom_data: Default::default() }
+    }
+
+    pub unsafe fn parse<'a>(&self, any: &'a dyn Any) -> &'a T
+        where T: 'static
+    {
+        any.downcast_ref().expect("wrong type for argument")
     }
 }
 impl<T> Clone for Listenable<T> {

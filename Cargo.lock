@@ -354,6 +354,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctor"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e98e2ad1a782e33928b96fc3948e7c355e5af34ba4de7670fe8bac2a3b2006d"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "darling"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -876,6 +886,7 @@ name = "narui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ctor",
  "dashmap",
  "derivative",
  "fxhash",
@@ -887,6 +898,7 @@ dependencies = [
  "lazy_static",
  "lyon",
  "narui_macros",
+ "narui_widgets",
  "notosans",
  "palette",
  "parking_lot",
@@ -907,6 +919,17 @@ dependencies = [
  "syn",
  "syn-rsx",
  "uuid",
+]
+
+[[package]]
+name = "narui_widgets"
+version = "0.1.0"
+dependencies = [
+ "glyph_brush",
+ "lyon",
+ "narui",
+ "palette",
+ "rutter_layout",
 ]
 
 [[package]]
@@ -1410,6 +1433,7 @@ dependencies = [
 name = "rutter_layout"
 version = "0.1.0"
 dependencies = [
+ "hashbrown",
  "smallvec",
  "tinyset",
 ]
