@@ -6,22 +6,22 @@ pub use column::*;
 pub mod row;
 pub use row::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Flex {
     pub flex: f32,
     pub fit: FlexFit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum FlexFit {
     Tight,
     Loose,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct FlexibleQuery;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Flexible {
     pub flex: Flex,
 }
@@ -62,7 +62,7 @@ impl Layout for Flexible {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum CrossAxisAlignment {
     Start,
     End,
@@ -79,7 +79,7 @@ impl CrossAxisAlignment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum MainAxisAlignment {
     Start,
     End,
@@ -117,7 +117,7 @@ impl MainAxisAlignment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum MainAxisSize {
     Min,
     Max,

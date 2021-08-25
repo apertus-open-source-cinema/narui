@@ -90,8 +90,8 @@ impl Layout for Row {
         for child in children.into_iter() {
             let size = child.size();
             child.set_pos(Offset {
-                x: self.cross_axis_alignment.spacing_for(max_height, size.height),
-                y: current_width,
+                y: self.cross_axis_alignment.spacing_for(max_height, size.height),
+                x: current_width,
             });
             current_width += space_between + size.width;
         }

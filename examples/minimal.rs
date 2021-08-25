@@ -3,16 +3,19 @@ use narui_macros::rsx_toplevel;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 #[widget]
-pub fn top(context: Context) -> Fragment {
-    let color = color!(#222222);
+pub fn top(context: &mut WidgetContext) -> Fragment {
+    let color1 = color!(#ff0000);
+    let color2 = color!(#00ff00);
 
     rsx! {
         <column>
-            <rect constraints=BoxConstraints::tight_for(200.0, 200.0) fill_color=Some(color)>
-            </rect>
-            <rect constraints=BoxConstraints::tight_for(200.0, 200.0) fill_color=Some(color)>
-            </rect>
-        </column
+            <flexible flex = 1.0>
+                <fill_rect color=color1 />
+            </flexible>
+            <flexible flex = 2.0>
+                <fill_rect color=color2 />
+            </flexible>
+        </column>
     }
 }
 

@@ -1,4 +1,5 @@
-use crate::{Context, ContextEffect, EffectHandle, Key};
+/*
+use crate::{Context, ContextEffect, EffectHandle, Key, WidgetContext, ThreadContext};
 use std::{
     sync::{
         mpsc::{sync_channel, Receiver, SyncSender},
@@ -13,11 +14,13 @@ pub struct ThreadHandle<T> {
     join_handle: Option<Arc<JoinHandle<()>>>,
     stop_value: Option<T>,
 }
+
 impl<T> ThreadHandle<T> {
     pub fn send(&self, msg: T) -> Result<(), std::sync::mpsc::SendError<T>> {
         self.sender.send(msg)
     }
 }
+
 impl<T> Drop for ThreadHandle<T> {
     fn drop(&mut self) {
         self.sender.send(self.stop_value.take().unwrap()).unwrap();
@@ -36,6 +39,7 @@ pub trait ContextThread {
         stop_value: T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<ThreadHandle<T>>;
+
     fn thread<T: Send + Sync + Clone + 'static>(
         &self,
         callback: impl Fn(Context, Receiver<T>) + Sync + Send + 'static,
@@ -43,24 +47,25 @@ pub trait ContextThread {
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<ThreadHandle<T>>;
 }
-impl ContextThread for Context {
+
+impl ContextThread for WidgetContext {
     fn thread_key<T: Send + Sync + Clone + 'static>(
         &self,
         key: Key,
-        callback: impl Fn(Context, Receiver<T>) + Sync + Send + 'static,
+        callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
         stop_value: T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<ThreadHandle<T>> {
-        let cloned_context = self.clone();
+        let thread_context = self.thread_context();
         let callback = Arc::new(callback);
         self.effect_key(
             key,
             move || {
-                let cloned_context = cloned_context.clone();
+                let thread_context = cloned_context.clone();
                 let cloned_callback = callback.clone();
                 let (sender, receiver) = sync_channel(8);
                 let join_handle = spawn(move || {
-                    cloned_callback(cloned_context, receiver);
+                    cloned_callback(thread_contexti, receiver);
                 });
 
                 ThreadHandle {
@@ -72,6 +77,7 @@ impl ContextThread for Context {
             deps,
         )
     }
+
     fn thread<T: Send + Sync + Clone + 'static>(
         &self,
         callback: impl Fn(Context, Receiver<T>) + Sync + Send + 'static,
@@ -81,3 +87,4 @@ impl ContextThread for Context {
         self.thread_key(self.key_for_hook(), callback, stop_value, deps)
     }
 }
+*/

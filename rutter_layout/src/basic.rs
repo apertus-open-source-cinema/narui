@@ -1,7 +1,50 @@
 use crate::{BoxConstraints, Layout, LayoutableChildren, Offset, Size};
-use std::fmt::Debug;
+use std::{
+    any::Any,
+    fmt::{Debug, Formatter},
+};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
+pub struct Maximal;
+
+impl Layout for Maximal {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+        assert_eq!(children.len(), 0);
+        constraint.maximal_bounded()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Transparent;
+
+impl Layout for Transparent {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+        assert!(children.len() <= 1);
+        if let Some(child) = children.into_iter().last() {
+            let size = child.layout(constraint);
+            child.set_pos(Offset::zero());
+            size
+        } else {
+            constraint.constrain(Size::zero())
+        }
+    }
+
+    fn query<'a>(
+        &'a self,
+        query: &dyn Any,
+        children: LayoutableChildren<'a>,
+    ) -> Option<&'a dyn Any> {
+        assert!(children.len() <= 1);
+        if let Some(child) = children.into_iter().last() {
+            child.query(query)
+        } else {
+            None
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy)]
 pub struct SizedBox {
     constraint: BoxConstraints,
 }
@@ -75,7 +118,7 @@ impl<P: Positioner, C: Constrainer, S: Sizer, E: EmptySizer> Layout
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct LoosenConstrainer;
 
 impl Constrainer for LoosenConstrainer {
@@ -84,7 +127,7 @@ impl Constrainer for LoosenConstrainer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BoundedFractionalMaximalSizer {
     width_factor: Option<f32>,
     height_factor: Option<f32>,
@@ -116,13 +159,14 @@ impl Sizer for BoundedFractionalMaximalSizer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Alignment {
     pub x: f32,
     pub y: f32,
 }
 
 impl Alignment {
+    pub fn new(x: f32, y: f32) -> Self { Alignment { x, y } }
     pub fn top_left() -> Self { Alignment { x: -1.0, y: 1.0 } }
     pub fn top_center() -> Self { Alignment { x: 0.0, y: 1.0 } }
     pub fn top_right() -> Self { Alignment { x: 1.0, y: 1.0 } }
@@ -138,7 +182,7 @@ impl Positioner for Alignment {
     fn position(&self, outer_size: Size, inner_size: Size) -> Offset {
         let unit_x = (outer_size.width - inner_size.width) / 2.0;
         let unit_y = (outer_size.height - inner_size.height) / 2.0;
-        Offset { x: unit_x + self.x * unit_x, y: unit_y + self.y * unit_y }
+        Offset { x: unit_x + self.x * unit_x, y: unit_y - self.y * unit_y }
     }
 }
 
@@ -161,21 +205,44 @@ impl Align {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
+pub enum Dimension {
+    Paxel(f32),
+    Fraction(f32),
+}
+
+impl Default for Dimension {
+    fn default() -> Self { Self::Paxel(0.0) }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct AbsolutePosition {
-    pos: Offset,
+    pub x: Dimension,
+    pub y: Dimension,
 }
 
 impl AbsolutePosition {
-    pub fn zero() -> Self {
-        Self {
-            pos: Offset::zero()
-        }
+    pub fn zero() -> Self { Self { x: Dimension::Paxel(0.0), y: Dimension::Paxel(0.0) } }
+
+    pub fn from_offset(offset: Offset) -> Self {
+        Self { x: Dimension::Paxel(offset.x), y: Dimension::Paxel(offset.y) }
     }
 }
 
 impl Positioner for AbsolutePosition {
-    fn position(&self, _outer_size: Size, _inner_size: Size) -> Offset { self.pos }
+    fn position(&self, outer_size: Size, _inner_size: Size) -> Offset {
+        let x = match self.x {
+            Dimension::Paxel(x) => x,
+            Dimension::Fraction(p) => outer_size.width * p,
+        };
+
+        let y = match self.y {
+            Dimension::Paxel(y) => y,
+            Dimension::Fraction(p) => outer_size.height * p,
+        };
+
+        Offset { x, y }
+    }
 }
 
 pub type Positioned =
@@ -184,9 +251,31 @@ pub type Positioned =
 impl Positioned {
     pub fn new(position: Offset) -> Self {
         SingleChildLayouter {
-            positioner: AbsolutePosition { pos: position },
+            positioner: AbsolutePosition::from_offset(position),
             constrainer: LoosenConstrainer,
             sizer: BoundedFractionalMaximalSizer::not_fractional(),
+            empty_sizer: None,
+        }
+    }
+
+    pub fn from(position: AbsolutePosition) -> Self {
+        SingleChildLayouter {
+            positioner: position,
+            constrainer: LoosenConstrainer,
+            sizer: BoundedFractionalMaximalSizer::not_fractional(),
+            empty_sizer: None,
+        }
+    }
+
+    pub fn fractional(
+        position: AbsolutePosition,
+        factor_width: Option<f32>,
+        factor_height: Option<f32>,
+    ) -> Self {
+        SingleChildLayouter {
+            positioner: position,
+            constrainer: LoosenConstrainer,
+            sizer: BoundedFractionalMaximalSizer::new(factor_width, factor_height),
             empty_sizer: None,
         }
     }
@@ -237,7 +326,7 @@ pub type Padding = SingleChildLayouter<AbsolutePosition, EdgeInsets, EdgeInsets>
 impl Padding {
     pub fn new(padding: EdgeInsets) -> Self {
         SingleChildLayouter {
-            positioner: AbsolutePosition { pos: padding.offset() },
+            positioner: AbsolutePosition::from_offset(padding.offset()),
             constrainer: padding,
             sizer: padding,
             empty_sizer: Some(padding.size()),
@@ -279,7 +368,7 @@ impl EmptySizer for FractionalSize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct PassthroughSizer;
 
 impl Sizer for PassthroughSizer {
@@ -307,17 +396,13 @@ impl FractionallySizedBox {
 #[derive(Debug, Clone, Copy)]
 pub struct AspectRatio {
     // width / height
-    ratio: f32
+    ratio: f32,
 }
 
 impl AspectRatio {
-    fn width_for(self, height: f32) -> f32 {
-        height * self.ratio
-    }
+    fn width_for(self, height: f32) -> f32 { height * self.ratio }
 
-    fn height_for(self, width: f32) -> f32 {
-        width / self.ratio
-    }
+    fn height_for(self, width: f32) -> f32 { width / self.ratio }
 
     fn target_size(self, input_constraint: BoxConstraints) -> Size {
         assert!(input_constraint.width_is_bounded() || input_constraint.height_is_bounded());
@@ -328,9 +413,10 @@ impl AspectRatio {
             self.width_for(input_constraint.max_height).min(input_constraint.max_width)
         };
         let height = self.height_for(width).min(input_constraint.max_height);
-        // TODO(robin): flutter does these, but I don't think these actually do anything?
-        // let width = self.width_for(height).max(input_constraint.min_width);
-        // let height = self.height_for(width).max(input_constraint.min_height);
+        // TODO(robin): flutter does these, but I don't think these actually do
+        // anything? let width =
+        // self.width_for(height).max(input_constraint.min_width); let height =
+        // self.height_for(width).max(input_constraint.min_height);
         let width = self.width_for(height);
 
         Size { width, height }
@@ -345,12 +431,11 @@ impl Constrainer for AspectRatio {
 }
 
 impl EmptySizer for AspectRatio {
-    fn size(&self, input_constraint: BoxConstraints) -> Size {
-        self.target_size(input_constraint)
-    }
+    fn size(&self, input_constraint: BoxConstraints) -> Size { self.target_size(input_constraint) }
 }
 
-pub type AspectRatioBox = SingleChildLayouter<AbsolutePosition, AspectRatio, PassthroughSizer, AspectRatio>;
+pub type AspectRatioBox =
+    SingleChildLayouter<AbsolutePosition, AspectRatio, PassthroughSizer, AspectRatio>;
 
 impl AspectRatioBox {
     pub fn new(ratio: AspectRatio) -> Self {
@@ -358,45 +443,81 @@ impl AspectRatioBox {
             positioner: AbsolutePosition::zero(),
             constrainer: ratio,
             sizer: PassthroughSizer,
-            empty_sizer: ratio
+            empty_sizer: ratio,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum StackFit {
     Tight,
     Loose,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Stack {
     pub fit: StackFit,
     pub alignment: Alignment,
+    pub size_using_first: bool,
 }
 
 impl Stack {
-    pub fn new() -> Self { Self::with_fit_and_alignment(StackFit::Loose, Alignment::center()) }
+    pub fn new() -> Self { Self::from(StackFit::Loose, Alignment::center(), false) }
 
-    pub fn with_fit_and_alignment(fit: StackFit, alignment: Alignment) -> Self {
-        Self { fit, alignment }
+    pub fn from(fit: StackFit, alignment: Alignment, size_using_first: bool) -> Self {
+        Self { fit, alignment, size_using_first }
     }
 }
 
 impl Layout for Stack {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
         let mut max_size = Size::zero();
+        let mut first_size = None;
 
         for child in &children {
-            max_size = max_size.max(child.layout(constraint.loosen()));
+            let constraint = if self.size_using_first {
+                if let Some(first_size) = first_size {
+                    BoxConstraints::tight_for(first_size)
+                } else {
+                    constraint
+                }
+            } else {
+                constraint
+            };
+
+            let size = child.layout(constraint.loosen());
+            max_size = max_size.max(size);
+
+            if first_size.is_none() && self.size_using_first {
+                first_size = Some(size)
+            }
         }
 
-        let our_size = constraint.maximal_bounded_or(max_size);
+        let our_size = if self.size_using_first {
+            constraint.constrain(max_size)
+        } else {
+            constraint.maximal_bounded_or(max_size)
+        };
 
         for child in &children {
             child.set_pos(self.alignment.position(our_size, child.size()));
         }
 
         our_size
+    }
+}
+
+pub struct ClosureLayout {
+    pub closure: Box<dyn Fn(BoxConstraints) -> Size>,
+}
+impl Debug for ClosureLayout {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ClosureLayout {{ ... }}")
+    }
+}
+impl Layout for ClosureLayout {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+        assert_eq!(children.len(), 0);
+        (self.closure)(constraint)
     }
 }

@@ -226,14 +226,14 @@ impl TextRenderer {
             texture_bytes,
         }
     }
-    pub fn render(
+    pub fn render<'a>(
         &mut self,
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
-        render_objects: Arc<Vec<PositionedRenderObject>>,
+        render_objects: impl Iterator<Item = PositionedRenderObject<'a>>,
     ) {
-        for render_object in render_objects.iter() {
+        for render_object in render_objects {
             if let RenderObject::Text { text, size, color } = &render_object.render_object {
                 self.glyph_brush.queue(
                     Section::default()

@@ -50,7 +50,7 @@ impl InputHandler {
     pub fn handle_input<'a>(
         &mut self,
         render_objects: impl Iterator<Item = PositionedRenderObject<'a>>,
-        context: Context,
+        context: CallbackContext,
     ) -> bool {
         if !self.cursor_moved && !self.cursor_pressed && !self.cursor_released {
             return false;
@@ -64,25 +64,25 @@ impl InputHandler {
                 if self.cursor_moved {
                     let is_hover = render_object.rect.contains(self.cursor_position);
                     if input_state.hover != is_hover {
-                        on_hover(context.clone(), is_hover);
+                        on_hover(&context, is_hover);
                         input_state.hover = is_hover;
                         updated = true;
                     }
                     if input_state.clicked || is_hover {
-                        on_move(context.clone(), self.cursor_position - render_object.rect.pos);
+                        on_move(&context, self.cursor_position - render_object.rect.pos);
                         updated = true;
                     }
                 }
                 if self.cursor_pressed && render_object.rect.contains(self.cursor_position) {
                     input_state.clicked = true;
-                    on_click(context.clone(), true);
+                    on_click(&context, true);
                     updated = true;
                 }
                 if self.cursor_released
                     && (input_state.clicked || render_object.rect.contains(self.cursor_position))
                 {
                     input_state.clicked = false;
-                    on_click(context.clone(), false);
+                    on_click(&context, false);
                     updated = true;
                 }
             }

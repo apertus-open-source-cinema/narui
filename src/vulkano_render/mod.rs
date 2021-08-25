@@ -121,8 +121,8 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut raw_render = RawRenderer::new(render_pass.clone());
     let mut input_handler = InputHandler::new();
 
-    let mut layouter = Arc::new(Layouter::new());
-    let mut evaluator = Evaluator::new(top_node, layouter.clone());
+    let mut layouter = Layouter::new();
+    let mut evaluator = Evaluator::new(top_node, &mut layouter);
 
     let mut recreate_swapchain = false;
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
@@ -143,8 +143,9 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 return;
             }
             Event::MainEventsCleared => {
-                input_handler.handle_input(layouter.iter_layouted(), evaluator.context.clone());
-                has_update |= evaluator.update();
+                input_handler
+                    .handle_input(layouter.iter_layouted(), evaluator.callback_context(&layouter));
+                has_update |= evaluator.update(&mut layouter);
                 if has_update && (acquired_images.len() >= (caps.min_image_count) as usize - 1) {
                     surface.window().request_redraw();
                 }
@@ -167,11 +168,27 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                     .begin_render_pass(framebuffer, SubpassContents::Inline, clear_values)
                     .unwrap();
 
-                layouter.do_layout(dimensions.into()).unwrap();
+                layouter.do_layout(dimensions.into());
+                dbg!(&layouter);
 
-                raw_render.render(&mut builder, &dynamic_state, &dimensions, layouter.iter_layouted());
-                lyon_renderer.render(&mut builder, &dynamic_state, &dimensions, layouter.iter_layouted());
-                text_render.render(&mut builder, &dynamic_state, &dimensions, layouter.iter_layouted());
+                raw_render.render(
+                    &mut builder,
+                    &dynamic_state,
+                    &dimensions,
+                    layouter.iter_layouted(),
+                );
+                lyon_renderer.render(
+                    &mut builder,
+                    &dynamic_state,
+                    &dimensions,
+                    layouter.iter_layouted(),
+                );
+                text_render.render(
+                    &mut builder,
+                    &dynamic_state,
+                    &dimensions,
+                    layouter.iter_layouted(),
+                );
 
                 builder.end_render_pass().unwrap();
                 let command_buffer = builder.build().unwrap();
@@ -200,11 +217,9 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                     }
                 }
 
-                let context = evaluator.context.clone();
-                let callbacks: Vec<_> =
-                    context.global.write().after_frame_callbacks.drain(..).collect();
-                for callback in callbacks {
-                    callback(context.clone());
+                let context = evaluator.callback_context(&layouter);
+                for callback in evaluator.after_frame_callbacks.drain(..) {
+                    callback(&context);
                 }
             }
             _e => {}

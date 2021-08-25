@@ -15,9 +15,9 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     (quote! {
         Fragment {
             key: Default::default(),
-            gen: std::sync::Arc::new(|context| { FragmentInner {
+            gen: std::rc::Rc::new(|context: &mut WidgetContext| { FragmentInner::Node {
                 children: vec![ #rsx ],
-                layout_object: None,
+                layout: Box::new(rutter_layout::Transparent),
             } }),
         }
     })

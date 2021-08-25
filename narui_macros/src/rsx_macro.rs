@@ -17,18 +17,18 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
         return quote! {{
             Fragment {
                 key: context.widget_local.key.with(KeyPart::Rsx(#loc)),
-                gen: std::sync::Arc::new(move |_context| FragmentInner {
-                    layout_object: None,
+                gen: std::rc::Rc::new(move |_context| FragmentInner::Node {
+                    layout: Box::new(rutter_layout::Transparent),
                     children: vec![],
                 }),
             }
         }};
     }
-    assert!(parsed.len() == 1);
-    let (begining, inplace) = handle_rsx_node(parsed.remove(0));
+    assert_eq!(parsed.len(), 1, "the rsx macro can have at maximum one child");
+    let (beginning, inplace) = handle_rsx_node(parsed.remove(0));
 
     let transformed = quote! {{
-        #begining
+        #beginning
         #inplace
     }};
 
@@ -79,32 +79,30 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
 
         let beginning = quote! {
             let #args_listenable_ident = {
-                let context = {
-                    let mut context = context.clone();
-                    context.widget_local.key = context.widget_local.key.with(#key);
-                    context
-                };
+                context.widget_local.key = context.widget_local.key.with(#key);
 
                 #beginning
-
-                #constructor_path!(
+                let to_return = #constructor_path!(
                     @shout_args
-                    context=(context.clone()),
+                    context=context,
                     #(#processed_attributes,)*
                     #children_processed
-                )
+                );
+
+                context.widget_local.key = context.widget_local.key.parent();
+                to_return
             };
         };
         let inplace = quote! {
             Fragment {
                 key: context.widget_local.key.with(#key),
-                gen: std::sync::Arc::new(move |context: Context| {
+                gen: std::rc::Rc::new(move |context: &mut WidgetContext| {
                     #constructor_path!(@construct listenable=#args_listenable_ident, context=context)
                 })
             }
         };
         (beginning, inplace)
     } else {
-        panic!("you shal not give this input to the rsx macro")
+        panic!("you shall not give this input to the rsx macro")
     }
 }

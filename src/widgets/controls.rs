@@ -1,22 +1,19 @@
-/*
-use crate::{style::*, *};
+use crate::*;
 use palette::Shade;
 
 #[widget(
     on_click = (| _context | {}),
-    border_radius = Points(10.),
+    border_radius = Paxel(10.),
     color = crate::theme::BG,
     stroke_color = crate::theme::FG,
-    style=Default::default(),
 )]
 pub fn button(
-    on_click: impl Fn(Context) + Clone + Sync + Send + 'static,
-    border_radius: BorderRadius,
+    on_click: impl for<'a> Fn(&'a CallbackContext) + Clone + 'static,
+    border_radius: Dimension,
     color: Color,
     stroke_color: Color,
     children: Vec<Fragment>,
-    style: Style,
-    context: Context,
+    context: &mut WidgetContext,
 ) -> Fragment {
     let clicked = context.listenable(false);
 
@@ -26,7 +23,7 @@ pub fn button(
         color
     };
 
-    let callback = move |context: Context, is_clicked| {
+    let callback = move |context: &CallbackContext, is_clicked| {
         context.shout(clicked, is_clicked);
         if is_clicked {
             on_click(context);
@@ -34,70 +31,58 @@ pub fn button(
     };
 
     rsx! {
-        <rect style=style fill_color=Some(color) stroke_color=Some(stroke_color) border_radius=border_radius>
-            <input on_click=callback style={STYLE.padding(Points(10.))}>
-                {children}
-            </input>
-        </rect>
+        <stack fit=StackFit::Tight size_using_first=true>
+            <padding><sized_box constraint=BoxConstraints::min_width(100.0)><align factor_height=Some(1.0)>{children}</align></sized_box></padding>
+            <fill_rect color=color border_radius=border_radius />
+            <border_rect color=stroke_color border_radius=border_radius />
+            <input on_click=callback />
+        </stack>
     }
 }
 
-#[widget(min = 0.0, max = 1.0, width = 500.0, slide_color = crate::theme::BG_LIGHT, knob_color = crate::theme::FG)]
+#[widget(min = 0.0, max = 1.0, slide_color = crate::theme::BG_LIGHT, knob_color = crate::theme::FG)]
 pub fn slider(
     val: f32,
-    on_change: impl Fn(Context, f32) + Clone + Send + Sync + 'static,
+    on_change: impl for<'a> Fn(&'a CallbackContext, f32) + Clone + 'static,
     min: f32,
     max: f32,
-    width: f32,
     slide_color: Color,
     knob_color: Color,
-    context: Context,
+    context: &mut WidgetContext,
 ) -> Fragment {
+    let widget_key = context.widget_local.key;
     let clicked = context.listenable(false);
-    let on_click = move |context: Context, is_clicked| context.shout(clicked, is_clicked);
-    let _click_start_val = context.listenable(val);
+    let on_click = move |context: &CallbackContext, is_clicked| context.shout(clicked, is_clicked);
 
-    let on_move = move |context: Context, position: Vec2| {
-        let clicked = context.listen(clicked);
-        /*
-        let click_start_val = if clicked & clicked_changed {
-            context.shout(click_start_val, position);
-            position
-        } else {
-            context.listen(click_start_val)
-        };
-         */
+    let on_move = move |context: &CallbackContext, position: Vec2| {
+        let clicked = context.spy(clicked);
+        dbg!(widget_key);
+        let width = context.measure_size(widget_key).unwrap().x - 20.0;
 
         if clicked {
-            //let position_delta = position - click_start_position;
-            //let distance = (position.y - 10.).abs();
-            //let distance_factor = if distance < 15.0 { 1. } else { 1. + distance / 50. };
-            let new_val = (position.x / width * (max - min) + min).clamp(min, max);
-
-            on_change(context, new_val);
+            let new_val = ((position.x - 10.0) / width * (max - min) + min).clamp(min, max);
+            on_change(&context, new_val);
         }
     };
 
-    let slide_style = STYLE.width(Percent(1.0)).height(Points(5.0));
-    let handle_container_style =
-        STYLE.position_type(Absolute).top(Points(0.0)).left(Percent((val - min) / (max - min)));
-    let handle_input_style = STYLE.left(Points(-10.));
-    let handle_rect_style = STYLE.width(Points(20.)).height(Points(20.));
-    let top_style = STYLE
-        .width(Points(width))
-        .height(Points(20.))
-        .flex_direction(Column)
-        .align_items(AlignItems::Stretch)
-        .justify_content(JustifyContent::Center);
     rsx! {
-         <input on_move=on_move style=top_style>
-            <rect style=slide_style fill_color=Some(slide_color) />
-            <container style=handle_container_style>
-                <input on_click=on_click style=handle_input_style>
-                    <rect border_radius=Percent(1.) style=handle_rect_style fill_color=Some(knob_color) />
-                </input>
-            </container>
-         </input>
+        <sized_box constraint=BoxConstraints::default().with_tight_height(20.0)>
+            <stack>
+                <sized_box constraint=BoxConstraints::default().with_tight_height(5.0)>
+                    <padding padding=EdgeInsets::horizontal(10.0)>
+                        <fill_rect border_radius=Fraction(1.) color=slide_color /> // the slide
+                    </padding>
+                </sized_box>
+                <input_composed on_move = on_move>
+                    <align alignment=Alignment::new(2.0 * (val - min) / (max - min) - 1.0, 0.0) factor_height = Some(1.0)>
+                        <input_composed on_click=on_click>
+                            <sized_box constraint=BoxConstraints::default().with_tight_width(20.0)>
+                                <fill_rect border_radius=Fraction(1.) color=knob_color />
+                            </sized_box>
+                        </input_composed>
+                    </align>
+                </input_composed>
+            </stack>
+        </sized_box>
     }
 }
- */

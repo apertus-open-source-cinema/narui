@@ -1,44 +1,19 @@
-use crate::{
-    heart::*,
-    macros::widget,
-};
+use crate::{heart::*, macros::widget};
 pub use lyon::tessellation::StrokeOptions;
 use lyon::{
     math::rect as lyon_rect,
     path::{builder::*, Winding},
     tessellation::path::{builder::BorderRadii, path::Builder},
 };
+use rutter_layout::Maximal;
 use std::sync::Arc;
 
-/*
-#[widget(
-    style = Default::default(),
-    children = Default::default(),
-
-    border_radius = Default::default(),
-
-    fill_color = None,
-    stroke_color = None,
-    stroke_options = Default::default()
-)]
-pub fn rect(
-    children: Vec<Fragment>,
-
-    border_radius: Dimension,
-
-    fill_color: Option<Color>,
-    stroke_color: Option<Color>,
-    stroke_options: StrokeOptions,
-
-    context: Context,
-) -> FragmentInner {
-    let path_gen = Arc::new(move |size: Size| {
-        let mut builder = Builder::new();
+fn rounded_rect_builder(border_radius: Dimension) -> Arc<PathGenInner> {
+    Arc::new(move |size: Size| {
+        let mut builder = Builder::with_capacity(4, 4);
         let border_radius_px = match border_radius {
-            Dimension::Undefined => 0.0,
-            Dimension::Auto => 0.0,
-            Dimension::Points(px) => px,
-            Dimension::Percent(percent) => {
+            Paxel(px) => px,
+            Fraction(percent) => {
                 (if size.width > size.height { size.height } else { size.width }) * percent
             }
         };
@@ -53,29 +28,38 @@ pub fn rect(
             Winding::Positive,
         );
         builder.build()
-    });
+    })
+}
 
-    let mut render_objects = vec![];
-    if let Some(fill_color) = fill_color {
-        render_objects.push((
-            KeyPart::RenderObject(0),
-            RenderObject::FillPath { path_gen: path_gen.clone(), color: fill_color },
-        ));
-    }
-    if let Some(stroke_color) = stroke_color {
-        render_objects.push((
-            KeyPart::RenderObject(1),
-            RenderObject::StrokePath {
-                path_gen: path_gen.clone(),
-                color: stroke_color,
-                stroke_options,
-            },
-        ));
-    }
 
-    FragmentInner {
-        children,
-        layout_object: Some(LayoutObject { style, measure_function: None, render_objects }),
+#[widget(border_radius = Default::default(), color =  Default::default(), width = 1.0)]
+pub fn border_rect(
+    border_radius: Dimension,
+    color: Color,
+    width: f32,
+    context: &mut WidgetContext,
+) -> FragmentInner {
+    FragmentInner::Leaf {
+        render_object: RenderObject::StrokePath {
+            path_gen: rounded_rect_builder(border_radius),
+            color,
+            stroke_options: StrokeOptions::default().with_line_width(width),
+        },
+        layout: Box::new(Maximal),
     }
 }
-*/
+
+#[widget(border_radius = Default::default(), color =  Default::default())]
+pub fn fill_rect(
+    border_radius: Dimension,
+    color: Color,
+    context: &mut WidgetContext,
+) -> FragmentInner {
+    FragmentInner::Leaf {
+        render_object: RenderObject::FillPath {
+            path_gen: rounded_rect_builder(border_radius),
+            color,
+        },
+        layout: Box::new(Maximal),
+    }
+}

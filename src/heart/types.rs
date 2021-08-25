@@ -2,6 +2,7 @@ use std::ops::{Add, Div, Mul, Sub};
 use winit::dpi::PhysicalPosition;
 
 pub use palette::{rgb::Rgb as __Rgb, Srgba as Color};
+pub use rutter_layout::Dimension::{self, *};
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vec2 {
@@ -90,21 +91,9 @@ impl_convert_tuple_arr2!(i64);
 impl_convert_tuple_arr2!(u32);
 impl_convert_tuple_arr2!(u64);
 
-implement_convert!(
-    Size,
-    v,
-    v.width,
-    v.height,
-    Size { width: v.x, height: v.y }
-);
+implement_convert!(Size, v, v.width, v.height, Size { width: v.x, height: v.y });
 
-implement_convert!(
-    rutter_layout::Offset,
-    v,
-    v.x,
-    v.y,
-    rutter_layout::Offset { x: v.x, y: v.y }
-);
+implement_convert!(rutter_layout::Offset, v, v.x, v.y, rutter_layout::Offset { x: v.x, y: v.y });
 
 implement_convert!(
     rutter_layout::Size,
@@ -140,13 +129,7 @@ impl Rect {
     pub fn bottom_right(&self) -> Vec2 { self.pos + self.size }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum BorderRadius {
-    Points(f32),
-    Percent(f32)
-}
-
 pub struct Size {
     pub width: f32,
-    pub height: f32
+    pub height: f32,
 }
