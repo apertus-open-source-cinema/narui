@@ -91,6 +91,7 @@ pub enum RenderObject {
         color: Color,
     },
     Input {
+        key: Key,
         // this is nothing that gets rendered but instead it gets interpreted by the input handling
         // logic
         #[derivative(Debug = "ignore")]
