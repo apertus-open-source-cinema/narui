@@ -1,4 +1,4 @@
-use crate::{vulkano_render::text_render::FONT, *};
+use narui::{vulkano_render::text_render::FONT, *};
 use glyph_brush::{
     ab_glyph::{Font, ScaleFont},
     FontId,
@@ -38,8 +38,6 @@ impl rutter_layout::Layout for TextLayout {
             calculated_width = calculated_width.max(glyph.glyph.position.x + h_advance);
             calculated_height = calculated_height.max(glyph.glyph.position.y);
         }
-
-        // dbg!(self);
 
         constraint
             .constrain(rutter_layout::Size { width: calculated_width, height: calculated_height })

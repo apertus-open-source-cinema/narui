@@ -1,16 +1,22 @@
-use std::{collections::HashMap, hash::Hash};
+use hashbrown::HashMap;
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{BuildHasher, Hash},
+};
 
 #[derive(Debug)]
-pub(crate) struct BiMap<A, B> {
-    a_to_b: HashMap<A, B>,
-    b_to_a: HashMap<B, A>,
+pub(crate) struct BiMap<A, B, Hasher = DefaultHasher> {
+    a_to_b: HashMap<A, B, Hasher>,
+    b_to_a: HashMap<B, A, Hasher>,
 }
 
-impl<A, B> BiMap<A, B> {
-    pub(crate) fn new() -> BiMap<A, B> { Self { a_to_b: HashMap::new(), b_to_a: HashMap::new() } }
+impl<A, B, H: Default> BiMap<A, B, H> {
+    pub(crate) fn new() -> BiMap<A, B, H> {
+        Self { a_to_b: HashMap::default(), b_to_a: HashMap::default() }
+    }
 }
 
-impl<A: Hash + Eq + Clone, B: Hash + Eq + Clone> BiMap<A, B> {
+impl<A: Hash + Eq + Clone, B: Hash + Eq + Clone, H: BuildHasher> BiMap<A, B, H> {
     pub(crate) fn contains_left(&self, key: &A) -> bool { self.a_to_b.contains_key(key) }
 
     pub(crate) fn insert(&mut self, left: A, right: B) {

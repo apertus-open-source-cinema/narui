@@ -1,4 +1,5 @@
 use crate::heart::{RenderObject::Input, *};
+use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 use std::sync::Arc;
 use winit::event::{ElementState, MouseButton, WindowEvent};
@@ -17,7 +18,7 @@ pub struct InputHandler {
     cursor_pressed: bool,
     cursor_released: bool,
 
-    input_states: HashMap<Key, InputState>,
+    input_states: HashMap<Key, InputState, FxBuildHasher>,
 }
 impl InputHandler {
     pub fn new() -> Self { Default::default() }

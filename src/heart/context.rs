@@ -1,4 +1,4 @@
-use crate::{LayoutTree, Layouter, PositionedRenderObject};
+use crate::{Key, KeyPart, LayoutTree, Layouter, PositionedRenderObject};
 use dashmap::DashMap;
 use derivative::Derivative;
 use fxhash::FxBuildHasher;
@@ -17,17 +17,17 @@ use std::{
 
 #[derive(Debug, Default)]
 pub struct ArgsTree {
-    map: HashMap<Key, Box<dyn Any>>,
-    dirty: HashSet<Key>,
+    map: HashMap<Key, Vec<Box<dyn Any>>, FxBuildHasher>,
+    dirty: HashSet<Key, FxBuildHasher>,
 }
 
 impl ArgsTree {
-    pub fn set(&mut self, key: Key, value: Box<dyn Any>) {
-        self.dirty.insert(key.parent().clone());
-        self.map.insert(key.clone(), value);
+    pub fn set(&mut self, key: Key, values: Vec<Box<dyn Any>>) {
+        self.dirty.insert(key);
+        self.map.insert(key, values);
     }
 
-    pub fn get(&self, key: &Key) -> Option<&Box<dyn Any>> { self.map.get(key) }
+    pub fn get(&self, key: &Key) -> Option<&Vec<Box<dyn Any>>> { self.map.get(key) }
 
     pub fn remove(&mut self, root: Key) { self.map.retain(|k, v| !k.starts_with(&root)); }
 
@@ -41,7 +41,6 @@ pub struct WidgetContext<'a> {
     #[derivative(Debug = "ignore")]
     pub tree: Arc<PatchedTree>,
     pub args_tree: &'a mut ArgsTree,
-    // TODO(robin): is there any way to pass a &mut ref to WidgetContext around?
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub(crate) after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
 }
@@ -53,11 +52,7 @@ impl<'a> WidgetContext<'a> {
         self.widget_local.key.with(KeyPart::Hook(counter))
     }
 
-    pub fn thread_context(&self) -> ThreadContext {
-        ThreadContext {
-            tree: self.tree.clone()
-        }
-    }
+    pub fn thread_context(&self) -> ThreadContext { ThreadContext { tree: self.tree.clone() } }
 
     pub fn root(
         tree: Arc<PatchedTree>,
@@ -112,134 +107,6 @@ pub struct CallbackContext<'a> {
 //   - shout
 //   - get value
 //   - measure
-
-#[derive(Eq, Copy, PartialOrd)]
-pub struct Key {
-    data: [KeyPart; 32],
-    len: usize,
-    hash: u64,
-}
-impl Key {
-    pub fn with(&self, tail: KeyPart) -> Self {
-        if self.len() == 31 {
-            panic!("crank up the key length limit!");
-        }
-        let mut new = *self;
-        new.data[self.len()] = tail;
-        new.hash = self.hash.overflowing_add(KeyPart::calculate_hash(&tail)).0;
-        new.len += 1;
-        new
-    }
-    pub fn parent(&self) -> Self {
-        let mut new = *self;
-        let tail = new.data[self.len() - 1];
-        new.hash = self.hash.overflowing_sub(KeyPart::calculate_hash(&tail)).0;
-        new.len -= 1;
-        new
-    }
-    pub fn len(&self) -> usize { self.len }
-    pub fn last_part(&self) -> KeyPart { self.data[self.len() - 1] }
-    pub fn starts_with(&self, start: &Key) -> bool {
-        for i in 0..(start.len()) {
-            if self.data[i] != start.data[i] {
-                return false;
-            }
-        }
-        true
-    }
-}
-impl Default for Key {
-    fn default() -> Self {
-        let data = unsafe { MaybeUninit::uninit().assume_init() };
-        Self { data, len: 0, hash: 0 }
-    }
-}
-impl Clone for Key {
-    fn clone(&self) -> Self {
-        let data = unsafe {
-            let mut uninit: [KeyPart; 32] = MaybeUninit::uninit().assume_init();
-            uninit[..self.len()].clone_from_slice(&self.data[..self.len()]);
-            uninit
-        };
-        Key { data, len: self.len, hash: self.hash }
-    }
-}
-impl PartialEq for Key {
-    fn eq(&self, other: &Self) -> bool {
-        if self.len != other.len {
-            return false;
-        }
-        for i in (0..self.len).rev() {
-            if self.data[i] != other.data[i] {
-                return false;
-            }
-        }
-        true
-    }
-}
-impl Hash for Key {
-    fn hash<H: Hasher>(&self, state: &mut H) { self.hash.hash(state) }
-}
-impl Debug for Key {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RootKey")?;
-        for i in 0..self.len() {
-            write!(f, ".{:?}", self.data[i])?
-        }
-        Ok(())
-    }
-}
-
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Ord, PartialOrd)]
-pub enum KeyPart {
-    Nop,
-    DebugLayoutBounds,
-    Widget,
-    Deps,
-
-    Arg(&'static str),
-    Hook(u64),
-    RenderObject(u64),
-    Rsx(u64),
-
-    Sideband { hash: u64 },
-
-    Fragment { name: &'static str, loc: &'static str },
-    FragmentKey { name: &'static str, loc: &'static str, hash: u64 },
-}
-impl KeyPart {
-    pub fn calculate_hash<T: Hash + ?Sized>(t: &T) -> u64 {
-        let mut s = DefaultHasher::new();
-        t.hash(&mut s);
-        s.finish()
-    }
-
-    pub fn sideband<T: Hash + ?Sized>(t: &T) -> Self {
-        Self::Sideband { hash: Self::calculate_hash(t) }
-    }
-}
-impl Default for KeyPart {
-    fn default() -> Self { KeyPart::Nop }
-}
-impl Debug for KeyPart {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            KeyPart::Nop => write!(f, "Nop"),
-            KeyPart::Arg(s) => write!(f, "Arg_{}", s),
-            KeyPart::DebugLayoutBounds => write!(f, "DebugLayoutBounds"),
-            KeyPart::Widget => write!(f, "Widget"),
-            KeyPart::Deps => write!(f, "Deps"),
-            KeyPart::Sideband { hash } => write!(f, "Sideband_{}", hash),
-            KeyPart::Hook(number) => write!(f, "Hook_{}", number),
-            KeyPart::RenderObject(number) => write!(f, "RenderObject_{}", number),
-            KeyPart::Fragment { name, loc } => write!(f, "Fragment_{}_{}", name, loc),
-            KeyPart::FragmentKey { name, loc, hash } => {
-                write!(f, "Fragment_{}_{}_{}", name, loc, hash)
-            }
-            KeyPart::Rsx(hash) => write!(f, "Rsx_{}", hash),
-        }
-    }
-}
 
 pub type TreeItem = Box<dyn Any + Send + Sync>;
 
@@ -314,9 +181,7 @@ impl PatchedTree {
         }
     }
 
-    pub fn set(&self, key: Key, value: TreeItem) {
-        self.patch.insert(key, Patch::Set(value));
-    }
+    pub fn set(&self, key: Key, value: TreeItem) { self.patch.insert(key, Patch::Set(value)); }
     pub fn set_unconditional(&self, key: Key, value: TreeItem) { self.tree.insert(key, value); }
     pub fn remove(&self, key: Key) { self.patch.insert(key, Patch::Remove); }
 
@@ -352,8 +217,8 @@ pub type AfterFrameCallback = Box<dyn for<'a> Fn(&'a CallbackContext<'a>)>;
 #[derive(Clone, Debug, Default)]
 pub struct WidgetLocalContext {
     pub key: Key,
-    pub hook_counter: u64,
-    pub used: HashSet<Key>,
+    pub hook_counter: u16,
+    pub used: HashSet<Key, FxBuildHasher>,
 }
 
 impl WidgetLocalContext {

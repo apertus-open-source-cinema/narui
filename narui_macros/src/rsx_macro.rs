@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, LineColumn, Span, TokenStream};
 use quote::quote;
 use std::{
     collections::hash_map::DefaultHasher,
@@ -32,23 +32,28 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
         #inplace
     }};
 
-    // println!("rsx: \n{}\n\n", transformed);
+    println!("rsx: \n{}\n\n", transformed);
     transformed.into()
 }
 fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
     if x.node_type == NodeType::Element {
         let name = x.name.as_ref().unwrap();
+        let node_name = name;
         let name_str = name.to_string();
         let loc = {
-            let mut s = DefaultHasher::new();
-            (format!("{:?}", name.span())).hash(&mut s);
-            s.finish()
+            let LineColumn { line, column } = name.span().start();
+            // only every fourth part of the column is relevant, because the minimum size
+            // for a rsx node is four: <a />
+            let column = (column / 4) & 0b11_1111;
+            // use 6 bits for column (good for up to 256 columns)
+            // use 10 bits for line (good for up to 1024 lines)
+            let line = (line & 0b11_1111_1111) << 6;
+            (column as u16) | (line as u16)
         };
-        let loc_str = format!("{}", loc);
 
         let args_listenable_ident =
-            Ident::new(&format!("__{}_{}_args", name_str, loc_str), Span::call_site());
-        let mut key = quote! {KeyPart::Fragment { name: #name_str, loc: #loc_str }};
+            Ident::new(&format!("__{}_{}_args", name_str, loc), Span::call_site());
+        let mut key = quote! {KeyPart::Fragment { widget_id: #name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc }};
 
         let constructor_path = {
             let constructor_ident =
@@ -61,7 +66,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             let name = attribute.name.as_ref().unwrap();
             let value = attribute.value.as_ref().unwrap().clone();
             if name.to_string() == "key" {
-                key = quote! {KeyPart::FragmentKey { name: #name_str, loc: #loc_str, hash: KeyPart::calculate_hash(#value) }}
+                key = quote! {KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value }}
             } else {
                 processed_attributes.push(quote! {#name=#value});
             }

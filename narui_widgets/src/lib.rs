@@ -9,10 +9,6 @@ pub use fragment_widget::*;
 mod layout;
 pub use layout::*;
 
-#[path = "input.rs"]
-mod input_widget;
-pub use input_widget::*;
-
 #[path = "rect.rs"]
 mod rect_widget;
 pub use rect_widget::*;
@@ -20,3 +16,7 @@ pub use rect_widget::*;
 #[path = "text.rs"]
 mod text_widget;
 pub use text_widget::*;
+
+#[path = "input.rs"]
+mod input_widget;
+pub use input_widget::*;

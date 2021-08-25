@@ -14,6 +14,7 @@ use crate::{
     WidgetLocalContext,
 };
 use derivative::Derivative;
+use fxhash::FxBuildHasher;
 use hashbrown::{HashMap, HashSet};
 use rutter_layout::Layout;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -29,7 +30,7 @@ pub struct EvaluatedFragment {
     pub gen: Rc<dyn Fn(&mut WidgetContext) -> FragmentInner>,
 
     // this field is information that is gathered by the delta evaluator
-    pub deps: HashSet<Key>,
+    pub deps: HashSet<Key, FxBuildHasher>,
 
     pub children: Vec<Rc<RefCell<EvaluatedFragment>>>,
 }
@@ -37,8 +38,9 @@ pub struct EvaluatedFragment {
 #[derive(Default)]
 pub struct EvaluatorInner {
     pub(crate) tree: Arc<PatchedTree>,
-    deps_map: HashMap<Key, HashMap<Key, Rc<RefCell<EvaluatedFragment>>>>,
-    key_to_fragment: HashMap<Key, Rc<RefCell<EvaluatedFragment>>>,
+    deps_map:
+        HashMap<Key, HashMap<Key, Rc<RefCell<EvaluatedFragment>>, FxBuildHasher>, FxBuildHasher>,
+    key_to_fragment: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, FxBuildHasher>,
 }
 
 impl EvaluatorInner {
@@ -48,7 +50,8 @@ impl EvaluatorInner {
         args_tree: &mut ArgsTree,
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
     ) -> bool {
-        let mut to_update: HashMap<Key, Rc<RefCell<EvaluatedFragment>>> = HashMap::new();
+        let mut to_update: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, FxBuildHasher> =
+            HashMap::default();
 
         let touched_keys = self.tree.update_tree();
         for key in touched_keys.into_iter() {
@@ -84,7 +87,7 @@ impl EvaluatorInner {
     ) -> Rc<RefCell<EvaluatedFragment>> {
         let mut context = context.with_key_widget(fragment.key);
         let evaluated: FragmentInner = (fragment.gen)(&mut context);
-        let mut deps = std::mem::replace(&mut context.widget_local.used, HashSet::new());
+        let mut deps = std::mem::replace(&mut context.widget_local.used, HashSet::default());
 
         let (layout, render_object, children) = evaluated.unpack();
 
@@ -145,7 +148,7 @@ impl EvaluatorInner {
         for to_insert in new_deps.difference(&frag.deps) {
             self.deps_map.entry(*to_insert).or_default().insert(frag.key, frag_cell.clone());
         }
-        frag.deps = std::mem::replace(new_deps, HashSet::new());
+        frag.deps = std::mem::replace(new_deps, HashSet::default());
 
 
         let mut children_keys = vec![];

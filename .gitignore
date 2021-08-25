@@ -1,2 +1,5 @@
 target/
 .idea
+perf.data
+perf.data.old
+flamegraph.svg

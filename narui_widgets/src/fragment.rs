@@ -1,4 +1,4 @@
-use crate::{widget, Fragment, FragmentInner, WidgetContext};
+use narui::{widget, Fragment, FragmentInner, WidgetContext};
 use rutter_layout::Transparent;
 
 #[widget]
