@@ -14,7 +14,6 @@ use crate::{
     WidgetLocalContext,
 };
 use derivative::Derivative;
-use fxhash::FxBuildHasher;
 use hashbrown::{HashMap, HashSet};
 use rutter_layout::Layout;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -30,7 +29,7 @@ pub struct EvaluatedFragment {
     pub gen: Rc<dyn Fn(&mut WidgetContext) -> FragmentInner>,
 
     // this field is information that is gathered by the delta evaluator
-    pub deps: HashSet<Key, FxBuildHasher>,
+    pub deps: HashSet<Key, ahash::RandomState>,
 
     pub children: Vec<Rc<RefCell<EvaluatedFragment>>>,
 }
@@ -39,8 +38,8 @@ pub struct EvaluatedFragment {
 pub struct EvaluatorInner {
     pub(crate) tree: Arc<PatchedTree>,
     deps_map:
-        HashMap<Key, HashMap<Key, Rc<RefCell<EvaluatedFragment>>, FxBuildHasher>, FxBuildHasher>,
-    key_to_fragment: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, FxBuildHasher>,
+        HashMap<Key, HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState>, ahash::RandomState>,
+    key_to_fragment: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState>,
 }
 
 impl EvaluatorInner {
@@ -50,7 +49,7 @@ impl EvaluatorInner {
         args_tree: &mut ArgsTree,
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
     ) -> bool {
-        let mut to_update: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, FxBuildHasher> =
+        let mut to_update: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState> =
             HashMap::default();
 
         let touched_keys = self.tree.update_tree();

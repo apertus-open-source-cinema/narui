@@ -1,6 +1,6 @@
 use narui::*;
+use narui_widgets::*;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
-
 
 #[widget]
 pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
@@ -24,7 +24,6 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
         </column>
     }
 }
-
 
 fn main() {
     let window_builder = WindowBuilder::new()

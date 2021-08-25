@@ -1,8 +1,8 @@
 use crate::heart::{RenderObject::Input, *};
-use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 use std::sync::Arc;
 use winit::event::{ElementState, MouseButton, WindowEvent};
+use hashbrown::HashSet;
 
 #[derive(Default)]
 pub struct InputState {
@@ -18,7 +18,7 @@ pub struct InputHandler {
     cursor_pressed: bool,
     cursor_released: bool,
 
-    input_states: HashMap<Key, InputState, FxBuildHasher>,
+    input_states: HashMap<Key, InputState, ahash::RandomState>,
 }
 impl InputHandler {
     pub fn new() -> Self { Default::default() }
@@ -50,7 +50,8 @@ impl InputHandler {
     }
     pub fn handle_input<'a>(
         &mut self,
-        render_objects: impl Iterator<Item = PositionedRenderObject<'a>>,
+        input_render_object: &HashSet<Key, ahash::RandomState>,
+        layouter: &Layouter,
         context: CallbackContext,
     ) -> bool {
         if !self.cursor_moved && !self.cursor_pressed && !self.cursor_released {
@@ -58,29 +59,30 @@ impl InputHandler {
         }
 
         let mut updated = false;
-        for render_object in render_objects {
-            if let Input { key, on_hover, on_move, on_click } = render_object.clone().render_object {
+        for key in input_render_object {
+            let (rect, obj) = layouter.get_positioned(&key).unwrap();
+            if let Some(Input { key, on_hover, on_move, on_click }) = obj {
                 let input_state =
                     self.input_states.entry(*key).or_insert(Default::default());
                 if self.cursor_moved {
-                    let is_hover = render_object.rect.contains(self.cursor_position);
+                    let is_hover = rect.contains(self.cursor_position);
                     if input_state.hover != is_hover {
                         on_hover(&context, is_hover);
                         input_state.hover = is_hover;
                         updated = true;
                     }
                     if input_state.clicked || is_hover {
-                        on_move(&context, self.cursor_position - render_object.rect.pos);
+                        on_move(&context, self.cursor_position - rect.pos);
                         updated = true;
                     }
                 }
-                if self.cursor_pressed && render_object.rect.contains(self.cursor_position) {
+                if self.cursor_pressed && rect.contains(self.cursor_position) {
                     input_state.clicked = true;
                     on_click(&context, true);
                     updated = true;
                 }
                 if self.cursor_released
-                    && (input_state.clicked || render_object.rect.contains(self.cursor_position))
+                    && (input_state.clicked || rect.contains(self.cursor_position))
                 {
                     input_state.clicked = false;
                     on_click(&context, false);

@@ -1,7 +1,6 @@
 use crate::{Key, KeyPart, LayoutTree, Layouter, PositionedRenderObject};
 use dashmap::DashMap;
 use derivative::Derivative;
-use fxhash::FxBuildHasher;
 use hashbrown::{HashMap, HashSet};
 use parking_lot::{Mutex, RwLock};
 use std::{
@@ -17,8 +16,8 @@ use std::{
 
 #[derive(Debug, Default)]
 pub struct ArgsTree {
-    map: HashMap<Key, Vec<Box<dyn Any>>, FxBuildHasher>,
-    dirty: HashSet<Key, FxBuildHasher>,
+    map: HashMap<Key, Vec<Box<dyn Any>>, ahash::RandomState>,
+    dirty: HashSet<Key, ahash::RandomState>,
 }
 
 impl ArgsTree {
@@ -117,7 +116,7 @@ enum Patch<T> {
 }
 
 // TODO(robin): investigate evmap instead
-type FxDashMap<K, V> = DashMap<K, V, FxBuildHasher>;
+type FxDashMap<K, V> = DashMap<K, V, ahash::RandomState>;
 
 #[derive(Debug, Default)]
 pub struct PatchedTree {
@@ -125,8 +124,8 @@ pub struct PatchedTree {
     patch: FxDashMap<Key, Patch<TreeItem>>,
 }
 
-type HashRef<'a> = dashmap::mapref::one::Ref<'a, Key, TreeItem, FxBuildHasher>;
-type HashPatchRef<'a> = dashmap::mapref::one::Ref<'a, Key, Patch<TreeItem>, FxBuildHasher>;
+type HashRef<'a> = dashmap::mapref::one::Ref<'a, Key, TreeItem, ahash::RandomState>;
+type HashPatchRef<'a> = dashmap::mapref::one::Ref<'a, Key, Patch<TreeItem>, ahash::RandomState>;
 
 pub struct PatchTreeEntry<'a> {
     patched_entry: Option<HashPatchRef<'a>>,
@@ -218,7 +217,7 @@ pub type AfterFrameCallback = Box<dyn for<'a> Fn(&'a CallbackContext<'a>)>;
 pub struct WidgetLocalContext {
     pub key: Key,
     pub hook_counter: u16,
-    pub used: HashSet<Key, FxBuildHasher>,
+    pub used: HashSet<Key, ahash::RandomState>,
 }
 
 impl WidgetLocalContext {
