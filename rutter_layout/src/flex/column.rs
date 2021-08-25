@@ -12,7 +12,7 @@ use crate::{
     Size,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Column {
     pub cross_axis_alignment: CrossAxisAlignment,
     pub main_axis_alignment: MainAxisAlignment,

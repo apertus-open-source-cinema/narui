@@ -26,7 +26,6 @@ pub fn stopwatch(font_size: f32, context: &mut WidgetContext) -> Fragment {
             let start = SystemTime::now();
             loop {
                 let now = SystemTime::now();
-                dbg!(now);
                 context.shout(time, now.duration_since(start).unwrap().as_secs_f32());
                 match rx.recv_timeout(Duration::from_secs_f32(1. / 100.)) {
                     Ok(Message::Stop) => return,

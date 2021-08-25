@@ -6,8 +6,35 @@ use crate::{
 };
 use std::{any::Any, cell::Cell, hash::Hash, ops::Deref};
 
-pub trait Layout: std::fmt::Debug {
+
+pub trait TraitComparable: std::fmt::Debug {
+    fn as_any(&self) -> &dyn Any;
+
+    fn as_trait_comparable(&self) -> &dyn TraitComparable;
+
+    fn eq(&self, other: &dyn TraitComparable) -> bool;
+}
+
+impl<T: 'static + PartialEq + std::fmt::Debug> TraitComparable for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_trait_comparable(&self) -> &dyn TraitComparable {
+        self
+    }
+
+    fn eq(&self, other: &dyn TraitComparable) -> bool {
+        other.as_any().downcast_ref::<T>().map_or(false, |other| self == other)
+    }
+}
+
+pub trait Layout: std::fmt::Debug + TraitComparable {
     fn uses_child_size(&self) -> bool { true }
+
+    fn eq(&self, other: &dyn Layout) -> bool {
+        TraitComparable::eq(self, other.as_trait_comparable())
+    }
 
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size;
 
@@ -92,8 +119,12 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> La
     pub fn set_node(&mut self, key: &Key, layoutable: T) {
         match self.key_to_idx.get_left(key) {
             Some(idx) => {
+                let dirty = !Layout::eq(&*self.nodes[*idx].obj, &*layoutable);
+                // dbg!(dirty, &self.nodes[*idx].obj, &layoutable);
                 self.nodes[*idx].obj = layoutable;
-                self.propagate_dirty(*idx);
+                if dirty {
+                    self.propagate_dirty(*idx);
+                }
             }
             None => {
                 let idx = self.nodes.add(PositionedNode::new(layoutable));
@@ -112,6 +143,7 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> La
                 break;
             }
 
+            // dbg!("setting dirty", node);
             node.any_dirty_children.set(true);
 
             next = node.parent;
@@ -157,9 +189,12 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> La
             self.nodes[parent_idx].child = None;
         }
 
+        let dirty = self.nodes[parent_idx].num_children != len;
         self.nodes[parent_idx].num_children = len;
 
-        self.propagate_dirty(parent_idx);
+        if dirty {
+            self.propagate_dirty(parent_idx);
+        }
     }
 
     pub fn remove(&mut self, key: &Key) {
@@ -244,7 +279,7 @@ impl<T> PositionedNode<T> {
             num_children: 0,
             next_sibling: None,
             parent: None,
-            any_dirty_children: Cell::new(true),
+            any_dirty_children: Cell::new(false),
             input_constraint: Cell::new(None),
             size: Cell::new(None),
             pos: Cell::new(None),
@@ -370,6 +405,7 @@ impl<'a> LayoutableChild<'a> {
     pub fn uses_child_size(&self) -> bool { self.child.obj().uses_child_size() }
 
     pub fn layout(&self, constraint: BoxConstraints) -> Size {
+        // dbg!("before_layout", self.child.obj(), self.child.any_dirty_children(), constraint, self.child.input_constraints(), self.child.size());
         if !self.child.any_dirty_children() && Some(constraint) == self.child.input_constraints() {
             if let Some(size) = self.child.size() {
                 return size;
@@ -381,6 +417,7 @@ impl<'a> LayoutableChild<'a> {
         self.child.set_input_constraints(Some(constraint));
         self.child.set_any_dirty_children(false);
         self.child.set_size(Some(size));
+        // dbg!("after_layout", self.child.obj(), self.child.any_dirty_children(), constraint, self.child.input_constraints(), self.child.size());
         size
     }
 
