@@ -11,7 +11,6 @@ name = "narui"
 narui_macros = { path = "narui_macros" }
 rutter_layout = { path = "rutter_layout" }
 lyon = "0.17.5"
-# stretch = { git = "https://github.com/vislyhq/stretch" }
 winit = "0.25.0"
 anyhow = "1.0.40"
 lazy_static = "1.4.0"
@@ -26,6 +25,8 @@ hashbrown = "0.11.2"
 itertools = "0.10.0"
 impls = "1.0.3"
 parking_lot = "0.11.1"
+fxhash = "0.2.1"
+dashmap = "4.0.2"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.3.2"

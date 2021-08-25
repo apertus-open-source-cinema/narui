@@ -49,15 +49,12 @@ impl<'a, Key, T> LayoutIter<'a, Key, T> {
         while let Some(child) = layouter.nodes[bottom_left.get()].child {
             bottom_left = child;
         }
-        Self {
-            layouter,
-            next_pos: Some(bottom_left)
-        }
+        Self { layouter, next_pos: Some(bottom_left) }
     }
 }
 
 impl<'a, Key: Hash + Eq + Clone, T> Iterator for LayoutIter<'a, Key, T> {
-    type Item = LayoutItem<'a, Key,>;
+    type Item = LayoutItem<'a, Key>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(current_pos) = self.next_pos {
@@ -71,8 +68,8 @@ impl<'a, Key: Hash + Eq + Clone, T> Iterator for LayoutIter<'a, Key, T> {
                     }
 
                     self.next_pos = Some(next);
-                },
-                None => self.next_pos = current.parent
+                }
+                None => self.next_pos = current.parent,
             }
             Some(LayoutItem::new(self.layouter, current_pos))
         } else {
@@ -91,7 +88,7 @@ impl<Key, T> Layouter<Key, T> {
     pub fn new() -> Self { Self { key_to_idx: BiMap::new(), nodes: VecWithHoles::new() } }
 }
 
-impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> Layouter<Key, T,> {
+impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> Layouter<Key, T> {
     pub fn set_node(&mut self, key: &Key, layoutable: T) {
         match self.key_to_idx.get_left(key) {
             Some(idx) => {
@@ -122,8 +119,9 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> La
         }
     }
 
-    pub fn set_children<'a,>(&mut self, key: &Key, mut children: impl Iterator<Item = Key>)
-    where Key: 'a
+    pub fn set_children<'a>(&mut self, key: &Key, mut children: impl Iterator<Item = &'a Key>)
+    where
+        Key: 'a,
     {
         let parent_idx = *self.key_to_idx.get_left(key).unwrap();
         let mut len = 0;
@@ -156,7 +154,7 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> La
             );
             self.nodes[last_child_idx].parent = Some(parent_idx);
         } else {
-            self.nodes[parent_idx].next_sibling = None;
+            self.nodes[parent_idx].child = None;
         }
 
         self.nodes[parent_idx].num_children = len;
@@ -181,7 +179,7 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug> La
         self.propagate_abs_pos(idx, root_pos, true);
     }
 
-    pub fn iter(&self, top: &Key) -> impl Iterator<Item=LayoutItem<Key>> {
+    pub fn iter(&self, top: &Key) -> impl Iterator<Item = LayoutItem<Key>> {
         let idx = self.key_to_idx.get_left(top).unwrap();
         LayoutIter::new(self, *idx)
     }

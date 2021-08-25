@@ -1,6 +1,7 @@
-use crate::{widget, Context, Fragment, FragmentInner};
+use crate::{widget, Fragment, FragmentInner, WidgetContext};
+use rutter_layout::Transparent;
 
 #[widget]
-pub fn fragment(children: Vec<Fragment>, context: Context) -> FragmentInner {
-    FragmentInner::Node { children, layout_object: None }
+pub fn fragment(children: Vec<Fragment>, context: &mut WidgetContext) -> FragmentInner {
+    FragmentInner::Node { children, layout: Box::new(Transparent) }
 }

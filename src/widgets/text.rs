@@ -7,34 +7,30 @@ use glyph_brush::{
     SectionGeometry,
     SectionText,
 };
+use rutter_layout::{BoxConstraints, ClosureLayout, Size};
 use std::sync::Arc;
-/*
+
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
-#[widget(size = 24.0, color = crate::theme::TEXT_WHITE, style = Default::default())]
+#[widget(size = 24.0, color = crate::theme::TEXT_WHITE)]
 pub fn text(
     size: f32,
-    children: impl ToString,
+    children: impl ToString + Clone,
     color: Color,
-    style: Style,
-    context: Context,
+    context: &mut WidgetContext,
 ) -> FragmentInner {
-    let children_ = children.to_string().clone();
-    let measurement_function = move |bounds: Size<Number>| -> Size<f32> {
+    let children_clone = children.to_string().clone();
+    let layout_closure = move |constraints: rutter_layout::BoxConstraints| -> rutter_layout::Size {
         let fonts = &[FONT.clone()];
         let sfont = fonts[0].as_scaled(size);
-        let map_number = |number| match number {
-            Number::Undefined => f32::INFINITY,
-            Number::Defined(v) => v,
-        };
         let glyphs = Layout::default().calculate_glyphs(
             fonts,
             &SectionGeometry {
                 screen_position: (0.0, -sfont.descent()),
-                bounds: (map_number(bounds.width), map_number(bounds.height)),
+                bounds: (constraints.max_width, constraints.max_height),
             },
-            &[SectionText { text: &children_, scale: size.into(), font_id: FontId(0) }],
+            &[SectionText { text: &children_clone, scale: size.into(), font_id: FontId(0) }],
         );
 
         let mut calculated_width: f32 = 0.0;
@@ -44,20 +40,14 @@ pub fn text(
             calculated_width = calculated_width.max(glyph.glyph.position.x + h_advance);
             calculated_height = calculated_height.max(glyph.glyph.position.y);
         }
+        dbg!(constraints, calculated_width);
 
-        Size { width: calculated_width, height: calculated_height }
+        constraints
+            .constrain(rutter_layout::Size { width: calculated_width, height: calculated_height })
     };
 
-    let primitive_text = RenderObject::Text { text: children.to_string(), size, color };
-
-    FragmentInner {
-        children: vec![],
-        layout_object: Some(LayoutObject {
-            style,
-            measure_function: Some(Arc::new(measurement_function)),
-            render_objects: vec![(KeyPart::RenderObject(0), primitive_text)],
-        }),
+    FragmentInner::Leaf {
+        render_object: RenderObject::Text { text: children.to_string(), size, color },
+        layout: Box::new(ClosureLayout { closure: Box::new(layout_closure) }),
     }
 }
-
- */

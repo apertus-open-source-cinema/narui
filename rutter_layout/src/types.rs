@@ -9,6 +9,17 @@ pub struct BoxConstraints {
     pub max_height: f32,
 }
 
+impl Default for BoxConstraints {
+    fn default() -> Self {
+        Self {
+            min_width: 0.0,
+            max_width: f32::INFINITY,
+            min_height: 0.0,
+            max_height: f32::INFINITY,
+        }
+    }
+}
+
 impl BoxConstraints {
     pub fn deflate(self, insets: EdgeInsets) -> Self {
         let width = insets.left + insets.right;
@@ -20,6 +31,8 @@ impl BoxConstraints {
 
         Self { min_width, max_width, min_height, max_height }
     }
+
+    pub fn min_width(width: f32) -> Self { Self { min_width: width, ..Default::default() } }
 
     pub fn maximal_bounded_or(self, unbounded_size: Size) -> Size {
         let width = if self.width_is_bounded() { self.max_width } else { unbounded_size.width };
@@ -105,6 +118,8 @@ pub struct Size {
 }
 
 impl Size {
+    pub fn new(width: f32, height: f32) -> Self { Self { width, height } }
+
     pub fn zero() -> Self { Self { width: 0.0, height: 0.0 } }
 
     pub fn max(self, other: Self) -> Self {

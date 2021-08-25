@@ -113,23 +113,23 @@ impl LyonRenderer {
             stroke_cache: HashMap::new(),
         }
     }
-    pub fn render(
+    pub fn render<'a>(
         &mut self,
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
-        render_objects: Arc<Vec<PositionedRenderObject>>,
+        render_objects: impl Iterator<Item = PositionedRenderObject<'a>>,
     ) {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
         let mut last_index = 0;
 
-        for render_object in render_objects.iter() {
+        for render_object in render_objects {
             let (buffer, color) = match &render_object.render_object {
                 RenderObject::FillPath { path_gen, color } => {
                     let color = color.into_linear().into_raw::<[f32; 4]>();
                     let path_gen = path_gen;
-                    let path_gen_key = path_gen.as_ref() as *const _ as usize;
+                    let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
                     let buffer = self.fill_tessellate_with_cache(
                         path_gen.clone(),
                         render_object.rect.size,

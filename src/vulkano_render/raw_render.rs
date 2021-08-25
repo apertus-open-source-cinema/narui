@@ -10,14 +10,14 @@ pub struct RawRenderer {
 }
 impl RawRenderer {
     pub fn new(render_pass: Arc<RenderPass>) -> Self { Self { render_pass } }
-    pub fn render(
+    pub fn render<'a>(
         &mut self,
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
-        render_objects: Arc<Vec<PositionedRenderObject>>,
+        render_objects: impl Iterator<Item = PositionedRenderObject<'a>>,
     ) {
-        for render_object in render_objects.iter() {
+        for render_object in render_objects {
             if let RenderObject::Raw { render_fn } = &render_object.render_object {
                 render_fn(
                     self.render_pass.clone(),

@@ -32,6 +32,8 @@ impl Parse for AttributeParameter {
     }
 }
 
+const WIDGET_CONTEXT_TYPE_STRING: &str = "& mut WidgetContext";
+
 // allows for kwarg-style calling of functions
 pub fn widget(
     args: proc_macro::TokenStream,
@@ -45,7 +47,7 @@ pub fn widget(
 
     let last_name = get_arg_names(&function).into_iter().last().unwrap().to_string();
     let last_type = get_arg_types(&function)[&last_name].clone();
-    assert_eq!(last_type.to_token_stream().to_string(), "Context");
+    assert_eq!(last_type.to_token_stream().to_string(), WIDGET_CONTEXT_TYPE_STRING);
     assert_eq!(last_name.to_string(), "context");
 
     let return_type = function.sig.output.clone().to_token_stream().to_string().replace("-> ", "");
@@ -59,11 +61,11 @@ pub fn widget(
     let macro_ident_pub =
         Ident::new(&format!("__{}_constructor", function_ident.clone()), Span::call_site());
 
+    let arg_types = get_arg_types(&function);
     let match_arms: Vec<_> = {
         let args_with_default: HashSet<_> =
             parsed_args.clone().into_iter().map(|x| x.ident.to_string()).collect();
 
-        let arg_types = get_arg_types(&function);
         get_arg_names(&function)
             .iter()
             .filter(|ident| &ident.to_string() != "context")
@@ -77,7 +79,7 @@ pub fn widget(
                     // this is needed to be able to use the default argument with the correct type &
                     // mute unusesd warnings
                     #[allow(non_snake_case, unused)]
-                    fn #dummy_function_ident(_arg: #arg_type) {  }
+                    fn #dummy_function_ident(arg: #arg_type) -> #arg_type { arg }
                 };
                 let value = if args_with_default.contains(&unhygienic.to_string()) {
                     quote! {{
@@ -92,7 +94,8 @@ pub fn widget(
                 quote! {
                     (@parse_args [#($#arg_names:ident,)*] #unhygienic = $value:expr,$($rest:tt)*) => {
                         #[allow(unused_braces)]
-                        let $#unhygienic = #value;
+                        #dummy_function
+                        let $#unhygienic = #dummy_function_ident(#value);
                         #mod_ident::#macro_ident_pub!(@parse_args [#($#arg_names,)*] $($rest)*);
                     };
                 }
@@ -102,9 +105,25 @@ pub fn widget(
 
     let shout_args_arm = {
         let initializers = parsed_args.clone().into_iter().map(|x| {
-            let ident = desinfect_ident(&x.ident);
+            let unhygienic = &x.ident;
+            let ident = desinfect_ident(unhygienic);
             let value = x.expr;
-            quote! { let #ident = #value }
+            let arg_type = &arg_types[&unhygienic.to_string()];
+            let dummy_function_ident =
+                Ident::new(&format!("_constrain_arg_type_{}", unhygienic), Span::call_site());
+            let dummy_function = quote! {
+                // this is needed to be able to use the default argument with the correct type &
+                // mute unusesd warnings
+                #[allow(non_snake_case, unused)]
+                fn #dummy_function_ident(arg: #arg_type) -> #arg_type { arg }
+            };
+
+            quote! {
+                let #ident = {
+                    #dummy_function
+                    #dummy_function_ident(#value)
+                }
+            }
         });
         let arg_names: Vec<_> = get_arg_names(&function)
             .into_iter()
@@ -114,14 +133,12 @@ pub fn widget(
 
         let arg_names_listenables: Vec<_> = get_arg_names(&function)
             .into_iter()
-            .filter(|ident| get_arg_types(&function)[&ident.to_string()].to_token_stream().to_string() != "Context")
+            .filter(|ident| get_arg_types(&function)[&ident.to_string()].to_token_stream().to_string() != WIDGET_CONTEXT_TYPE_STRING)
             .map(|ident| (format!("{}", ident), desinfect_ident(&ident)))
             .map(|(string, ident)| {
-                quote! {{
-                    let listenable = unsafe { Listenable::uninitialized($context.widget_local.key.with(KeyPart::Arg(#string))) };
-                    shout!($context, listenable, #ident);
-                    listenable
-                }}
+                quote! {
+                    shout_arg!($context, $context.widget_local.key.with(KeyPart::Arg(#string)), #ident)
+                }
             })
             .collect();
 
@@ -156,9 +173,9 @@ pub fn widget(
         } else if return_type == "Fragment" {
             quote! {
                 fn transformer(input: Fragment) -> FragmentInner {
-                    FragmentInner {
+                    FragmentInner::Node {
                         children: vec![ input ],
-                        layout_object: None,
+                        layout: Box::new(rutter_layout::Transparent),
                     }
                 }
             }
@@ -175,9 +192,10 @@ pub fn widget(
                 #(#match_arms)*
                 (@parse_args [#($#arg_names:ident,)*] ) => { };
 
-                (@construct listenable=$listenable:ident, context=$context:expr) => {{
+                (@construct listenable=$listenables:ident, context=$context:expr) => {{
+                    use narui::args::ContextArgs;
                     #transformer
-                    transformer(#mod_ident::#function_ident(#($context.listen($listenable.#arg_numbers),)* $context))
+                    transformer(#mod_ident::#function_ident(#($context.listen_arg($listenables.#arg_numbers),)* $context))
                 }}
             }
 
@@ -237,7 +255,9 @@ fn transform_function_args_to_context(
     let stmts = &block.stmts;
     let context_string = get_arg_types(&function_clone)
         .iter()
-        .filter(|(_, ty)| ty.to_token_stream().to_string().replace("-> ", "") == "Context")
+        .filter(|(_, ty)| {
+            ty.to_token_stream().to_string().replace("-> ", "") == WIDGET_CONTEXT_TYPE_STRING
+        })
         .next()
         .unwrap()
         .0

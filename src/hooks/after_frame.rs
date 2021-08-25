@@ -1,10 +1,10 @@
-use crate::heart::Context;
+use crate::{CallbackContext, WidgetContext};
 
 pub trait ContextAfterFrame {
-    fn after_frame(&self, callback: impl Fn(Context) + Send + Sync + 'static);
+    fn after_frame(&mut self, callback: impl for<'a> Fn(&'a CallbackContext) + 'static);
 }
-impl ContextAfterFrame for Context {
-    fn after_frame(&self, callback: impl Fn(Context) + Send + Sync + 'static) {
-        self.global.write().after_frame_callbacks.push(Box::new(callback))
+impl<'b> ContextAfterFrame for WidgetContext<'b> {
+    fn after_frame(&mut self, callback: impl for<'a> Fn(&'a CallbackContext) + 'static) {
+        self.after_frame_callbacks.push(Box::new(callback))
     }
 }

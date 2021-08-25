@@ -1,21 +1,23 @@
-use narui::{style::*, *};
+use narui::*;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
+fn typed_closure<F: for<'a> Fn(&'a CallbackContext, bool) + 'static>(f: F) -> F { f }
+
+
 #[widget]
-pub fn btn(context: Context) -> Fragment {
+pub fn btn(context: &mut WidgetContext) -> Fragment {
     let clicked = context.listenable(false);
     let color = if context.listen(clicked) { color!(#222222) } else { color!(#ffffff) };
 
-    let callback = move |context: Context, is_clicked| {
+    let callback = move |context: &CallbackContext, is_clicked| {
         context.shout(clicked, is_clicked);
     };
 
     rsx! {
-        <rect fill_color=Some(color)>
-            <input on_click=callback.clone()>
-                <min_size width={Points(100.0)} height={Points(100.0)} />
-            </input>
-        </rect>
+        <stack>
+            <fill_rect color=color />
+            <input on_click = callback />
+        </stack>
     }
 }
 

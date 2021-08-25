@@ -1,6 +1,7 @@
+/*
 use crate::{
     heart::{Context, Key},
-    hooks::ContextListenable,
+    hooks::*,
     KeyPart,
     ListenableGuard,
 };
@@ -35,6 +36,7 @@ pub trait ContextEffect {
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T>;
 }
+
 impl ContextEffect for Context {
     fn effect_key<T: Send + Sync + 'static>(
         &self,
@@ -70,3 +72,5 @@ impl<T: FnOnce()> DropCallbackHelper<T> {
 impl<T: FnOnce()> Drop for DropCallbackHelper<T> {
     fn drop(&mut self) { (self.callback.take().unwrap())() }
 }
+
+*/

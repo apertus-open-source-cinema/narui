@@ -1,15 +1,12 @@
 // Qs for rutter_layout integration:
-// - should it return a Vec of PositionedRenderObjects, or rather iter over them, or do Key -> PositionedRenderObjects?
+// - should it return a Vec of PositionedRenderObjects, or rather iter over
+//   them, or do Key -> PositionedRenderObjects?
 //
 
-use crate::{
-    heart::*,
-};
+use crate::heart::*;
 use hashbrown::HashMap;
+use rutter_layout::{BoxConstraints, Layout, Offset};
 use std::env;
-use std::sync::Arc;
-use rutter_layout::{BoxConstraints, Offset, Layout};
-
 
 // PositionedRenderObject is the main output data structure of the Layouting
 // pass It is like a regular RenderObject but with Positioning information added
@@ -25,16 +22,53 @@ pub struct PositionedRenderObject<'a> {
 // A tree of layout Nodes that can be manipulated.
 // This is the API with which the Evaluator commands the Layouter
 pub trait LayoutTree {
-    fn set_node(&mut self, key: &Key, layout: Arc<dyn Layout>, render_object: Option<RenderObject>);
+    fn set_node(&mut self, key: &Key, layout: Box<dyn Layout>, render_object: Option<RenderObject>);
     fn remove_node(&mut self, key: &Key);
     fn set_children(&mut self, parent: &Key, children: &[Key]);
-    fn get_rect(&self, key: &Key) -> Option<Rect>;
+    fn get_positioned(&self, key: &Key) -> Option<(Rect, Option<&RenderObject>)>;
 }
 
+#[derive(Debug)]
 pub struct Layouter {
-    layouter: rutter_layout::Layouter<Key, Arc<dyn Layout>>,
-    key_to_render_object: HashMap<Key, Option<RenderObject>>,
+    layouter: rutter_layout::Layouter<Key, Box<dyn Layout>>,
+    key_to_render_object: HashMap<Key, RenderObject>,
+    debug_render_object: RenderObject,
     debug_layout_bounds: bool,
+}
+
+struct MaybeLayoutDebugIter<'a> {
+    key: &'a Key,
+    rect: Rect,
+    item: Option<&'a RenderObject>,
+    debug_render_object: &'a RenderObject,
+    debug_layout_bounds: bool,
+}
+
+impl<'a> Iterator for MaybeLayoutDebugIter<'a> {
+    type Item = PositionedRenderObject<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(render_object) = self.item.take() {
+            Some(PositionedRenderObject {
+                key: self.key,
+                render_object,
+                rect: self.rect,
+                z_index: 0,
+            })
+        } else {
+            if self.debug_layout_bounds {
+                self.debug_layout_bounds = false;
+                Some(PositionedRenderObject {
+                    key: self.key,
+                    render_object: self.debug_render_object,
+                    rect: self.rect,
+                    z_index: 0,
+                })
+            } else {
+                None
+            }
+        }
+    }
 }
 
 impl Layouter {
@@ -44,32 +78,41 @@ impl Layouter {
         Layouter {
             layouter: rutter_layout::Layouter::new(),
             key_to_render_object: HashMap::new(),
-            debug_layout_bounds
+            debug_render_object: RenderObject::DebugRect,
+            debug_layout_bounds,
         }
     }
 
     pub fn do_layout(&mut self, size: Vec2) {
-        self.layouter.do_layout(BoxConstraints::tight_for(size.into()), Offset::zero(), Default::default());
+        self.layouter.do_layout(
+            BoxConstraints::tight_for(size.into()),
+            Offset::zero(),
+            Default::default(),
+        );
     }
 
-    pub fn iter_layouted(&self) -> impl Iterator<Item=PositionedRenderObject> {
-        self.layouter.iter(&Default::default()).filter_map(move |layout_item| {
-            self.key_to_render_object[layout_item.key].as_ref().map(|render_object| {
-                PositionedRenderObject {
-                    key: layout_item.key,
-                    render_object,
-                    rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                    z_index: 0
-                }
-            })
+    pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
+        self.layouter.iter(&Default::default()).flat_map(move |layout_item| MaybeLayoutDebugIter {
+            key: layout_item.key,
+            rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+            item: self.key_to_render_object.get(layout_item.key),
+            debug_layout_bounds: self.debug_layout_bounds,
+            debug_render_object: &self.debug_render_object,
         })
     }
 }
 
 impl LayoutTree for Layouter {
-    fn set_node(&mut self, key: &Key, layout: Arc<dyn Layout>, render_object: Option<RenderObject>) {
+    fn set_node(
+        &mut self,
+        key: &Key,
+        layout: Box<dyn Layout>,
+        render_object: Option<RenderObject>,
+    ) {
         self.layouter.set_node(&key, layout);
-        self.key_to_render_object.insert(key, render_object);
+        if let Some(render_object) = render_object {
+            self.key_to_render_object.insert(*key, render_object);
+        }
     }
 
     fn remove_node(&mut self, key: &Key) {
@@ -78,12 +121,12 @@ impl LayoutTree for Layouter {
     }
 
     fn set_children<'a>(&mut self, parent: &Key, children: &[Key]) {
-        self.layouter.set_children(parent, children)
+        self.layouter.set_children(parent, children.iter())
     }
 
-    fn get_rect(&self, key: &Key) -> Option<Rect> {
+    fn get_positioned(&self, key: &Key) -> Option<(Rect, Option<&RenderObject>)> {
         self.layouter.get_layout(key).map(|(offset, size)| {
-            Rect { pos: offset.into(), size: size.into() }
+            (Rect { pos: offset.into(), size: size.into() }, self.key_to_render_object.get(key))
         })
     }
 }

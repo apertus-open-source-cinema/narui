@@ -1,5 +1,7 @@
-use crate::{PositionedRenderObject, LayoutTree};
+use crate::{LayoutTree, Layouter, PositionedRenderObject};
+use dashmap::DashMap;
 use derivative::Derivative;
+use fxhash::FxBuildHasher;
 use hashbrown::{HashMap, HashSet};
 use parking_lot::{Mutex, RwLock};
 use std::{
@@ -8,8 +10,101 @@ use std::{
     fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
     mem::MaybeUninit,
+    ops::Deref,
+    rc::Rc,
     sync::Arc,
 };
+
+#[derive(Debug, Default)]
+pub struct ArgsTree {
+    map: HashMap<Key, Box<dyn Any>>,
+    dirty: HashSet<Key>,
+}
+
+impl ArgsTree {
+    pub fn set(&mut self, key: Key, value: Box<dyn Any>) {
+        self.dirty.insert(key.parent().clone());
+        self.map.insert(key.clone(), value);
+    }
+
+    pub fn get(&self, key: &Key) -> Option<&Box<dyn Any>> { self.map.get(key) }
+
+    pub fn remove(&mut self, root: Key) { self.map.retain(|k, v| !k.starts_with(&root)); }
+
+    pub fn dirty<'a>(&'a mut self) -> impl Iterator<Item = Key> + 'a { self.dirty.drain() }
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct WidgetContext<'a> {
+    pub widget_local: WidgetLocalContext,
+    #[derivative(Debug = "ignore")]
+    pub tree: Arc<PatchedTree>,
+    pub args_tree: &'a mut ArgsTree,
+    // TODO(robin): is there any way to pass a &mut ref to WidgetContext around?
+    #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
+    pub(crate) after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
+}
+
+impl<'a> WidgetContext<'a> {
+    pub fn key_for_hook(&mut self) -> Key {
+        let counter = self.widget_local.hook_counter;
+        self.widget_local.hook_counter += 1;
+        self.widget_local.key.with(KeyPart::Hook(counter))
+    }
+
+    pub fn root(
+        tree: Arc<PatchedTree>,
+        args_tree: &'a mut ArgsTree,
+        after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
+    ) -> Self {
+        Self { tree, after_frame_callbacks, args_tree, widget_local: Default::default() }
+    }
+
+    pub fn for_fragment(
+        tree: Arc<PatchedTree>,
+        args_tree: &'a mut ArgsTree,
+        key: Key,
+        after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
+    ) -> Self {
+        WidgetContext {
+            tree,
+            after_frame_callbacks,
+            args_tree,
+            widget_local: WidgetLocalContext::for_key(key),
+        }
+    }
+
+    pub fn with_key_widget<'cb>(&'cb mut self, key: Key) -> WidgetContext<'cb> {
+        WidgetContext {
+            tree: self.tree.clone(),
+            args_tree: self.args_tree,
+            after_frame_callbacks: self.after_frame_callbacks,
+            widget_local: WidgetLocalContext::for_key(key),
+        }
+    }
+}
+
+pub struct ThreadContext {
+    pub(crate) tree: Arc<PatchedTree>,
+}
+
+pub struct CallbackContext<'a> {
+    pub(crate) tree: Arc<PatchedTree>,
+    pub(crate) layout: &'a Layouter,
+}
+
+// thread access
+//   - get value (not listen because we don't have the rebuild if changed thing)
+//   - shout
+// widget access
+//   - create listenable
+//   - listen
+//   - create after-frame-callback
+// callback access
+//   - shout
+//   - get value
+//   - measure
 
 #[derive(Eq, Copy, PartialOrd)]
 pub struct Key {
@@ -20,7 +115,6 @@ pub struct Key {
 impl Key {
     pub fn with(&self, tail: KeyPart) -> Self {
         if self.len() == 31 {
-            dbg!(&self);
             panic!("crank up the key length limit!");
         }
         let mut new = *self;
@@ -148,31 +242,87 @@ enum Patch<T> {
     Set(T),
 }
 
+// TODO(robin): investigate evmap instead
+type FxDashMap<K, V> = DashMap<K, V, FxBuildHasher>;
+
 #[derive(Debug, Default)]
 pub struct PatchedTree {
-    tree: HashMap<Key, TreeItem>,
-    patch: HashMap<Key, Patch<TreeItem>>,
+    tree: FxDashMap<Key, TreeItem>,
+    patch: FxDashMap<Key, Patch<TreeItem>>,
 }
+
+type HashRef<'a> = dashmap::mapref::one::Ref<'a, Key, TreeItem, FxBuildHasher>;
+type HashPatchRef<'a> = dashmap::mapref::one::Ref<'a, Key, Patch<TreeItem>, FxBuildHasher>;
+
+pub struct PatchTreeEntry<'a> {
+    patched_entry: Option<HashPatchRef<'a>>,
+    unpatched_entry: Option<HashRef<'a>>,
+}
+
+impl<'a> PatchTreeEntry<'a> {
+    fn new(patched_entry: Option<HashPatchRef<'a>>, unpatched_entry: Option<HashRef<'a>>) -> Self {
+        Self { patched_entry, unpatched_entry }
+    }
+}
+
+impl<'a> Deref for PatchTreeEntry<'a> {
+    type Target = TreeItem;
+
+    fn deref(&self) -> &Self::Target {
+        match &self.patched_entry {
+            Some(p) => match p.value() {
+                Patch::Remove => unreachable!(),
+                Patch::Set(v) => v,
+            },
+            None => match &self.unpatched_entry {
+                Some(v) => v.value(),
+                None => unreachable!(),
+            },
+        }
+    }
+}
+
 impl PatchedTree {
-    pub fn get(&self, key: Key) -> Option<&TreeItem> {
-        match self.patch.get(&key) {
-            None => self.tree.get(&key),
-            Some(Patch::Remove) => None,
-            Some(Patch::Set(v)) => Some(v),
+    pub fn get_patched(&self, key: &Key) -> Option<PatchTreeEntry> {
+        match self.patch.get(key) {
+            None => {
+                if let Some(entry) = self.tree.get(key) {
+                    Some(PatchTreeEntry::new(None, Some(entry)))
+                } else {
+                    None
+                }
+            }
+            Some(patch) => match patch.value() {
+                Patch::Remove => None,
+                Patch::Set(_) => Some(PatchTreeEntry::new(Some(patch), None)),
+            },
         }
     }
 
-    pub fn set(&mut self, key: Key, value: TreeItem) { self.patch.insert(key, Patch::Set(value)); }
-    pub fn remove(&mut self, key: Key) { self.patch.insert(key, Patch::Remove); }
+    pub fn get_unpatched(&self, key: &Key) -> Option<PatchTreeEntry> {
+        if let Some(entry) = self.tree.get(key) {
+            Some(PatchTreeEntry::new(None, Some(entry)))
+        } else {
+            None
+        }
+    }
+
+    pub fn set(&self, key: Key, value: TreeItem) { self.patch.insert(key, Patch::Set(value)); }
+    pub fn set_unconditional(&self, key: Key, value: TreeItem) { self.tree.insert(key, value); }
+    pub fn remove(&self, key: Key) { self.patch.insert(key, Patch::Remove); }
 
     // apply the patch to the tree starting a new frame
-    pub fn update_tree(&mut self) -> Vec<Key> {
-        let keys = self.patch.keys().into_iter().cloned().collect();
-        for (key, value) in self.patch.drain() {
+    pub fn update_tree(&self) -> Vec<Key> {
+        let mut keys = vec![];
+        for kv in self.patch.iter() {
+            keys.push(kv.key().clone());
+        }
+
+        for key in &keys {
+            let (key, value) = self.patch.remove(key).unwrap();
             match value {
                 Patch::Remove => {
-                    let keys: Vec<Key> = self.tree.keys().into_iter().cloned().collect();
-                    for candidate in keys {
+                    for candidate in self.tree.iter().map(|kv| kv.key().clone()) {
                         if candidate.starts_with(&key) {
                             self.tree.remove(&candidate);
                         }
@@ -183,64 +333,22 @@ impl PatchedTree {
                 }
             }
         }
+
         keys
     }
 }
 
-pub type AfterFrameCallback = Box<dyn Fn(Context) + Send + Sync>;
-
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct ApplicationGlobalContext {
-    pub tree: PatchedTree,
-    #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
-    pub after_frame_callbacks: Vec<AfterFrameCallback>,
-    #[derivative(Debug = "ignore")]
-    pub layout_tree: Arc<dyn LayoutTree>,
-}
+pub type AfterFrameCallback = Box<dyn for<'a> Fn(&'a CallbackContext<'a>)>;
 
 #[derive(Clone, Debug, Default)]
 pub struct WidgetLocalContext {
     pub key: Key,
-    pub hook_counter: Arc<Mutex<u64>>,
-    pub used: Arc<Mutex<HashSet<Key>>>,
+    pub hook_counter: u64,
+    pub used: HashSet<Key>,
 }
+
 impl WidgetLocalContext {
-    pub fn mark_used(&self, key: Key) { self.used.lock().insert(key); }
-}
+    pub fn mark_used(&mut self, key: Key) { self.used.insert(key); }
 
-#[derive(Clone, Debug)]
-pub struct Context {
-    pub global: Arc<RwLock<ApplicationGlobalContext>>,
-    pub widget_local: WidgetLocalContext,
-}
-impl Context {
-    pub fn new(layout_tree: Arc<dyn LayoutTree>) -> Self {
-        Self {
-            global: Arc::new(RwLock::new(ApplicationGlobalContext {
-                tree: Default::default(),
-                after_frame_callbacks: Default::default(),
-                layout_tree
-            })),
-            widget_local: Default::default()
-        }
-    }
-
-    pub fn with_key_widget(&self, key: Key) -> Context {
-        Context {
-            global: self.global.clone(),
-            widget_local: WidgetLocalContext {
-                key,
-                hook_counter: Default::default(),
-                used: Default::default(),
-            },
-        }
-    }
-
-    pub fn key_for_hook(&self) -> Key {
-        let mut counter = self.widget_local.hook_counter.lock();
-        let to_return = *counter;
-        *counter += 1;
-        self.widget_local.key.with(KeyPart::Hook(to_return))
-    }
+    pub fn for_key(key: Key) -> Self { Self { key, ..Default::default() } }
 }
