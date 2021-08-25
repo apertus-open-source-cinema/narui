@@ -13,6 +13,7 @@ pub fn input(
     FragmentInner::Leaf {
         layout: Box::new(Maximal),
         render_object: RenderObject::Input {
+            key: context.widget_local.key,
             on_click: Arc::new(on_click),
             on_hover: Arc::new(on_hover),
             on_move: Arc::new(on_move),

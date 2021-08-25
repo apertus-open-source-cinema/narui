@@ -13,7 +13,6 @@ use std::env;
 // pass It is like a regular RenderObject but with Positioning information added
 #[derive(Debug, Clone)]
 pub struct PositionedRenderObject<'a> {
-    pub key: &'a Key,
     pub render_object: &'a RenderObject,
     pub rect: Rect,
     pub z_index: i32,
@@ -38,7 +37,6 @@ pub struct Layouter {
 }
 
 struct MaybeLayoutDebugIter<'a> {
-    key: &'a Key,
     rect: Rect,
     item: Option<&'a RenderObject>,
     debug_render_object: &'a RenderObject,
@@ -51,7 +49,6 @@ impl<'a> Iterator for MaybeLayoutDebugIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(render_object) = self.item.take() {
             Some(PositionedRenderObject {
-                key: self.key,
                 render_object,
                 rect: self.rect,
                 z_index: 0,
@@ -60,7 +57,6 @@ impl<'a> Iterator for MaybeLayoutDebugIter<'a> {
             if self.debug_layout_bounds {
                 self.debug_layout_bounds = false;
                 Some(PositionedRenderObject {
-                    key: self.key,
                     render_object: self.debug_render_object,
                     rect: self.rect,
                     z_index: 0,
@@ -94,7 +90,6 @@ impl Layouter {
 
     pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
         self.layouter.iter(&Default::default()).flat_map(move |layout_item| MaybeLayoutDebugIter {
-            key: layout_item.key,
             rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
             item: self.key_to_render_object.get(layout_item.key),
             debug_layout_bounds: self.debug_layout_bounds,

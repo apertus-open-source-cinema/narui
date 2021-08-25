@@ -59,9 +59,9 @@ impl InputHandler {
 
         let mut updated = false;
         for render_object in render_objects {
-            if let Input { on_hover, on_move, on_click } = render_object.clone().render_object {
+            if let Input { key, on_hover, on_move, on_click } = render_object.clone().render_object {
                 let input_state =
-                    self.input_states.entry(*render_object.key).or_insert(Default::default());
+                    self.input_states.entry(*key).or_insert(Default::default());
                 if self.cursor_moved {
                     let is_hover = render_object.rect.contains(self.cursor_position);
                     if input_state.hover != is_hover {

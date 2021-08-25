@@ -8,6 +8,10 @@ pub mod internal {
     pub use ctor::ctor;
     use parking_lot::RwLock;
 
+    pub fn name_for_widget(widget_id: u16) -> String {
+        WIDGET_INFO.read()[widget_id as usize].name.clone()
+    }
+
     // widget_id,
     // location_id,
     // arg_id
@@ -85,7 +89,6 @@ impl Key {
 impl Default for Key {
     fn default() -> Self {
         let mut data = [0; KEY_BYTES];
-        data[0] = ROOT;
         Self { data, pos: 0 }
     }
 }
@@ -104,7 +107,7 @@ impl Debug for Key {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum KeyPart {
     Uninitialized,
     Root,
@@ -116,22 +119,18 @@ pub enum KeyPart {
 }
 
 const UNINITIALIZED: u8 = 0;
-const ROOT: u8 = 1;
-const HOOK: u8 = 2;
-const FRAGMENT: u8 = 3;
-const FRAGMENT_KEY: u8 = 4;
+const HOOK: u8 = 1;
+const FRAGMENT: u8 = 2;
+const FRAGMENT_KEY: u8 = 3;
 
 impl KeyPart {
     pub fn push_to(self, key: &mut Key) {
-        // dbg!(self, &key.pos, &key);
+        assert!(key.pos + 8 < KEY_BYTES);
+        assert_ne!(self, KeyPart::Root);
         match self {
             KeyPart::Uninitialized => {
                 key.pos += 1;
                 key.data[key.pos] = UNINITIALIZED;
-            }
-            KeyPart::Root => {
-                key.pos += 1;
-                key.data[key.pos] = ROOT;
             }
             KeyPart::Hook(idx) => {
                 key.pos += 2;
@@ -156,6 +155,7 @@ impl KeyPart {
                 key.data[key.pos - 1] = ((widget_id >> 4) & 0xff) as u8;
                 key.data[key.pos] = (((widget_id << 4) & 0xff) as u8 | FRAGMENT_KEY) & 0xff;
             }
+            KeyPart::Root => { unreachable!() }
         }
         // dbg!(self, &key.pos, &key);
     }
@@ -165,10 +165,6 @@ impl KeyPart {
         let mut parts = vec![];
         while pos > 0 {
             match key.data[pos] & 0xf {
-                ROOT => {
-                    parts.push(KeyPart::Root);
-                    pos -= 1;
-                }
                 UNINITIALIZED => {
                     parts.push(KeyPart::Uninitialized);
                     pos -= 1;
@@ -212,7 +208,7 @@ impl KeyPart {
             }
         }
 
-        assert_eq!(key.data[0] & 0xf, ROOT);
+        assert_eq!(key.data[0] & 0xf, UNINITIALIZED);
         parts.push(KeyPart::Root);
 
         parts
@@ -220,7 +216,6 @@ impl KeyPart {
 
     fn last_part_size(key: &Key) -> usize {
         match key.data[key.pos] & 0xf {
-            ROOT => 1,
             UNINITIALIZED => 1,
             HOOK => 2,
             FRAGMENT => 4,
@@ -241,10 +236,12 @@ impl Debug for KeyPart {
             KeyPart::Root => write!(f, "Root"),
             KeyPart::Hook(number) => write!(f, "Hook_{}", number),
             KeyPart::Fragment { widget_id, location_id } => {
-                write!(f, "Fragment_{}_{}", widget_id, location_id)
+                let name = internal::name_for_widget(*widget_id);
+                write!(f, "Fragment_{}_{}", name, location_id)
             }
             KeyPart::FragmentKey { widget_id, location_id, key } => {
-                write!(f, "FragmentKey_{}_{}_{}", widget_id, location_id, key)
+                let name = internal::name_for_widget(*widget_id);
+                write!(f, "FragmentKey_{}_{}_{}", name, location_id, key)
             }
         }
     }
