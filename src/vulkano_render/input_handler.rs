@@ -1,8 +1,7 @@
 use crate::heart::{RenderObject::Input, *};
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use std::sync::Arc;
 use winit::event::{ElementState, MouseButton, WindowEvent};
-use hashbrown::HashSet;
 
 #[derive(Default)]
 pub struct InputState {
@@ -62,8 +61,7 @@ impl InputHandler {
         for key in input_render_object {
             let (rect, obj) = layouter.get_positioned(&key).unwrap();
             if let Some(Input { key, on_hover, on_move, on_click }) = obj {
-                let input_state =
-                    self.input_states.entry(*key).or_insert(Default::default());
+                let input_state = self.input_states.entry(*key).or_insert(Default::default());
                 if self.cursor_moved {
                     let is_hover = rect.contains(self.cursor_position);
                     if input_state.hover != is_hover {

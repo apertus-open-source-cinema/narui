@@ -226,10 +226,7 @@ impl TextRenderer {
             texture_bytes,
         }
     }
-    pub fn render<'a>(
-        &mut self,
-        render_object: &PositionedRenderObject<'a>,
-    ) {
+    pub fn render<'a>(&mut self, render_object: &PositionedRenderObject<'a>) {
         if let RenderObject::Text { text, size, color } = &render_object.render_object {
             self.glyph_brush.queue(
                 Section::default()

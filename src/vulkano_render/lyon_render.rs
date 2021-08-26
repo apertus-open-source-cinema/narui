@@ -75,7 +75,7 @@ vulkano::impl_vertex!(Vertex, position, color);
 pub struct LyonRendererState {
     vertices: Vec<Vertex>,
     indices: Vec<u16>,
-    last_index: u16
+    last_index: u16,
 }
 
 pub struct LyonRenderer {
@@ -119,16 +119,12 @@ impl LyonRenderer {
         }
     }
     pub fn begin(&self) -> LyonRendererState {
-        LyonRendererState {
-            vertices: vec![],
-            indices: vec![],
-            last_index: 0
-        }
+        LyonRendererState { vertices: vec![], indices: vec![], last_index: 0 }
     }
     pub fn render<'a>(
         &mut self,
         state: &mut LyonRendererState,
-        render_object: &PositionedRenderObject<'a>
+        render_object: &PositionedRenderObject<'a>,
     ) {
         let LyonRendererState { vertices, indices, last_index } = state;
         let buffer_color = match render_object.render_object {
@@ -172,7 +168,7 @@ impl LyonRenderer {
                 );
                 Some((buffer, color))
             }
-            _ => None
+            _ => None,
         };
 
         if let Some((buffer, color)) = buffer_color {
@@ -198,7 +194,7 @@ impl LyonRenderer {
             false,
             state.vertices.into_iter(),
         )
-            .unwrap();
+        .unwrap();
 
         let index_buffer = CpuAccessibleBuffer::<[u16]>::from_iter(
             self.device.clone(),
@@ -206,7 +202,7 @@ impl LyonRenderer {
             false,
             state.indices.into_iter(),
         )
-            .unwrap();
+        .unwrap();
 
         let push_constants =
             vertex_shader::ty::PushConstantData { width: dimensions[0], height: dimensions[1] };

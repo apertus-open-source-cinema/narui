@@ -38,6 +38,6 @@ fn main() {
         window_builder,
         rsx_toplevel! {
             <top />
-        }
+        },
     );
 }

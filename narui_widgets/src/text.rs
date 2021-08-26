@@ -1,4 +1,3 @@
-use narui::{vulkano_render::text_render::FONT, *};
 use glyph_brush::{
     ab_glyph::{Font, ScaleFont},
     FontId,
@@ -7,14 +6,14 @@ use glyph_brush::{
     SectionGeometry,
     SectionText,
 };
-use rutter_layout::{BoxConstraints, ClosureLayout, Size, LayoutableChildren};
-use std::sync::Arc;
-use std::rc::Rc;
+use narui::{vulkano_render::text_render::FONT, *};
+use rutter_layout::{BoxConstraints, ClosureLayout, LayoutableChildren, Size};
+use std::{rc::Rc, sync::Arc};
 
 #[derive(Debug, PartialEq)]
 pub struct TextLayout {
     size: f32,
-    text: Rc<String>
+    text: Rc<String>,
 }
 
 impl rutter_layout::Layout for TextLayout {

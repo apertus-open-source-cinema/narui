@@ -7,6 +7,7 @@ pub mod util;
 pub use util::VulkanContext;
 
 use crate::{heart::*, raw_render::RawRenderer, theme, util::FPSReporter};
+use hashbrown::HashSet;
 use input_handler::InputHandler;
 use lyon_render::LyonRenderer;
 use palette::Pixel;
@@ -46,7 +47,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-use hashbrown::HashSet;
 
 pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let event_loop: EventLoop<()> = EventLoop::new();
@@ -145,8 +145,11 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 return;
             }
             Event::MainEventsCleared => {
-                input_handler
-                    .handle_input(&input_render_objects, &layouter, evaluator.callback_context(&layouter));
+                input_handler.handle_input(
+                    &input_render_objects,
+                    &layouter,
+                    evaluator.callback_context(&layouter),
+                );
                 has_update |= evaluator.update(&mut layouter);
                 if has_update && (acquired_images.len() >= (caps.min_image_count) as usize - 1) {
                     surface.window().request_redraw();
@@ -175,20 +178,14 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                 input_render_objects.clear();
                 let mut lyon_state = lyon_renderer.begin();
                 for obj in layouter.iter_layouted() {
-                    raw_render.render(
-                        &mut builder,
-                        &dynamic_state,
-                        &dimensions,
-                        &obj,
-                    );
-                    lyon_renderer.render(
-                        &mut lyon_state,
-                        &obj
-                    );
-                    text_render.render(
-                        &obj,
-                    );
-                    if let PositionedRenderObject { render_object: RenderObject::Input { key, .. }, .. } = &obj {
+                    raw_render.render(&mut builder, &dynamic_state, &dimensions, &obj);
+                    lyon_renderer.render(&mut lyon_state, &obj);
+                    text_render.render(&obj);
+                    if let PositionedRenderObject {
+                        render_object: RenderObject::Input { key, .. },
+                        ..
+                    } = &obj
+                    {
                         input_render_objects.insert(*key);
                     }
                 }
