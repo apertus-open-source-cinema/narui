@@ -157,7 +157,9 @@ impl KeyPart {
                 key.data[key.pos - 1] = ((location_id >> 6) & 0xff) as u8;
                 key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT_KEY) & 0xff;
             }
-            KeyPart::Root => { unreachable!() }
+            KeyPart::Root => {
+                unreachable!()
+            }
         }
         // dbg!(self, &key.pos, &key);
     }

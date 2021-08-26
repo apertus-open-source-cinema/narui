@@ -1,10 +1,12 @@
-use narui::{heart::*, macros::widget};
-use lyon::tessellation::StrokeOptions;
 use lyon::{
     math::rect as lyon_rect,
     path::{builder::*, Winding},
-    tessellation::path::{builder::BorderRadii, path::Builder},
+    tessellation::{
+        path::{builder::BorderRadii, path::Builder},
+        StrokeOptions,
+    },
 };
+use narui::{heart::*, macros::widget};
 use rutter_layout::Maximal;
 use std::sync::Arc;
 
@@ -18,7 +20,12 @@ fn rounded_rect_builder(border_radius: Dimension, border_width: f32) -> Arc<Path
             }
         };
         builder.add_rounded_rectangle(
-            &lyon_rect(border_width / 2.0, border_width / 2.0, size.width - border_width / 2.0, size.height - border_width / 2.0),
+            &lyon_rect(
+                border_width / 2.0,
+                border_width / 2.0,
+                size.width - border_width / 2.0,
+                size.height - border_width / 2.0,
+            ),
             &BorderRadii {
                 top_left: border_radius_px,
                 top_right: border_radius_px,

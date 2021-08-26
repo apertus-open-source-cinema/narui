@@ -59,7 +59,13 @@ impl<'a> WidgetContext<'a> {
         args_tree: &'a mut ArgsTree,
         after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
     ) -> Self {
-        Self { tree, after_frame_callbacks, args_tree, widget_local: Default::default(), widget_loc: (0, 0) }
+        Self {
+            tree,
+            after_frame_callbacks,
+            args_tree,
+            widget_local: Default::default(),
+            widget_loc: (0, 0),
+        }
     }
 
     pub fn for_fragment(
@@ -73,7 +79,7 @@ impl<'a> WidgetContext<'a> {
             after_frame_callbacks,
             args_tree,
             widget_local: WidgetLocalContext::for_key(key),
-            widget_loc: (0, 0)
+            widget_loc: (0, 0),
         }
     }
 

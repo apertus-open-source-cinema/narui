@@ -37,8 +37,11 @@ pub struct EvaluatedFragment {
 #[derive(Default)]
 pub struct EvaluatorInner {
     pub(crate) tree: Arc<PatchedTree>,
-    deps_map:
-        HashMap<Key, HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState>, ahash::RandomState>,
+    deps_map: HashMap<
+        Key,
+        HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState>,
+        ahash::RandomState,
+    >,
     key_to_fragment: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState>,
 }
 
