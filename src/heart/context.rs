@@ -1,14 +1,9 @@
-use crate::{Key, KeyPart, Layouter};
+use crate::{Key, KeyMap, KeyPart, Layouter};
 use dashmap::DashMap;
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
-use std::{
-    any::Any,
-    fmt::{Debug},
-    ops::Deref,
-    sync::Arc,
-};
+use std::{any::Any, fmt::Debug, ops::Deref, sync::Arc};
 
 #[derive(Debug, Default)]
 pub struct ArgsTree {
@@ -24,7 +19,9 @@ impl ArgsTree {
 
     pub fn get(&self, key: &Key) -> Option<&Vec<Box<dyn Any>>> { self.map.get(key) }
 
-    pub fn remove(&mut self, root: Key) { self.map.retain(|k, _v| !k.starts_with(&root)); }
+    pub fn remove(&mut self, key_map: &mut KeyMap, root: Key) {
+        self.map.retain(|k, _v| key_map.key_parent_child(root, *k));
+    }
 
     pub fn dirty<'a>(&'a mut self) -> impl Iterator<Item = Key> + 'a { self.dirty.drain() }
 }
@@ -39,13 +36,14 @@ pub struct WidgetContext<'a> {
     pub widget_loc: (usize, usize),
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub(crate) after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
+    pub key_map: &'a mut KeyMap,
 }
 
 impl<'a> WidgetContext<'a> {
     pub fn key_for_hook(&mut self) -> Key {
         let counter = self.widget_local.hook_counter;
         self.widget_local.hook_counter += 1;
-        self.widget_local.key.with(KeyPart::Hook(counter))
+        self.key_map.key_with(self.widget_local.key, KeyPart::Hook(counter))
     }
 
     pub fn thread_context(&self) -> ThreadContext { ThreadContext { tree: self.tree.clone() } }
@@ -54,6 +52,7 @@ impl<'a> WidgetContext<'a> {
         tree: Arc<PatchedTree>,
         args_tree: &'a mut ArgsTree,
         after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
+        key_map: &'a mut KeyMap,
     ) -> Self {
         Self {
             tree,
@@ -61,6 +60,7 @@ impl<'a> WidgetContext<'a> {
             args_tree,
             widget_local: Default::default(),
             widget_loc: (0, 0),
+            key_map,
         }
     }
 
@@ -69,6 +69,7 @@ impl<'a> WidgetContext<'a> {
         args_tree: &'a mut ArgsTree,
         key: Key,
         after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
+        key_map: &'a mut KeyMap,
     ) -> Self {
         WidgetContext {
             tree,
@@ -76,6 +77,7 @@ impl<'a> WidgetContext<'a> {
             args_tree,
             widget_local: WidgetLocalContext::for_key(key),
             widget_loc: (0, 0),
+            key_map,
         }
     }
 
@@ -86,6 +88,7 @@ impl<'a> WidgetContext<'a> {
             widget_loc: (0, 0),
             after_frame_callbacks: self.after_frame_callbacks,
             widget_local: WidgetLocalContext::for_key(key),
+            key_map: &mut self.key_map,
         }
     }
 }
@@ -180,7 +183,7 @@ impl PatchedTree {
     pub fn remove(&self, key: Key) { self.patch.insert(key, Patch::Remove); }
 
     // apply the patch to the tree starting a new frame
-    pub fn update_tree(&self) -> Vec<Key> {
+    pub fn update_tree(&self, key_map: &mut KeyMap) -> Vec<Key> {
         let mut keys = vec![];
         for kv in self.patch.iter() {
             keys.push(*kv.key());
@@ -191,7 +194,7 @@ impl PatchedTree {
             match value {
                 Patch::Remove => {
                     for candidate in self.tree.iter().map(|kv| *kv.key()) {
-                        if candidate.starts_with(&key) {
+                        if key_map.key_parent_child(key, candidate) {
                             self.tree.remove(&candidate);
                         }
                     }

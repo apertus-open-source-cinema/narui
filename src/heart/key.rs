@@ -1,58 +1,113 @@
+use hashbrown::HashMap;
 use std::{
     fmt::{Debug, Formatter},
     hash::Hash,
 };
-use parking_lot::{RwLockReadGuard, RwLock};
-use hashbrown::HashMap;
 
+type KeyInner = u32;
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug)]
+pub struct Key(KeyInner);
+
+#[derive(Debug)]
+pub struct KeyMap {
+    id_to_part_parent: HashMap<KeyInner, (KeyPart, Option<KeyInner>)>,
+    parent_part_to_id: HashMap<(KeyInner, KeyPart), KeyInner>,
+}
+impl KeyMap {
+    pub fn key_with(&mut self, parent: Key, tail: KeyPart) -> Key {
+        let query_result = self.parent_part_to_id.get(&(parent.0, tail)).cloned();
+        if let Some(id) = query_result {
+            Key(id)
+        } else {
+            let new_id = self.id_to_part_parent.len() as KeyInner;
+            self.id_to_part_parent.insert(new_id, (tail, Some(parent.0)));
+            self.parent_part_to_id.insert((parent.0, tail), new_id);
+
+            Key(new_id)
+        }
+    }
+    pub fn key_parent(&self, key: Key) -> Option<Key> {
+        self.id_to_part_parent.get(&key.0).unwrap().1.map(|x| Key(x))
+    }
+    pub fn key_tail(&self, key: Key) -> KeyPart { self.id_to_part_parent.get(&key.0).unwrap().0 }
+    pub fn key_debug(&self, key: Key) -> DebuggableKey { DebuggableKey { key, key_map: &self } }
+    pub fn key_parent_child(&self, maybe_parent: Key, maybe_child: Key) -> bool {
+        // TODO: this is UTTERLY slow
+        if maybe_child.0 > maybe_parent.0 {
+            return false;
+        }
+        let child_parts = self.get_parts(maybe_child);
+        self.get_parts(maybe_parent)[0..child_parts.len()] == child_parts
+    }
+    pub fn get_parts(&self, key: Key) -> Vec<KeyPart> {
+        let mut parts = Vec::new();
+        let mut current = key;
+        while let Some(parent) = self.key_parent(current) {
+            parts.push(self.key_tail(current));
+            current = parent;
+        }
+        parts
+    }
+}
+impl Default for KeyMap {
+    fn default() -> Self {
+        let mut id_to_part_parent = HashMap::with_capacity(1024);
+        id_to_part_parent.insert(0, (KeyPart::Root, None));
+
+        let parent_part_to_id = HashMap::with_capacity(1024);
+
+        Self { id_to_part_parent, parent_part_to_id }
+    }
+}
+pub struct DebuggableKey<'a> {
+    key: Key,
+    key_map: &'a KeyMap,
+}
+impl<'a> Debug for DebuggableKey<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for (i, part) in self.key_map.get_parts(self.key).iter().rev().enumerate() {
+            if i != 0 {
+                write!(f, ".")?;
+            }
+            write!(f, "{:?}", part)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum KeyPart {
+    Root,
+
+    Hook(u16),
+
+    Fragment { widget_id: u16, location_id: u16 },
+    FragmentKey { widget_id: u16, location_id: u16, key: u16 },
+}
+impl Debug for KeyPart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KeyPart::Root => write!(f, "Root"),
+            KeyPart::Hook(number) => write!(f, "Hook_{}", number),
+            KeyPart::Fragment { widget_id, location_id } => {
+                let name = internal::name_for_widget(*widget_id);
+                write!(f, "Fragment_{}_{}", name, location_id)
+            }
+            KeyPart::FragmentKey { widget_id, location_id, key } => {
+                let name = internal::name_for_widget(*widget_id);
+                write!(f, "FragmentKey_{}_{}_{}", name, location_id, key)
+            }
+        }
+    }
+}
 
 pub mod internal {
     pub use ctor::ctor;
     use parking_lot::RwLock;
-    use hashbrown::HashMap;
-    use crate::KeyPart;
 
     pub fn name_for_widget(widget_id: u16) -> String {
         WIDGET_INFO.read()[widget_id as usize].name.clone()
     }
-
-
-    #[derive(Debug)]
-    pub struct KeyMap {
-        id_to_part_parent: RwLock<HashMap<u32, (KeyPart, Option<u32>)>>,
-        parent_part_to_id: RwLock<HashMap<(u32, KeyPart), u32>>,
-    }
-    impl KeyMap {
-        pub fn with(&self, parent: u32, tail: KeyPart) -> u32 {
-            let query_result = self.parent_part_to_id.read().get(&(parent, tail)).cloned();
-            if let Some(id) = query_result {
-                id
-            } else {
-                let mut id_to_part_parent = self.id_to_part_parent.write();
-                let mut parent_part_to_id = self.parent_part_to_id.write();
-
-                let new_id = id_to_part_parent.len() as u32;
-                id_to_part_parent.insert(new_id, (tail, Some(parent)));
-                parent_part_to_id.insert((parent, tail), new_id);
-
-                new_id
-            }
-        }
-        pub fn parent(&self, this: u32) -> u32 {
-            self.id_to_part_parent.read().get(&this).unwrap().1.unwrap()
-        }
-    }
-    impl Default for KeyMap {
-        fn default() -> Self {
-            let mut id_to_part_parent = HashMap::with_capacity(1024);
-            id_to_part_parent.insert(0, (KeyPart::Root, None));
-
-            let parent_part_to_id = HashMap::with_capacity(1024);
-
-            Self { id_to_part_parent: RwLock::new(id_to_part_parent), parent_part_to_id: RwLock::new(parent_part_to_id) }
-        }
-    }
-
 
     // widget_id,
     // location_id,
@@ -72,228 +127,5 @@ pub mod internal {
                 arg_names: vec![]
             }
         ]);
-    }
-
-    lazy_static::lazy_static! {
-        pub static ref KEY_MAP: KeyMap = Default::default();
-    }
-
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug)]
-pub struct Key(u32);
-
-impl Key {
-    pub fn with(&self, tail: KeyPart) -> Self {
-        Self(internal::KEY_MAP.with(self.0, tail))
-    }
-
-    pub fn parent(&self) -> Self {
-        Self(internal::KEY_MAP.parent(self.0))
-    }
-
-    pub fn starts_with(&self, start: &Key) -> bool {
-        unimplemented!()
-    }
-}
-/*
-impl Debug for Key {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut first = true;
-        for part in KeyPart::decode_all_reversed(self).iter().rev() {
-            if !first {
-                write!(f, ".")?;
-            }
-            write!(f, "{:?}", part)?;
-            first = false;
-        }
-        Ok(())
-    }
-}
-*/
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum KeyPart {
-    Uninitialized,
-    Root,
-
-    Hook(u16),
-
-    Fragment { widget_id: u16, location_id: u16 },
-    FragmentKey { widget_id: u16, location_id: u16, key: u16 },
-}
-
-const UNINITIALIZED: u8 = 0;
-const HOOK: u8 = 1;
-const FRAGMENT: u8 = 2;
-const FRAGMENT_KEY: u8 = 3;
-
-impl KeyPart {/*
-    pub fn push_to(self, key: &mut Key) {
-        assert!(key.pos + 8 < KEY_BYTES);
-        assert_ne!(self, KeyPart::Root);
-        match self {
-            KeyPart::Uninitialized => {
-                key.pos += 1;
-                key.data[key.pos] = UNINITIALIZED;
-            }
-            KeyPart::Hook(idx) => {
-                key.pos += 2;
-                key.data[key.pos - 1] = ((idx >> 6) & 0xff) as u8;
-                key.data[key.pos] = ((idx << 2) & 0xff) as u8 | HOOK;
-            }
-            #[cfg(debug_assertions)]
-            KeyPart::Fragment { widget_id, location_id } => {
-                key.pos += 4;
-                key.data[key.pos - 3] = (location_id & 0xff) as u8;
-                key.data[key.pos - 2] = ((location_id >> 8) & 0xff) as u8;
-                key.data[key.pos - 1] = ((widget_id >> 6) & 0xff) as u8;
-                key.data[key.pos] = ((widget_id << 2) & 0xff) as u8 | FRAGMENT;
-            }
-            #[cfg(not(debug_assertions))]
-            KeyPart::Fragment { widget_id, location_id } => {
-                key.pos += 2;
-                key.data[key.pos - 1] = ((location_id >> 6) & 0xff) as u8;
-                key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT);
-            }
-            #[cfg(debug_assertions)]
-            KeyPart::FragmentKey { widget_id, location_id, key: k } => {
-                key.pos += 6;
-                key.data[key.pos - 5] = (k & 0xff) as u8;
-                key.data[key.pos - 4] = ((k >> 8) & 0xff) as u8;
-                key.data[key.pos - 3] = (location_id & 0xff) as u8;
-                key.data[key.pos - 2] = ((location_id >> 8) & 0xff) as u8;
-                key.data[key.pos - 1] = ((widget_id >> 6) & 0xff) as u8;
-                key.data[key.pos] = ((widget_id << 2) & 0xff) as u8 | FRAGMENT_KEY;
-            }
-            #[cfg(not(debug_assertions))]
-            KeyPart::FragmentKey { widget_id, location_id, key: k } => {
-                key.pos += 4;
-                key.data[key.pos - 3] = (k & 0xff) as u8;
-                key.data[key.pos - 2] = ((k >> 8) & 0xff) as u8;
-                key.data[key.pos - 1] = ((location_id >> 6) & 0xff) as u8;
-                key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT_KEY);
-            }
-            KeyPart::Root => {
-                unreachable!()
-            }
-        }
-        // dbg!(self, &key.pos, &key);
-    }
-
-    pub fn decode_all_reversed(key: &Key) -> Vec<KeyPart> {
-        let mut pos = key.pos;
-        let mut parts = vec![];
-        while pos > 0 {
-            match key.data[pos] & 0b11 {
-                UNINITIALIZED => {
-                    parts.push(KeyPart::Uninitialized);
-                    pos -= 1;
-                }
-                HOOK => {
-                    let mut idx = 0u16;
-                    idx |= (key.data[pos - 1] as u16) << 6;
-                    idx |= key.data[pos] as u16 >> 2;
-                    parts.push(KeyPart::Hook(idx));
-                    pos -= 2;
-                }
-                #[cfg(debug_assertions)]
-                FRAGMENT => {
-                    let mut widget_id = 0u16;
-                    let mut location_id = 0u16;
-
-                    location_id |= key.data[pos - 3] as u16;
-                    location_id |= (key.data[pos - 2] as u16) << 8;
-                    widget_id |= (key.data[pos - 1] as u16) << 6;
-                    widget_id |= key.data[pos] as u16 >> 2;
-
-                    parts.push(KeyPart::Fragment { widget_id, location_id });
-                    pos -= 4;
-                }
-                #[cfg(not(debug_assertions))]
-                FRAGMENT => {
-                    let mut widget_id = 0u16;
-                    let mut location_id = 0u16;
-
-                    location_id |= (key.data[pos - 1] as u16) << 6;
-                    location_id |= key.data[pos] as u16 >> 2;
-
-                    parts.push(KeyPart::Fragment { widget_id, location_id });
-                    pos -= 2;
-                }
-                #[cfg(debug_assertions)]
-                FRAGMENT_KEY => {
-                    let mut widget_id = 0u16;
-                    let mut location_id = 0u16;
-                    let mut k = 0u16;
-                    k |= key.data[pos - 5] as u16;
-                    k |= (key.data[pos - 4] as u16) << 8;
-                    location_id |= key.data[pos - 3] as u16;
-                    location_id |= (key.data[pos - 2] as u16) << 8;
-                    widget_id |= (key.data[pos - 1] as u16) << 6;
-                    widget_id |= key.data[pos] as u16 >> 2;
-
-                    parts.push(KeyPart::FragmentKey { key: k, widget_id, location_id });
-                    pos -= 6;
-                }
-                #[cfg(not(debug_assertions))]
-                FRAGMENT_KEY => {
-                    let mut widget_id = 0u16;
-                    let mut location_id = 0u16;
-                    let mut k = 0u16;
-                    k |= (key.data[pos - 5] as u16);
-                    k |= (key.data[pos - 4] as u16) << 8;
-                    location_id |= (key.data[pos - 1] as u16) << 6;
-                    location_id |= key.data[pos] as u16 >> 2;
-
-                    parts.push(KeyPart::FragmentKey { key: k, widget_id, location_id });
-                    pos -= 4;
-                }
-                unk => panic!("unknown key tag {}", unk),
-            }
-        }
-
-        assert_eq!(key.data[0] & 0b11, UNINITIALIZED);
-        parts.push(KeyPart::Root);
-
-        parts
-    }
-
-    fn last_part_size(key: &Key) -> usize {
-        match key.data[key.pos] & 0b11 {
-            UNINITIALIZED => 1,
-            HOOK => 2,
-            #[cfg(debug_assertions)]
-            FRAGMENT => 4,
-            #[cfg(not(debug_assertions))]
-            FRAGMENT => 2,
-            #[cfg(debug_assertions)]
-            FRAGMENT_KEY => 6,
-            #[cfg(not(debug_assertions))]
-            FRAGMENT_KEY => 4,
-            unk => panic!("unknown key tag {}", unk),
-        }
-    }*/
-}
-
-impl Default for KeyPart {
-    fn default() -> Self { KeyPart::Uninitialized }
-}
-
-impl Debug for KeyPart {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            KeyPart::Uninitialized => write!(f, "Uninitialized"),
-            KeyPart::Root => write!(f, "Root"),
-            KeyPart::Hook(number) => write!(f, "Hook_{}", number),
-            KeyPart::Fragment { widget_id, location_id } => {
-                let name = internal::name_for_widget(*widget_id);
-                write!(f, "Fragment_{}_{}", name, location_id)
-            }
-            KeyPart::FragmentKey { widget_id, location_id, key } => {
-                let name = internal::name_for_widget(*widget_id);
-                write!(f, "FragmentKey_{}_{}_{}", name, location_id, key)
-            }
-        }
     }
 }
