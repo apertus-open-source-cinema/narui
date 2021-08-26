@@ -47,6 +47,24 @@ pub trait Layout: std::fmt::Debug + TraitComparable {
     }
 }
 
+pub struct LayoutItemWithObj<'a, T> {
+    pub size: Size,
+    pub pos: Offset,
+    pub obj: &'a T
+}
+
+impl<'a, T> LayoutItemWithObj<'a, T> {
+    fn new<Key, H: BuildHasher>(layouter: &'a Layouter<Key, T, H>, idx: Idx) -> Self {
+        let node = &layouter.nodes[idx.get()];
+
+        Self {
+            size: node.size.get().unwrap(),
+            pos: node.abs_pos.get().unwrap(),
+            obj: &node.obj
+        }
+    }
+}
+
 pub struct LayoutItem<'a, Key> {
     pub size: Size,
     pub pos: Offset,
@@ -81,7 +99,7 @@ impl<'a, Key, T, H> LayoutIter<'a, Key, T, H> {
 }
 
 impl<'a, Key: Hash + Eq + Clone, T, H: BuildHasher> Iterator for LayoutIter<'a, Key, T, H> {
-    type Item = LayoutItem<'a, Key>;
+    type Item = Idx;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(current_pos) = self.next_pos {
@@ -98,7 +116,7 @@ impl<'a, Key: Hash + Eq + Clone, T, H: BuildHasher> Iterator for LayoutIter<'a, 
                 }
                 None => self.next_pos = current.parent,
             }
-            Some(LayoutItem::new(self.layouter, current_pos))
+            Some(current_pos)
         } else {
             None
         }
@@ -216,7 +234,12 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H:
 
     pub fn iter(&self, top: &Key) -> impl Iterator<Item = LayoutItem<Key>> {
         let idx = self.key_to_idx.get_left(top).unwrap();
-        LayoutIter::new(self, *idx)
+        LayoutIter::new(self, *idx).map(move |idx| LayoutItem::new(&self, idx))
+    }
+
+    pub fn iter_with_obj(&self, top: &Key) -> impl Iterator<Item = LayoutItemWithObj<T>> {
+        let idx = self.key_to_idx.get_left(top).unwrap();
+        LayoutIter::new(self, *idx).map(move |idx| LayoutItemWithObj::new(&self, idx))
     }
 
     fn propagate_abs_pos(&self, root: Idx, offset: Offset, dirty: bool) {
@@ -247,10 +270,10 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H:
         node.dirty_abs_pos.set(false);
     }
 
-    pub fn get_layout(&self, key: &Key) -> Option<(Offset, Size)> {
+    pub fn get_layout(&self, key: &Key) -> Option<(Offset, Size, &T)> {
         self.key_to_idx.get_left(key).map(|idx| {
             let node = &self.nodes[idx];
-            (node.abs_pos.get().unwrap(), node.size.get().unwrap())
+            (node.abs_pos.get().unwrap(), node.size.get().unwrap(), &node.obj)
         })
     }
 }
