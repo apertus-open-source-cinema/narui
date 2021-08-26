@@ -7,8 +7,8 @@ use glyph_brush::{
     SectionText,
 };
 use narui::{vulkano_render::text_render::FONT, *};
-use rutter_layout::{BoxConstraints, ClosureLayout, LayoutableChildren, Size};
-use std::{rc::Rc, sync::Arc};
+use rutter_layout::{BoxConstraints, LayoutableChildren, Size};
+use std::{rc::Rc};
 
 #[derive(Debug, PartialEq)]
 pub struct TextLayout {

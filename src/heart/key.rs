@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Formatter},
-    hash::{Hash, Hasher},
+    hash::{Hash},
 };
 
 
@@ -48,7 +48,7 @@ pub struct Key {
 
 impl Key {
     pub fn with(&self, tail: KeyPart) -> Self {
-        let mut new = self.clone();
+        let mut new = *self;
         tail.push_to(&mut new);
         new
     }
@@ -76,7 +76,7 @@ impl Key {
 
 impl Default for Key {
     fn default() -> Self {
-        let mut data = [0; KEY_BYTES];
+        let data = [0; KEY_BYTES];
         Self { data, pos: 0 }
     }
 }

@@ -522,7 +522,7 @@ impl TraitComparable for ClosureLayout {
     fn as_trait_comparable(&self) -> &dyn TraitComparable { self }
 
     // TODO(robin): is there any meaningful way to compare Box<Closure>s?
-    fn eq(&self, other: &dyn TraitComparable) -> bool { false }
+    fn eq(&self, _other: &dyn TraitComparable) -> bool { false }
 }
 
 impl Layout for ClosureLayout {

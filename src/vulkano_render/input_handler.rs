@@ -1,6 +1,6 @@
 use crate::heart::{RenderObject::Input, *};
 use hashbrown::{HashMap, HashSet};
-use std::sync::Arc;
+
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
 #[derive(Default)]

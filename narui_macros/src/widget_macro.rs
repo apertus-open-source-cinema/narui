@@ -43,23 +43,23 @@ pub fn widget(
     let parsed: Result<ItemFn, _> = syn::parse2(item.into());
     let function = parsed.unwrap();
     let function_ident = function.sig.ident.clone();
-    let mod_ident = Ident::new(&format!("{}", function_ident.clone()), Span::call_site());
+    let mod_ident = Ident::new(&format!("{}", function_ident), Span::call_site());
 
     let last_name = get_arg_names(&function).into_iter().last().unwrap().to_string();
     let last_type = get_arg_types(&function)[&last_name].clone();
     assert_eq!(last_type.to_token_stream().to_string(), WIDGET_CONTEXT_TYPE_STRING);
-    assert_eq!(last_name.to_string(), "context");
+    assert_eq!(last_name, "context");
 
-    let return_type = function.sig.output.clone().to_token_stream().to_string().replace("-> ", "");
+    let return_type = function.sig.output.to_token_stream().to_string().replace("-> ", "");
 
     // parse & format the default arguments
     let parser = Punctuated::<AttributeParameter, Token![,]>::parse_terminated;
     let parsed_args = parser.parse(args).unwrap();
 
     let macro_ident =
-        Ident::new(&format!("__{}_constructor_", function_ident.clone()), Span::call_site());
+        Ident::new(&format!("__{}_constructor_", function_ident), Span::call_site());
     let macro_ident_pub =
-        Ident::new(&format!("__{}_constructor", function_ident.clone()), Span::call_site());
+        Ident::new(&format!("__{}_constructor", function_ident), Span::call_site());
 
     let arg_types = get_arg_types(&function);
     let match_arms: Vec<_> = {
@@ -104,7 +104,7 @@ pub fn widget(
     };
 
     let shout_args_arm = {
-        let initializers = parsed_args.clone().into_iter().map(|x| {
+        let initializers = parsed_args.into_iter().map(|x| {
             let unhygienic = &x.ident;
             let ident = desinfect_ident(unhygienic);
             let value = x.expr;
@@ -150,7 +150,7 @@ pub fn widget(
             .map(|ident| desinfect_ident(&ident))
             .collect();
         let arg_numbers: Vec<_> = (0..(get_arg_names(&function).len() - 1))
-            .map(|i| Literal::usize_unsuffixed(i))
+            .map(Literal::usize_unsuffixed)
             .collect();
         let arg_numbers_plus_one: Vec<_> = (0..(get_arg_names(&function).len() - 1))
             .map(|i| Literal::usize_unsuffixed(i + 1))
@@ -240,7 +240,7 @@ pub fn widget(
             pub use super::#new_ident as #original_ident;
         }
     };
-    println!("widget: \n{}\n\n", transformed.clone());
+    println!("widget: \n{}\n\n", transformed);
     transformed.into()
 }
 // a (simplified) example of the kind of macro this proc macro generates:

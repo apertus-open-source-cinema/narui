@@ -48,17 +48,15 @@ impl<'a> Iterator for MaybeLayoutDebugIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(render_object) = self.item.take() {
             Some(PositionedRenderObject { render_object, rect: self.rect, z_index: 0 })
+        } else if self.debug_layout_bounds {
+            self.debug_layout_bounds = false;
+            Some(PositionedRenderObject {
+                render_object: self.debug_render_object,
+                rect: self.rect,
+                z_index: 0,
+            })
         } else {
-            if self.debug_layout_bounds {
-                self.debug_layout_bounds = false;
-                Some(PositionedRenderObject {
-                    render_object: self.debug_render_object,
-                    rect: self.rect,
-                    z_index: 0,
-                })
-            } else {
-                None
-            }
+            None
         }
     }
 }
