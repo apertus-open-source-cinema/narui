@@ -15,7 +15,7 @@ use crate::{
 };
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
-use rutter_layout::Layout;
+
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 // EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally
@@ -69,10 +69,10 @@ impl EvaluatorInner {
         loop {
             let touched_args = args_tree.dirty();
             for key in touched_args {
-                to_update.entry(key.clone()).or_insert_with(|| self.key_to_fragment[&key].clone());
+                to_update.entry(key).or_insert_with(|| self.key_to_fragment[&key].clone());
             }
 
-            if to_update.len() == 0 {
+            if to_update.is_empty() {
                 return true;
             }
             for (_, frag) in to_update.drain() {
@@ -89,7 +89,7 @@ impl EvaluatorInner {
     ) -> Rc<RefCell<EvaluatedFragment>> {
         let mut context = context.with_key_widget(fragment.key);
         let evaluated: FragmentInner = (fragment.gen)(&mut context);
-        let mut deps = std::mem::replace(&mut context.widget_local.used, HashSet::default());
+        let deps = std::mem::take(&mut context.widget_local.used);
 
         let (layout, render_object, children) = evaluated.unpack();
 
@@ -140,7 +140,7 @@ impl EvaluatorInner {
         let evaluated: FragmentInner = (frag.gen)(&mut context);
         let (layout, render_object, children) = evaluated.unpack();
 
-        let mut old_children = std::mem::replace(&mut frag.children, vec![]);
+        let mut old_children = std::mem::take(&mut frag.children);
 
         let new_deps = &mut context.widget_local.used;
         for to_remove in frag.deps.difference(new_deps) {
@@ -150,7 +150,7 @@ impl EvaluatorInner {
         for to_insert in new_deps.difference(&frag.deps) {
             self.deps_map.entry(*to_insert).or_default().insert(frag.key, frag_cell.clone());
         }
-        frag.deps = std::mem::replace(new_deps, HashSet::default());
+        frag.deps = std::mem::take(new_deps);
 
 
         let mut children_keys = vec![];
@@ -205,7 +205,7 @@ impl EvaluatorInner {
                     "elements need to have unique keys but do not. consider passing an explicit key."
                 );
             } else {
-                keys.insert(key.clone());
+                keys.insert(*key);
             }
         }
     }

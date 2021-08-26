@@ -2,7 +2,7 @@ use crate::{Key, KeyPart, LayoutTree, Layouter, PositionedRenderObject};
 use dashmap::DashMap;
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
-use parking_lot::{Mutex, RwLock};
+
 use std::{
     any::Any,
     collections::hash_map::DefaultHasher,
@@ -28,7 +28,7 @@ impl ArgsTree {
 
     pub fn get(&self, key: &Key) -> Option<&Vec<Box<dyn Any>>> { self.map.get(key) }
 
-    pub fn remove(&mut self, root: Key) { self.map.retain(|k, v| !k.starts_with(&root)); }
+    pub fn remove(&mut self, root: Key) { self.map.retain(|k, _v| !k.starts_with(&root)); }
 
     pub fn dirty<'a>(&'a mut self) -> impl Iterator<Item = Key> + 'a { self.dirty.drain() }
 }
@@ -168,11 +168,7 @@ impl PatchedTree {
     pub fn get_patched(&self, key: &Key) -> Option<PatchTreeEntry> {
         match self.patch.get(key) {
             None => {
-                if let Some(entry) = self.tree.get(key) {
-                    Some(PatchTreeEntry::new(None, Some(entry)))
-                } else {
-                    None
-                }
+                self.tree.get(key).map(|entry| PatchTreeEntry::new(None, Some(entry)))
             }
             Some(patch) => match patch.value() {
                 Patch::Remove => None,
@@ -182,11 +178,7 @@ impl PatchedTree {
     }
 
     pub fn get_unpatched(&self, key: &Key) -> Option<PatchTreeEntry> {
-        if let Some(entry) = self.tree.get(key) {
-            Some(PatchTreeEntry::new(None, Some(entry)))
-        } else {
-            None
-        }
+        self.tree.get(key).map(|entry| PatchTreeEntry::new(None, Some(entry)))
     }
 
     pub fn set(&self, key: Key, value: TreeItem) { self.patch.insert(key, Patch::Set(value)); }
@@ -197,14 +189,14 @@ impl PatchedTree {
     pub fn update_tree(&self) -> Vec<Key> {
         let mut keys = vec![];
         for kv in self.patch.iter() {
-            keys.push(kv.key().clone());
+            keys.push(*kv.key());
         }
 
         for key in &keys {
             let (key, value) = self.patch.remove(key).unwrap();
             match value {
                 Patch::Remove => {
-                    for candidate in self.tree.iter().map(|kv| kv.key().clone()) {
+                    for candidate in self.tree.iter().map(|kv| *kv.key()) {
                         if candidate.starts_with(&key) {
                             self.tree.remove(&candidate);
                         }

@@ -1,9 +1,6 @@
 use proc_macro2::{Ident, LineColumn, Span, TokenStream};
 use quote::quote;
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
+
 use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
@@ -17,7 +14,7 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     }};
 
     println!("rsx: \n{}\n\n", transformed);
-    transformed.into()
+    transformed
 }
 fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
     if x.node_type == NodeType::Element {
@@ -69,7 +66,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             (quote! {}, quote! {children=(#value),})
         } else {
             let (beginning, inplace): (Vec<_>, Vec<_>) =
-                x.children.into_iter().map(|child| handle_rsx_node(child)).unzip();
+                x.children.into_iter().map(handle_rsx_node).unzip();
             (quote! {#(#beginning)*}, quote! {children={vec![#(#inplace,)*]},})
         };
 

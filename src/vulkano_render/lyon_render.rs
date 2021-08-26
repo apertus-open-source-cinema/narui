@@ -145,7 +145,7 @@ impl LyonRenderer {
                 let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
                 let buffer = self.stroke_tessellate_with_cache(
                     path_gen.clone(),
-                    stroke_options.clone(),
+                    *stroke_options,
                     render_object.rect.size,
                     path_gen_key,
                 );
@@ -178,7 +178,7 @@ impl LyonRenderer {
             for index in &buffer.indices {
                 indices.push(index + *last_index);
             }
-            *last_index = *last_index + buffer.vertices.len() as u16;
+            *last_index += buffer.vertices.len() as u16;
         }
     }
     pub fn finish(

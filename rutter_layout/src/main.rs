@@ -15,7 +15,7 @@ use rutter_layout::{
 };
 
 fn main() {
-    let mut layouter = Layouter::<&str, Box<dyn Layout>>::new();
+    let mut layouter = Layouter::<&str, Box<dyn Layout>, ahash::RandomState>::new();
     let column = Box::new(Column {
         cross_axis_alignment: CrossAxisAlignment::Center,
         main_axis_alignment: MainAxisAlignment::Start,
@@ -40,8 +40,8 @@ fn main() {
     layouter.set_node(&"d", box_d);
     layouter.set_node(&"flex", flexible);
 
-    layouter.set_children(&"flex", &[&"b"]);
-    layouter.set_children(&"column", &[&"a", &"flex", &"c", &"d"]);
+    layouter.set_children(&"flex", ["b"].iter());
+    layouter.set_children(&"column", ["a", "flex", "c", "d"].iter());
 
     layouter.do_layout(
         BoxConstraints::tight_for(Size { width: 100.0, height: 100.0 }),
@@ -49,10 +49,10 @@ fn main() {
         "column",
     );
 
-    println!("{:?}", layouter.get_layout("a"));
-    println!("{:?}", layouter.get_layout("b"));
-    println!("{:?}", layouter.get_layout("c"));
-    println!("{:?}", layouter.get_layout("d"));
+    println!("{:?}", layouter.get_layout(&"a"));
+    println!("{:?}", layouter.get_layout(&"b"));
+    println!("{:?}", layouter.get_layout(&"c"));
+    println!("{:?}", layouter.get_layout(&"d"));
 
     let _box_b = Box::new(SizedBox::constrained(BoxConstraints {
         min_width: 10.0,
@@ -70,8 +70,8 @@ fn main() {
     );
 
     println!();
-    println!("{:?}", layouter.get_layout("a"));
-    println!("{:?}", layouter.get_layout("b"));
-    println!("{:?}", layouter.get_layout("c"));
-    println!("{:?}", layouter.get_layout("d"));
+    println!("{:?}", layouter.get_layout(&"a"));
+    println!("{:?}", layouter.get_layout(&"b"));
+    println!("{:?}", layouter.get_layout(&"c"));
+    println!("{:?}", layouter.get_layout(&"d"));
 }
