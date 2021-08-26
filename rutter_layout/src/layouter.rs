@@ -32,8 +32,6 @@ impl<T: 'static + PartialEq + std::fmt::Debug> TraitComparable for T {
 }
 
 pub trait Layout: std::fmt::Debug + TraitComparable {
-    fn uses_child_size(&self) -> bool { true }
-
     fn eq(&self, other: &dyn Layout) -> bool {
         TraitComparable::eq(self, other.as_trait_comparable())
     }
@@ -139,11 +137,10 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H:
 
     fn propagate_dirty(&self, idx: Idx) {
         let mut next = Some(idx);
-        let mut first = true;
 
         while let Some(idx) = next {
             let node = &self.nodes[idx];
-            if (node.any_dirty_children.get() || !node.obj.uses_child_size()) && !first {
+            if node.any_dirty_children.get() {
                 break;
             }
 
@@ -151,7 +148,6 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H:
             node.any_dirty_children.set(true);
 
             next = node.parent;
-            first = false;
         }
     }
 
@@ -161,6 +157,7 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H:
     {
         let parent_idx = *self.key_to_idx.get_left(key).unwrap();
         let mut len = 0;
+        let mut any_child_dirty = false;
 
         if let Some(first_child) = children.next() {
             len = 1;
@@ -172,28 +169,27 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H:
                 len += 1;
                 let new_child_idx = *self.key_to_idx.get_left(&new_child).unwrap();
 
-                self.nodes[last_child_idx].next_sibling = Some(new_child_idx);
+                let last = &mut self.nodes[last_child_idx];
+                any_child_dirty = any_child_dirty || last.any_dirty_children.get();
 
-                assert!(
-                    (self.nodes[last_child_idx].parent == None)
-                        || (self.nodes[last_child_idx].parent == Some(parent_idx))
-                );
-                self.nodes[last_child_idx].parent = Some(parent_idx);
+                last.next_sibling = Some(new_child_idx);
+
+                assert!((last.parent == None) || (last.parent == Some(parent_idx)));
+                last.parent = Some(parent_idx);
 
                 last_child_idx = new_child_idx;
             }
 
-            self.nodes[last_child_idx].next_sibling = None;
-            assert!(
-                (self.nodes[last_child_idx].parent == None)
-                    || (self.nodes[last_child_idx].parent == Some(parent_idx))
-            );
-            self.nodes[last_child_idx].parent = Some(parent_idx);
+            let last = &mut self.nodes[last_child_idx];
+            any_child_dirty = any_child_dirty || last.any_dirty_children.get();
+            last.next_sibling = None;
+            assert!((last.parent == None) || (last.parent == Some(parent_idx)));
+            last.parent = Some(parent_idx);
         } else {
             self.nodes[parent_idx].child = None;
         }
 
-        let dirty = self.nodes[parent_idx].num_children != len;
+        let dirty = (self.nodes[parent_idx].num_children != len) || any_child_dirty;
         self.nodes[parent_idx].num_children = len;
 
         if dirty {
@@ -405,8 +401,6 @@ impl<'a> LayoutableChild<'a> {
     fn new(idx: Idx, nodes: &'a [&'a dyn PositionedNodeT]) -> Self {
         Self { child: nodes[idx.get()], nodes }
     }
-
-    pub fn uses_child_size(&self) -> bool { self.child.obj().uses_child_size() }
 
     pub fn layout(&self, constraint: BoxConstraints) -> Size {
         // dbg!("before_layout", self.child.obj(), self.child.any_dirty_children(),
