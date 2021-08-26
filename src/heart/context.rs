@@ -20,10 +20,26 @@ impl ArgsTree {
     pub fn get(&self, key: &Key) -> Option<&Vec<Box<dyn Any>>> { self.map.get(key) }
 
     pub fn remove(&mut self, key_map: &mut KeyMap, root: Key) {
-        self.map.retain(|k, _v| key_map.key_parent_child(root, *k));
+        log::trace!("removing {:?}", key_map.key_debug(root));
+        self.map.remove(&root);
     }
 
     pub fn dirty<'a>(&'a mut self) -> impl Iterator<Item = Key> + 'a { self.dirty.drain() }
+
+    pub fn debug_print(&self, key_map: &KeyMap) -> String {
+        let mut res = "ArgsTree {\n  map: {\n".to_string();
+        for (key, args) in &self.map {
+            res += &format!("    {:?}: {:?},\n", key_map.key_debug(*key), args);
+        }
+        res += "  },\n  dirty: {\n";
+
+        for key in &self.dirty {
+            res += &format!("    {:?},\n", key_map.key_debug(*key));
+        }
+        res += "}\n";
+
+        res
+    }
 }
 
 #[derive(Derivative)]

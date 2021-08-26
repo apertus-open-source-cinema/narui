@@ -88,6 +88,13 @@ pub enum KeyPart {
     Fragment { widget_id: u16, location_id: u16 },
     FragmentKey { widget_id: u16, location_id: u16, key: u16 },
 }
+
+fn format_location_id(location_id: u16) -> String {
+    let column = (location_id & 0b1_1111) * 4;
+    let line = location_id >> 5;
+    format!("{}:{}", line, column)
+}
+
 impl Debug for KeyPart {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -95,11 +102,11 @@ impl Debug for KeyPart {
             KeyPart::Hook(number) => write!(f, "Hook_{}", number),
             KeyPart::Fragment { widget_id, location_id } => {
                 let name = internal::name_for_widget(*widget_id);
-                write!(f, "Fragment_{}_{}", name, location_id)
+                write!(f, "{}@{}", name, format_location_id(*location_id))
             }
             KeyPart::FragmentKey { widget_id, location_id, key } => {
                 let name = internal::name_for_widget(*widget_id);
-                write!(f, "FragmentKey_{}_{}_{}", name, location_id, key)
+                write!(f, "{}<{}>@{}", name, key, format_location_id(*location_id))
             }
         }
     }

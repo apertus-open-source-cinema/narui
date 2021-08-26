@@ -68,7 +68,11 @@ impl EvaluatorInner {
         loop {
             let touched_args = args_tree.dirty();
             for key in touched_args {
-                to_update.entry(key).or_insert_with(|| self.key_to_fragment[&key].clone());
+                if !to_update.contains_key(&key) {
+                    if let Some(frag) = self.key_to_fragment.get(&key) {
+                        to_update.insert(key, frag.clone());
+                    }
+                }
             }
 
             if to_update.is_empty() {
@@ -136,6 +140,13 @@ impl EvaluatorInner {
     ) {
         let mut frag = frag_cell.borrow_mut();
 
+        // we were on the dirty list, but some fragment above us removed us,
+        // so just skip
+        if !self.key_to_fragment.contains_key(&frag.key) {
+            log::trace!("wanted to re-evaluate {:?}, but we were already removed", key_map.key_debug(frag.key));
+            return;
+        }
+
         let mut context = WidgetContext::for_fragment(
             self.tree.clone(),
             args_tree,
@@ -148,6 +159,7 @@ impl EvaluatorInner {
         let (layout, render_object, children) = evaluated.unpack();
 
         let mut old_children = std::mem::take(&mut frag.children);
+        let num_old_children = old_children.len();
 
         let new_deps = &mut context.widget_local.used;
         for to_remove in frag.deps.difference(new_deps) {
@@ -179,28 +191,37 @@ impl EvaluatorInner {
 
         Self::check_unique_keys_children(children_keys.iter());
         layout_tree.set_node(&frag.key, layout, render_object);
-        layout_tree.set_children(&frag.key, &children_keys);
+
+
+        log::trace!("setting children of {:?} to {:?}", key_map.key_debug(frag.key), children_keys.iter().map(|k| key_map.key_debug(*k)).collect::<Vec<_>>());
+        // if they were both zero nothing changed and we can avoid some unnecessary key lookups
+        if (num_old_children != 0) || (children_keys.len() != 0) {
+            layout_tree.set_children(&frag.key, &children_keys);
+        }
 
         for child in old_children {
-            self.remove_tree(layout_tree, args_tree, &*child);
-            self.tree.remove(frag.key);
-            args_tree.remove(key_map, frag.key);
+            self.remove_tree(key_map, layout_tree, args_tree, &*child);
         }
     }
 
     fn remove_tree(
         &mut self,
+        key_map: &mut KeyMap,
         layout_tree: &mut Layouter,
         args_tree: &mut ArgsTree,
         tree: &RefCell<EvaluatedFragment>,
     ) {
         let frag = tree.borrow();
         for child in frag.children.iter() {
-            self.remove_tree(layout_tree, args_tree, child);
+            self.remove_tree(key_map, layout_tree, args_tree, child);
         }
         for to_remove in frag.deps.iter() {
             self.deps_map.entry(*to_remove).or_default().remove(&frag.key);
         }
+        self.tree.remove(frag.key);
+        self.key_to_fragment.remove(&frag.key);
+        args_tree.remove(key_map, frag.key);
+        log::trace!("removing layout_node {:?}", key_map.key_debug(frag.key));
         layout_tree.remove_node(&frag.key);
     }
 

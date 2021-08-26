@@ -58,6 +58,7 @@ pub fn stopwatch(font_size: f32, context: &mut WidgetContext) -> Fragment {
 
 
 fn main() {
+    env_logger::init();
     let window_builder = WindowBuilder::new()
         .with_title("narui stopwatch demo")
         .with_gtk_theme_variant("dark".parse().unwrap());
