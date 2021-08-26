@@ -56,8 +56,7 @@ pub fn widget(
     let parser = Punctuated::<AttributeParameter, Token![,]>::parse_terminated;
     let parsed_args = parser.parse(args).unwrap();
 
-    let macro_ident =
-        Ident::new(&format!("__{}_constructor_", function_ident), Span::call_site());
+    let macro_ident = Ident::new(&format!("__{}_constructor_", function_ident), Span::call_site());
     let macro_ident_pub =
         Ident::new(&format!("__{}_constructor", function_ident), Span::call_site());
 
@@ -85,6 +84,7 @@ pub fn widget(
                     quote! {{
                         #dummy_function
                         #dummy_function_ident($#unhygienic);
+                        #[allow(unused)]
                         $value
                     }}
                 } else {
@@ -93,9 +93,8 @@ pub fn widget(
 
                 quote! {
                     (@parse_args [#($#arg_names:ident,)*] #unhygienic = $value:expr,$($rest:tt)*) => {
-                        #[allow(unused_braces)]
-                        #dummy_function
-                        let $#unhygienic = #dummy_function_ident(#value);
+                        #[allow(unused)]
+                        let $#unhygienic = #value;
                         #mod_ident::#macro_ident_pub!(@parse_args [#($#arg_names,)*] $($rest)*);
                     };
                 }
@@ -149,9 +148,8 @@ pub fn widget(
             .filter(|ident| &ident.to_string() != "context")
             .map(|ident| desinfect_ident(&ident))
             .collect();
-        let arg_numbers: Vec<_> = (0..(get_arg_names(&function).len() - 1))
-            .map(Literal::usize_unsuffixed)
-            .collect();
+        let arg_numbers: Vec<_> =
+            (0..(get_arg_names(&function).len() - 1)).map(Literal::usize_unsuffixed).collect();
         let arg_numbers_plus_one: Vec<_> = (0..(get_arg_names(&function).len() - 1))
             .map(|i| Literal::usize_unsuffixed(i + 1))
             .collect();
@@ -186,8 +184,12 @@ pub fn widget(
 
                 (@construct listenable=$listenables:ident, context=$context:expr) => {{
                     use narui::args::ContextArgs;
+
                     #transformer
+
+                    #[allow(unused)]
                     let args = $context.listen_args(&$listenables.0);
+                    #[allow(unused_unsafe)]
                     unsafe {
                         transformer(#mod_ident::#function_ident(
                             #($listenables.#arg_numbers_plus_one.parse(&*args[#arg_numbers]).clone(),)*
@@ -240,7 +242,7 @@ pub fn widget(
             pub use super::#new_ident as #original_ident;
         }
     };
-    println!("widget: \n{}\n\n", transformed);
+    // println!("widget: \n{}\n\n", transformed);
     transformed.into()
 }
 // a (simplified) example of the kind of macro this proc macro generates:
@@ -279,22 +281,24 @@ fn transform_function_args_to_context(
     let stmts = &block.stmts;
     let context_string = get_arg_types(&function_clone)
         .iter()
-        .filter(|(_, ty)| {
+        .find(|(_, ty)| {
             ty.to_token_stream().to_string().replace("-> ", "") == WIDGET_CONTEXT_TYPE_STRING
         })
-        .next()
         .unwrap()
         .0
         .to_string();
     let context_ident = Ident::new(&context_string, Span::call_site());
     let LineColumn { line, column } = Span::call_site().start();
     let function_transformed = quote! {
+
         #(#attrs)* pub #sig {
             context.widget_loc = (#line, #column);
             let to_return = {
                 #(#stmts)*
             };
-            std::mem::drop(&#context_ident);
+            #[allow(unused)]
+            fn __swallow<T>(_context: T) {}
+            __swallow(#context_ident);
             to_return
         }
     };

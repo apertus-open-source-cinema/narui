@@ -255,7 +255,6 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             }
             Err(AcquireError::OutOfDate) => {
                 recreate_swapchain = true;
-                
             }
             Err(AcquireError::Timeout) => {}
             Err(e) => panic!("Failed to acquire next image: {:?}", e),

@@ -166,7 +166,7 @@ impl<'a> ListenableListen for WidgetContext<'a> {
 }
 
 use crate::{CallbackContext, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext};
-use std::{any::Any};
+use std::any::Any;
 
 pub struct Listenable<T> {
     pub key: Key,

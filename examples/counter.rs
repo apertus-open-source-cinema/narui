@@ -1,4 +1,5 @@
 use narui::*;
+use narui_widgets::*;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 #[widget(initial_value = 1)]

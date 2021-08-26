@@ -47,7 +47,7 @@ impl InputHandler {
             _ => false,
         }
     }
-    pub fn handle_input<'a>(
+    pub fn handle_input(
         &mut self,
         input_render_object: &HashSet<Key, ahash::RandomState>,
         layouter: &Layouter,

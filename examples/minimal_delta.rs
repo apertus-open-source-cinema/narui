@@ -1,7 +1,6 @@
 use narui::*;
+use narui_widgets::*;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
-
-fn typed_closure<F: for<'a> Fn(&'a CallbackContext, bool) + 'static>(f: F) -> F { f }
 
 
 #[widget]

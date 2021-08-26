@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Formatter},
-    hash::{Hash},
+    hash::Hash,
 };
 
 
@@ -123,7 +123,7 @@ impl KeyPart {
             KeyPart::Hook(idx) => {
                 key.pos += 2;
                 key.data[key.pos - 1] = ((idx >> 6) & 0xff) as u8;
-                key.data[key.pos] = (((idx << 2) & 0xff) as u8 | HOOK) & 0xff;
+                key.data[key.pos] = ((idx << 2) & 0xff) as u8 | HOOK;
             }
             #[cfg(debug_assertions)]
             KeyPart::Fragment { widget_id, location_id } => {
@@ -131,31 +131,31 @@ impl KeyPart {
                 key.data[key.pos - 3] = (location_id & 0xff) as u8;
                 key.data[key.pos - 2] = ((location_id >> 8) & 0xff) as u8;
                 key.data[key.pos - 1] = ((widget_id >> 6) & 0xff) as u8;
-                key.data[key.pos] = (((widget_id << 2) & 0xff) as u8 | FRAGMENT) & 0xff;
+                key.data[key.pos] = ((widget_id << 2) & 0xff) as u8 | FRAGMENT;
             }
             #[cfg(not(debug_assertions))]
             KeyPart::Fragment { widget_id, location_id } => {
                 key.pos += 2;
                 key.data[key.pos - 1] = ((location_id >> 6) & 0xff) as u8;
-                key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT) & 0xff;
+                key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT);
             }
             #[cfg(debug_assertions)]
             KeyPart::FragmentKey { widget_id, location_id, key: k } => {
                 key.pos += 6;
-                key.data[key.pos - 5] = ((k >> 0) & 0xff) as u8;
+                key.data[key.pos - 5] = (k & 0xff) as u8;
                 key.data[key.pos - 4] = ((k >> 8) & 0xff) as u8;
                 key.data[key.pos - 3] = (location_id & 0xff) as u8;
                 key.data[key.pos - 2] = ((location_id >> 8) & 0xff) as u8;
                 key.data[key.pos - 1] = ((widget_id >> 6) & 0xff) as u8;
-                key.data[key.pos] = (((widget_id << 2) & 0xff) as u8 | FRAGMENT_KEY) & 0xff;
+                key.data[key.pos] = ((widget_id << 2) & 0xff) as u8 | FRAGMENT_KEY;
             }
             #[cfg(not(debug_assertions))]
             KeyPart::FragmentKey { widget_id, location_id, key: k } => {
                 key.pos += 4;
-                key.data[key.pos - 3] = ((k >> 0) & 0xff) as u8;
+                key.data[key.pos - 3] = (k & 0xff) as u8;
                 key.data[key.pos - 2] = ((k >> 8) & 0xff) as u8;
                 key.data[key.pos - 1] = ((location_id >> 6) & 0xff) as u8;
-                key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT_KEY) & 0xff;
+                key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT_KEY);
             }
             KeyPart::Root => {
                 unreachable!()
@@ -209,7 +209,7 @@ impl KeyPart {
                     let mut widget_id = 0u16;
                     let mut location_id = 0u16;
                     let mut k = 0u16;
-                    k |= (key.data[pos - 5] as u16) << 0;
+                    k |= key.data[pos - 5] as u16;
                     k |= (key.data[pos - 4] as u16) << 8;
                     location_id |= key.data[pos - 3] as u16;
                     location_id |= (key.data[pos - 2] as u16) << 8;
@@ -224,7 +224,7 @@ impl KeyPart {
                     let mut widget_id = 0u16;
                     let mut location_id = 0u16;
                     let mut k = 0u16;
-                    k |= (key.data[pos - 5] as u16) << 0;
+                    k |= (key.data[pos - 5] as u16);
                     k |= (key.data[pos - 4] as u16) << 8;
                     location_id |= (key.data[pos - 1] as u16) << 6;
                     location_id |= key.data[pos] as u16 >> 2;

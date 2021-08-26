@@ -13,7 +13,7 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
         #inplace
     }};
 
-    println!("rsx: \n{}\n\n", transformed);
+    // println!("rsx: \n{}\n\n", transformed);
     transformed
 }
 fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
