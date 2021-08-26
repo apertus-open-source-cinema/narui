@@ -37,7 +37,8 @@ impl<'a> ContextEffect for WidgetContext<'a> {
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T> {
-        let deps_listenable = self.listenable_key(key.with(KeyPart::Hook(0)), None);
+        let key = self.key_map.key_with(key, KeyPart::Hook(0));
+        let deps_listenable = self.listenable_key(key, None);
         let deps = Some(deps);
         if *self.listen_ref(deps_listenable) != deps {
             self.tree.set_unconditional(deps_listenable.key, Box::new(deps));

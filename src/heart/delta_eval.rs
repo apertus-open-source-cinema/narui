@@ -6,9 +6,10 @@ use crate::{
     ArgsTree,
     CallbackContext,
     FragmentInner,
+    KeyMap,
     Layouter,
     PatchedTree,
-    WidgetContext
+    WidgetContext,
 };
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
@@ -48,11 +49,12 @@ impl EvaluatorInner {
         layout_tree: &mut Layouter,
         args_tree: &mut ArgsTree,
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
+        key_map: &mut KeyMap,
     ) -> bool {
         let mut to_update: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState> =
             HashMap::default();
 
-        let touched_keys = self.tree.update_tree();
+        let touched_keys = self.tree.update_tree(key_map);
         for key in touched_keys.into_iter() {
             for frag in self.deps_map.get(&key).into_iter().flat_map(|v| v.values()) {
                 to_update.entry(frag.borrow().key).or_insert_with(|| frag.clone());
@@ -73,7 +75,13 @@ impl EvaluatorInner {
                 return true;
             }
             for (_, frag) in to_update.drain() {
-                self.re_eval_fragment(layout_tree, args_tree, after_frame_callbacks, frag.clone())
+                self.re_eval_fragment(
+                    layout_tree,
+                    args_tree,
+                    after_frame_callbacks,
+                    key_map,
+                    frag.clone(),
+                )
             }
         }
     }
@@ -123,6 +131,7 @@ impl EvaluatorInner {
         layout_tree: &mut Layouter,
         args_tree: &mut ArgsTree,
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
+        key_map: &mut KeyMap,
         frag_cell: Rc<RefCell<EvaluatedFragment>>,
     ) {
         let mut frag = frag_cell.borrow_mut();
@@ -132,6 +141,7 @@ impl EvaluatorInner {
             args_tree,
             frag.key,
             after_frame_callbacks,
+            key_map,
         );
 
         let evaluated: FragmentInner = (frag.gen)(&mut context);
@@ -174,7 +184,7 @@ impl EvaluatorInner {
         for child in old_children {
             self.remove_tree(layout_tree, args_tree, &*child);
             self.tree.remove(frag.key);
-            args_tree.remove(frag.key);
+            args_tree.remove(key_map, frag.key);
         }
     }
 
@@ -215,6 +225,7 @@ pub struct Evaluator {
     args_tree: ArgsTree,
     pub after_frame_callbacks: Vec<AfterFrameCallback>,
     inner: EvaluatorInner,
+    pub(crate) key_map: KeyMap,
 }
 
 impl Evaluator {
@@ -227,15 +238,21 @@ impl Evaluator {
                 evaluator.inner.tree.clone(),
                 &mut evaluator.args_tree,
                 &mut evaluator.after_frame_callbacks,
+                &mut evaluator.key_map,
             ),
         );
-        evaluator.inner.tree.update_tree();
+        evaluator.inner.tree.update_tree(&mut evaluator.key_map);
 
         evaluator
     }
 
     pub fn update(&mut self, layout_tree: &mut Layouter) -> bool {
-        self.inner.update(layout_tree, &mut self.args_tree, &mut self.after_frame_callbacks)
+        self.inner.update(
+            layout_tree,
+            &mut self.args_tree,
+            &mut self.after_frame_callbacks,
+            &mut self.key_map,
+        )
     }
 
     pub fn callback_context<'layout>(&self, layout: &'layout Layouter) -> CallbackContext<'layout> {

@@ -72,7 +72,8 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
 
         let beginning = quote! {
             let #args_listenable_ident = {
-                context.widget_local.key = context.widget_local.key.with(#key);
+                let before_key = context.widget_local.key;
+                context.widget_local.key = context.key_map.key_with(context.widget_local.key, #key);
 
                 #beginning
                 let to_return = #constructor_path!(
@@ -82,13 +83,13 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
                     #children_processed
                 );
 
-                context.widget_local.key = context.widget_local.key.parent();
+                context.widget_local.key = before_key;
                 to_return
             };
         };
         let inplace = quote! {
             Fragment {
-                key: context.widget_local.key.with(#key),
+                key: context.key_map.key_with(context.widget_local.key, #key),
                 gen: std::rc::Rc::new(move |context: &mut WidgetContext| {
                     #constructor_path!(@construct listenable=#args_listenable_ident, context=context)
                 })
