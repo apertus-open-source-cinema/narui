@@ -7,6 +7,7 @@ use crate::heart::*;
 use hashbrown::HashMap;
 use rutter_layout::{BoxConstraints, Layout, Offset};
 use std::env;
+use std::ops::Deref;
 
 // PositionedRenderObject is the main output data structure of the Layouting
 // pass It is like a regular RenderObject but with Positioning information added
