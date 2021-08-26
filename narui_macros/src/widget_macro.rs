@@ -94,7 +94,9 @@ pub fn widget(
                 quote! {
                     (@parse_args [#($#arg_names:ident,)*] #unhygienic = $value:expr,$($rest:tt)*) => {
                         #[allow(unused)]
-                        let $#unhygienic = #value;
+                        #dummy_function
+                        #[allow(unused)]
+                        let $#unhygienic = #dummy_function_ident(#value);
                         #mod_ident::#macro_ident_pub!(@parse_args [#($#arg_names,)*] $($rest)*);
                     };
                 }
