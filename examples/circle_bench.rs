@@ -11,9 +11,9 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
 
     rsx! {
         <row main_axis_alignment=MainAxisAlignment::SpaceEvenly>
-            {(0..50).map(|x| rsx!{
+            {(0..75).map(|x| rsx!{
                 <column main_axis_alignment=MainAxisAlignment::SpaceEvenly key=x>
-                    {(0..50).map(|y| rsx! {
+                    {(0..75).map(|y| rsx! {
                         <sized_box constraint=BoxConstraints::tight_for(rutter_layout::Size::new(10.0, 10.0)) key=y>
                             <fill_rect
                                 color={
