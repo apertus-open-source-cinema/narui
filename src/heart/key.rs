@@ -8,9 +8,13 @@ type KeyInner = u32;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug)]
 pub struct Key(KeyInner);
 
+impl Key {
+    const ROOT: Key = Key(0);
+}
+
 #[derive(Debug)]
 pub struct KeyMap {
-    id_to_part_parent: HashMap<KeyInner, (KeyPart, Option<KeyInner>)>,
+    id_to_part_parent: HashMap<KeyInner, (KeyPart, KeyInner)>,
     parent_part_to_id: HashMap<(KeyInner, KeyPart), KeyInner>,
 }
 impl KeyMap {
@@ -20,14 +24,14 @@ impl KeyMap {
             Key(id)
         } else {
             let new_id = self.id_to_part_parent.len() as KeyInner;
-            self.id_to_part_parent.insert(new_id, (tail, Some(parent.0)));
+            self.id_to_part_parent.insert(new_id, (tail, parent.0));
             self.parent_part_to_id.insert((parent.0, tail), new_id);
 
             Key(new_id)
         }
     }
-    pub fn key_parent(&self, key: Key) -> Option<Key> {
-        self.id_to_part_parent.get(&key.0).unwrap().1.map(|x| Key(x))
+    pub fn key_parent(&self, key: Key) -> Key {
+        Key(self.id_to_part_parent.get(&key.0).unwrap().1)
     }
     pub fn key_tail(&self, key: Key) -> KeyPart { self.id_to_part_parent.get(&key.0).unwrap().0 }
     pub fn key_debug(&self, key: Key) -> DebuggableKey { DebuggableKey { key, key_map: &self } }
@@ -42,9 +46,9 @@ impl KeyMap {
     pub fn get_parts(&self, key: Key) -> Vec<KeyPart> {
         let mut parts = Vec::new();
         let mut current = key;
-        while let Some(parent) = self.key_parent(current) {
+        while current != Key::ROOT {
             parts.push(self.key_tail(current));
-            current = parent;
+            current = self.key_parent(current);
         }
         parts
     }
@@ -52,7 +56,7 @@ impl KeyMap {
 impl Default for KeyMap {
     fn default() -> Self {
         let mut id_to_part_parent = HashMap::with_capacity(1024);
-        id_to_part_parent.insert(0, (KeyPart::Root, None));
+        id_to_part_parent.insert(Key::ROOT.0, (KeyPart::Root, Key::ROOT.0));
 
         let parent_part_to_id = HashMap::with_capacity(1024);
 
