@@ -25,6 +25,7 @@ macro_rules! shout_args {
         let listenables = ($key,
             $({
                 let listenable = unsafe { Listenable::uninitialized($key) };
+                #[allow(unused)]
                 pub fn constrain_type<T>(_listenable: Listenable<T>, _value: &T) {};
                 constrain_type(listenable, &$values);
                 listenable
@@ -36,6 +37,7 @@ macro_rules! shout_args {
             Some(old_values) => {
                 let mut changed = false;
                 let mut idx = 0;
+                #[allow(unused)]
                 fn constrain_type<T>(_a: &T, _b: &T) {}
                 for i in 0..1 {
                     $(

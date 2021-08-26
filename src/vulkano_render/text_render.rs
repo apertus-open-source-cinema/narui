@@ -214,7 +214,17 @@ impl TextRenderer {
         let (w, h) = glyph_brush.texture_dimensions();
         let texture_bytes = vec![0u8; (w * h) as usize];
 
-        Self { device, queue, pipeline, glyph_brush, quad_vertex_buffer, instance_data_buffer, sampler, descriptor_set, texture_bytes }
+        Self {
+            device,
+            queue,
+            pipeline,
+            glyph_brush,
+            quad_vertex_buffer,
+            instance_data_buffer,
+            sampler,
+            descriptor_set,
+            texture_bytes,
+        }
     }
     pub fn render<'a>(&mut self, render_object: &PositionedRenderObject<'a>) {
         if let RenderObject::Text { text, size, color } = &render_object.render_object {

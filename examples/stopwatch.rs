@@ -1,4 +1,5 @@
 use narui::*;
+use narui_widgets::*;
 use std::{
     sync::mpsc::RecvTimeoutError,
     time::{Duration, SystemTime},
@@ -48,7 +49,7 @@ pub fn stopwatch(font_size: f32, context: &mut WidgetContext) -> Fragment {
     rsx! {
         <column>
             <text size=font_size>{format!("{:.2}", context.listen(time))}</text>
-            <button on_click={move |_context: &CallbackContext| { thread_handle.read().send(Message::ButtonClick).unwrap(); }}>
+            <button on_click=move |_context: &CallbackContext| { thread_handle.read().send(Message::ButtonClick).unwrap(); }>
                 <text>{context.listen(button_text)}</text>
             </button>
         </column>

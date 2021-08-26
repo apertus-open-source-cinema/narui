@@ -1,16 +1,12 @@
-use crate::{Key, KeyPart, LayoutTree, Layouter, PositionedRenderObject};
+use crate::{Key, KeyPart, Layouter};
 use dashmap::DashMap;
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
 use std::{
     any::Any,
-    collections::hash_map::DefaultHasher,
-    fmt::{Debug, Formatter},
-    hash::{Hash, Hasher},
-    mem::MaybeUninit,
+    fmt::{Debug},
     ops::Deref,
-    rc::Rc,
     sync::Arc,
 };
 
@@ -83,7 +79,7 @@ impl<'a> WidgetContext<'a> {
         }
     }
 
-    pub fn with_key_widget<'cb>(&'cb mut self, key: Key) -> WidgetContext<'cb> {
+    pub fn with_key_widget(&mut self, key: Key) -> WidgetContext {
         WidgetContext {
             tree: self.tree.clone(),
             args_tree: self.args_tree,
@@ -167,9 +163,7 @@ impl<'a> Deref for PatchTreeEntry<'a> {
 impl PatchedTree {
     pub fn get_patched(&self, key: &Key) -> Option<PatchTreeEntry> {
         match self.patch.get(key) {
-            None => {
-                self.tree.get(key).map(|entry| PatchTreeEntry::new(None, Some(entry)))
-            }
+            None => self.tree.get(key).map(|entry| PatchTreeEntry::new(None, Some(entry))),
             Some(patch) => match patch.value() {
                 Patch::Remove => None,
                 Patch::Set(_) => Some(PatchTreeEntry::new(Some(patch), None)),
