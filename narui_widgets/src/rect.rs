@@ -4,69 +4,64 @@ use lyon::{
     tessellation::{
         path::{builder::BorderRadii, path::Builder},
         StrokeOptions,
+        FillTessellator,
+        StrokeTessellator,
     },
 };
 use narui::{heart::*, macros::widget};
 use rutter_layout::Maximal;
 use std::sync::Arc;
+use narui::lyon_render::ColoredBuffersBuilder;
+use lyon::algorithms::path::PathBuffer;
 
-fn rounded_rect_builder(border_radius: Dimension, border_width: f32) -> Arc<PathGenInner> {
-    Arc::new(move |size: Size| {
-        let mut builder = Builder::with_capacity(4, 4);
+
+#[widget(border_radius = Default::default(), fill = None, stroke = None)]
+pub fn rect(
+    border_radius: Dimension,
+    fill: Option<Color>,
+    stroke: Option<(Color, f32)>,
+    context: &mut WidgetContext,
+) -> FragmentInner {
+    let path_gen = Arc::new(move |size: Vec2, fill_tess: &mut FillTessellator, stroke_tess: &mut StrokeTessellator, mut buffers_builder: ColoredBuffersBuilder| {
         let border_radius_px = match border_radius {
             Paxel(px) => px,
             Fraction(percent) => {
-                (if size.width > size.height { size.height } else { size.width }) * percent
+                (if size.x > size.y { size.y } else { size.x }) * percent
             }
         };
-        builder.add_rounded_rectangle(
-            &lyon_rect(
-                border_width / 2.0,
-                border_width / 2.0,
-                size.width - border_width / 2.0,
-                size.height - border_width / 2.0,
-            ),
-            &BorderRadii {
-                top_left: border_radius_px,
-                top_right: border_radius_px,
-                bottom_left: border_radius_px,
-                bottom_right: border_radius_px,
-            },
-            Winding::Positive,
-        );
-        builder.build()
-    })
-}
+        let border_radii = BorderRadii {
+            top_left: border_radius_px,
+            top_right: border_radius_px,
+            bottom_left: border_radius_px,
+            bottom_right: border_radius_px,
+        };
+        if let Some(fill) = fill {
+            let mut builder = Builder::new();
+            builder.add_rounded_rectangle(
+                &lyon_rect(0.0, 0.0, size.x, size.y),
+                &border_radii,
+                Winding::Positive,
+            );
+            fill_tess.tessellate_path(&builder.build(), &Default::default(), &mut buffers_builder.with_color(fill));
+        }
+        if let Some((stroke, border_width)) = stroke {
+            let mut builder = Builder::new();
+            builder.add_rounded_rectangle(
+                &lyon_rect(
+                    border_width / 2.0,
+                    border_width / 2.0,
+                    size.x - border_width / 2.0,
+                    size.y - border_width / 2.0,
+                ),
+                &border_radii,
+                Winding::Positive,
+            );
+            stroke_tess.tessellate_path(&builder.build(), &Default::default(), &mut buffers_builder.with_color(stroke));
+        }
+    });
 
-
-#[widget(border_radius = Default::default(), color =  Default::default(), width = 1.0)]
-pub fn border_rect(
-    border_radius: Dimension,
-    color: Color,
-    width: f32,
-    context: &mut WidgetContext,
-) -> FragmentInner {
     FragmentInner::Leaf {
-        render_object: RenderObject::StrokePath {
-            path_gen: rounded_rect_builder(border_radius, width),
-            color,
-            stroke_options: StrokeOptions::default().with_line_width(width),
-        },
-        layout: Box::new(Maximal),
-    }
-}
-
-#[widget(border_radius = Default::default(), color =  Default::default())]
-pub fn fill_rect(
-    border_radius: Dimension,
-    color: Color,
-    context: &mut WidgetContext,
-) -> FragmentInner {
-    FragmentInner::Leaf {
-        render_object: RenderObject::FillPath {
-            path_gen: rounded_rect_builder(border_radius, 0.0),
-            color,
-        },
+        render_object: RenderObject::Path { path_gen },
         layout: Box::new(Maximal),
     }
 }

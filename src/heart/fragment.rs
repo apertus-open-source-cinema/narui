@@ -13,6 +13,7 @@ use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
     render_pass::RenderPass,
 };
+use crate::vulkano_render::lyon_render::ColoredBuffersBuilder;
 
 /*
 The general flow of a frame in narui:
@@ -61,29 +62,27 @@ impl FragmentInner {
 }
 
 
-pub type PathGenInner = dyn (Fn(Size) -> Path);
+pub type PathGenInner = dyn Fn(
+    Vec2, // size
+    &mut lyon::tessellation::FillTessellator,
+    &mut lyon::tessellation::StrokeTessellator,
+    ColoredBuffersBuilder
+);
 pub type RenderFnInner = dyn Fn(
     Arc<RenderPass>,
     &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
     &DynamicState,
-    Rect,
-    Vec2,
+    Rect,  // target rect
+    Vec2,  // window dimensions
 );
 // RenderObject is the data structure that really defines _what_ is rendered
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub enum RenderObject {
     DebugRect,
-    FillPath {
+    Path {
         #[derivative(Debug = "ignore")]
         path_gen: Arc<PathGenInner>,
-        color: Color,
-    },
-    StrokePath {
-        #[derivative(Debug = "ignore")]
-        path_gen: Arc<PathGenInner>,
-        color: Color,
-        stroke_options: StrokeOptions,
     },
     Text {
         text: Rc<String>,

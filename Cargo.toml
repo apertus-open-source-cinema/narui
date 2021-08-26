@@ -29,7 +29,6 @@ dashmap = "4.0.2"
 ctor = "0.1.20"
 ahash = "0.7.4"
 log = "0.4.14"
-dhat = "0.2.2"
 
 [dev-dependencies]
 narui_widgets = { path = "narui_widgets" }

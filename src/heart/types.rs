@@ -91,8 +91,6 @@ impl_convert_tuple_arr2!(i64);
 impl_convert_tuple_arr2!(u32);
 impl_convert_tuple_arr2!(u64);
 
-implement_convert!(Size, v, v.width, v.height, Size { width: v.x, height: v.y });
-
 implement_convert!(rutter_layout::Offset, v, v.x, v.y, rutter_layout::Offset { x: v.x, y: v.y });
 
 implement_convert!(
@@ -127,9 +125,4 @@ impl Rect {
             && point.y <= self.bottom_right().y
     }
     pub fn bottom_right(&self) -> Vec2 { self.pos + self.size }
-}
-
-pub struct Size {
-    pub width: f32,
-    pub height: f32,
 }

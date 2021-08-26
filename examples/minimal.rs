@@ -11,10 +11,10 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
     rsx! {
         <column>
             <flexible flex = 1.0>
-                <fill_rect color=color1 />
+                <rect fill=Some(color1) />
             </flexible>
             <flexible flex = 2.0>
-                <fill_rect color=color2 />
+                <rect fill=Some(color2) />
             </flexible>
         </column>
     }

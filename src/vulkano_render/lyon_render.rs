@@ -66,26 +66,51 @@ mod fragment_shader {
 }
 
 #[derive(Default, Debug, Clone)]
-struct Vertex {
+pub struct Vertex {
     position: [f32; 2],
     color: [f32; 4],
 }
 vulkano::impl_vertex!(Vertex, position, color);
 
-pub struct LyonRendererState {
-    vertices: Vec<Vertex>,
-    indices: Vec<u16>,
-    last_index: u16,
+#[derive(Default)]
+pub struct LyonRendererState(VertexBuffers<Vertex, u16>);
+
+pub struct ColoredBuffersBuilder<'a> {
+    vertex_buffers: &'a mut VertexBuffers<Vertex, u16>,
+    pos: Vec2
+}
+
+pub struct PositionedColoredConstructor(Vec2, [f32; 4]);
+
+impl FillVertexConstructor<Vertex> for PositionedColoredConstructor {
+    fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
+        let pos: Vec2 = vertex.position().into();
+        Vertex {
+            position: (pos + self.0).into(), color: self.1
+        }
+    }
+}
+
+impl StrokeVertexConstructor<Vertex> for PositionedColoredConstructor {
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
+        let pos: Vec2 = vertex.position().into();
+        Vertex {
+            position: (pos + self.0).into(), color: self.1
+        }
+    }
+}
+
+impl<'a> ColoredBuffersBuilder<'a> {
+    pub fn with_color(&mut self, color: Color) -> BuffersBuilder<Vertex, u16, PositionedColoredConstructor> {
+        BuffersBuilder::new(&mut self.vertex_buffers, PositionedColoredConstructor(self.pos, color.into_raw::<[f32; 4]>().into()))
+    }
 }
 
 pub struct LyonRenderer {
     device: Arc<Device>,
     pipeline: Arc<GraphicsPipeline<BuffersDefinition>>,
     fill_tessellator: FillTessellator,
-    fill_cache: HashMap<(usize, (i64, i64)), VertexBuffers<Vec2, u16>>,
     stroke_tessellator: StrokeTessellator,
-    stroke_cache:
-        HashMap<(usize, (i64, i64), [u8; size_of::<StrokeOptions>()]), VertexBuffers<Vec2, u16>>,
 }
 impl LyonRenderer {
     pub fn new(render_pass: Arc<RenderPass>) -> Self {
@@ -112,74 +137,42 @@ impl LyonRenderer {
             device,
 
             fill_tessellator: FillTessellator::new(),
-            fill_cache: HashMap::new(),
-
             stroke_tessellator: StrokeTessellator::new(),
-            stroke_cache: HashMap::new(),
         }
     }
     pub fn begin(&self) -> LyonRendererState {
-        LyonRendererState { vertices: vec![], indices: vec![], last_index: 0 }
+        Default::default()
     }
     pub fn render<'a>(
         &mut self,
         state: &mut LyonRendererState,
         render_object: &PositionedRenderObject<'a>,
     ) {
-        let LyonRendererState { vertices, indices, last_index } = state;
-        let buffer_color = match render_object.render_object {
-            RenderObject::FillPath { path_gen, color } => {
-                let color = color.into_linear().into_raw::<[f32; 4]>();
-                let path_gen = path_gen;
-                let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
-                let buffer = self.fill_tessellate_with_cache(
-                    path_gen.clone(),
-                    render_object.rect.size,
-                    path_gen_key,
+        let LyonRendererState(vertex_buffers) = state;
+        match render_object.render_object {
+            RenderObject::Path { path_gen } => {
+                (path_gen)(
+                    render_object.rect.size.into(),
+                    &mut self.fill_tessellator,
+                    &mut self.stroke_tessellator,
+                    ColoredBuffersBuilder {
+                        vertex_buffers,
+                        pos: render_object.rect.pos
+                    }
                 );
-                Some((buffer, color))
-            }
-            RenderObject::StrokePath { path_gen, color, stroke_options } => {
-                let color = [color.red, color.green, color.blue, color.alpha];
-                let path_gen = path_gen;
-                let path_gen_key = path_gen.as_ref() as *const _ as *const usize as usize;
-                let buffer = self.stroke_tessellate_with_cache(
-                    path_gen.clone(),
-                    *stroke_options,
-                    render_object.rect.size,
-                    path_gen_key,
-                );
-                Some((buffer, color))
             }
             RenderObject::DebugRect => {
-                let color = [1.0, 0.0, 0.0, 0.5];
-                let buffer = self.stroke_tessellate_with_cache(
-                    (&|size: Size| {
-                        let mut builder = Builder::new();
-                        builder.add_rectangle(
-                            &rect(0.0, 0.0, size.width, size.height),
-                            Winding::Positive,
-                        );
-                        builder.build()
-                    }) as &PathGenInner,
-                    StrokeOptions::default(),
-                    render_object.rect.size,
-                    0,
-                );
-                Some((buffer, color))
+                let r = render_object.rect;
+                self.stroke_tessellator.tessellate_rectangle(
+                    &lyon::math::rect(r.pos.x, r.pos.y,r.size.x, r.size.y),
+                    &StrokeOptions::default(),
+                    &mut ColoredBuffersBuilder {
+                        vertex_buffers,
+                        pos: render_object.rect.pos
+                    }.with_color(Color::new(1.0, 0.0, 0.0, 0.5)));
             }
-            _ => None,
+            _ => {},
         };
-
-        if let Some((buffer, color)) = buffer_color {
-            for point in &buffer.vertices {
-                vertices.push(Vertex { position: (*point + render_object.rect.pos).into(), color })
-            }
-            for index in &buffer.indices {
-                indices.push(index + *last_index);
-            }
-            *last_index += buffer.vertices.len() as u16;
-        }
     }
     pub fn finish(
         &mut self,
@@ -192,7 +185,7 @@ impl LyonRenderer {
             self.device.clone(),
             BufferUsage::all(),
             false,
-            state.vertices.into_iter(),
+            state.0.vertices.into_iter(),
         )
         .unwrap();
 
@@ -200,7 +193,7 @@ impl LyonRenderer {
             self.device.clone(),
             BufferUsage::all(),
             false,
-            state.indices.into_iter(),
+            state.0.indices.into_iter(),
         )
         .unwrap();
 
@@ -216,58 +209,5 @@ impl LyonRenderer {
                 push_constants,
             )
             .unwrap();
-    }
-    fn fill_tessellate_with_cache(
-        &mut self,
-        path_gen: impl Deref<Target = PathGenInner>,
-        size: Vec2,
-        path_gen_key: usize,
-    ) -> &VertexBuffers<Vec2, u16> {
-        struct VertexConstructor {}
-        impl FillVertexConstructor<Vec2> for VertexConstructor {
-            fn new_vertex(&mut self, vertex: FillVertex) -> Vec2 { vertex.position().into() }
-        }
-
-        let mut lyon_vertex_buffer: VertexBuffers<Vec2, u16> = VertexBuffers::new();
-        let cache_key = (path_gen_key, Into::<(i64, i64)>::into(size));
-        if self.fill_cache.get(&cache_key).is_none() {
-            let path: Path = path_gen(size.into());
-            let mut buffers_builder =
-                BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {});
-            self.fill_tessellator
-                .tessellate_path(path.as_slice(), &FillOptions::DEFAULT, &mut buffers_builder)
-                .unwrap();
-            self.fill_cache.insert(cache_key, lyon_vertex_buffer);
-        }
-        self.fill_cache.get(&cache_key).unwrap()
-    }
-    fn stroke_tessellate_with_cache(
-        &mut self,
-        path_gen: impl Deref<Target = PathGenInner>,
-        stroke_options: StrokeOptions,
-        size: Vec2,
-        path_gen_key: usize,
-    ) -> &VertexBuffers<Vec2, u16> {
-        struct VertexConstructor {}
-        impl StrokeVertexConstructor<Vec2> for VertexConstructor {
-            fn new_vertex(&mut self, vertex: StrokeVertex) -> Vec2 { vertex.position().into() }
-        }
-
-        let mut lyon_vertex_buffer: VertexBuffers<Vec2, u16> = VertexBuffers::new();
-
-        let cache_key = (path_gen_key, Into::<(i64, i64)>::into(size), unsafe {
-            mem::transmute_copy::<StrokeOptions, [u8; size_of::<StrokeOptions>()]>(&stroke_options)
-        });
-
-        if self.stroke_cache.get(&cache_key).is_none() {
-            let path: Path = path_gen(size.into());
-            let mut buffers_builder =
-                BuffersBuilder::new(&mut lyon_vertex_buffer, VertexConstructor {});
-            self.stroke_tessellator
-                .tessellate_path(path.as_slice(), &stroke_options, &mut buffers_builder)
-                .unwrap();
-            self.stroke_cache.insert(cache_key, lyon_vertex_buffer);
-        }
-        self.stroke_cache.get(&cache_key).unwrap()
     }
 }
