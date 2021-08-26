@@ -16,6 +16,7 @@ impl Key {
 pub struct KeyMap {
     id_to_part_parent: HashMap<KeyInner, (KeyPart, KeyInner)>,
     parent_part_to_id: HashMap<(KeyInner, KeyPart), KeyInner>,
+    key_count: KeyInner,
 }
 impl KeyMap {
     pub fn key_with(&mut self, parent: Key, tail: KeyPart) -> Key {
@@ -23,9 +24,10 @@ impl KeyMap {
         if let Some(id) = query_result {
             Key(id)
         } else {
-            let new_id = self.id_to_part_parent.len() as KeyInner;
+            let new_id = self.key_count + 1;
             self.id_to_part_parent.insert(new_id, (tail, parent.0));
             self.parent_part_to_id.insert((parent.0, tail), new_id);
+            self.key_count = self.key_count + 1;
 
             Key(new_id)
         }
@@ -57,7 +59,7 @@ impl Default for KeyMap {
 
         let parent_part_to_id = HashMap::with_capacity(1024);
 
-        Self { id_to_part_parent, parent_part_to_id }
+        Self { id_to_part_parent, parent_part_to_id, key_count: 0 }
     }
 }
 pub struct DebuggableKey<'a> {

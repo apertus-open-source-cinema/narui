@@ -34,8 +34,7 @@ pub fn button(
     rsx! {
         <stack fit=StackFit::Loose size_using_first=true>
             <padding><sized_box constraint=BoxConstraints::min_width(100.0)><align factor_width=Some(1.0) factor_height=Some(1.0)>{children}</align></sized_box></padding>
-            <fill_rect color=color border_radius=border_radius />
-            <border_rect color=stroke_color border_radius=border_radius />
+            <rect fill=Some(color) stroke=Some((stroke_color, 1.0)) border_radius=border_radius />
             <input on_click=callback />
         </stack>
     }
@@ -70,14 +69,14 @@ pub fn slider(
             <stack>
                 <sized_box constraint=BoxConstraints::default().with_tight_height(5.0)>
                     <padding padding=EdgeInsets::horizontal(10.0)>
-                        <fill_rect border_radius=Fraction(1.) color=slide_color /> // the slide
+                        <rect border_radius=Fraction(1.) fill=Some(slide_color) /> // the slide
                     </padding>
                 </sized_box>
                 <input_composed on_move = on_move>
                     <align alignment=Alignment::new(2.0 * (val - min) / (max - min) - 1.0, 0.0) factor_height = Some(1.0)>
                         <input_composed on_click=on_click>
                             <sized_box constraint=BoxConstraints::default().with_tight_width(20.0)>
-                                <fill_rect border_radius=Fraction(1.) color=knob_color />
+                                <rect border_radius=Fraction(1.) fill=Some(knob_color) />
                             </sized_box>
                         </input_composed>
                     </align>

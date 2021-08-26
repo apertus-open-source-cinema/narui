@@ -8,18 +8,19 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
     context.after_frame(move |context| {
         context.shout(frame_counter, context.spy(frame_counter) + 1);
     });
+    let frame_count = context.listen(frame_counter);
 
     rsx! {
         <row main_axis_alignment=MainAxisAlignment::SpaceEvenly>
             {(0..100).map(|x| rsx!{
                 <column main_axis_alignment=MainAxisAlignment::SpaceEvenly key=x>
                     {(0..100).map(|y| rsx! {
-                        <sized_box constraint=BoxConstraints::tight_for(rutter_layout::Size::new(10.0, 10.0)) key=y>
-                            <fill_rect
-                                color={
+                        <sized_box constraint=BoxConstraints::tight_for(rutter_layout::Size::new(10.0 + ((frame_count + y) % 100) as f32 / 20.0, 10.0 + ((frame_count + x) % 100) as f32 / 20.0)) key=y>
+                            <rect
+                                fill=Some({
                                     let val = context.listen(frame_counter);
                                     Color::from_components((x as f32 / 50., y as f32 / 50., ((val as f32 / 10.0).sin() + 1.) / 2., 1.))
-                                }
+                                })
                             />
                         </sized_box>
                     }).collect()}
