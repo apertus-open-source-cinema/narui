@@ -2,15 +2,57 @@ use std::{
     fmt::{Debug, Formatter},
     hash::Hash,
 };
+use parking_lot::{RwLockReadGuard, RwLock};
+use hashbrown::HashMap;
 
 
 pub mod internal {
     pub use ctor::ctor;
     use parking_lot::RwLock;
+    use hashbrown::HashMap;
+    use crate::KeyPart;
 
     pub fn name_for_widget(widget_id: u16) -> String {
         WIDGET_INFO.read()[widget_id as usize].name.clone()
     }
+
+
+    #[derive(Debug)]
+    pub struct KeyMap {
+        id_to_part_parent: RwLock<HashMap<u32, (KeyPart, Option<u32>)>>,
+        parent_part_to_id: RwLock<HashMap<(u32, KeyPart), u32>>,
+    }
+    impl KeyMap {
+        pub fn with(&self, parent: u32, tail: KeyPart) -> u32 {
+            let query_result = self.parent_part_to_id.read().get(&(parent, tail)).cloned();
+            if let Some(id) = query_result {
+                id
+            } else {
+                let mut id_to_part_parent = self.id_to_part_parent.write();
+                let mut parent_part_to_id = self.parent_part_to_id.write();
+
+                let new_id = id_to_part_parent.len() as u32;
+                id_to_part_parent.insert(new_id, (tail, Some(parent)));
+                parent_part_to_id.insert((parent, tail), new_id);
+
+                new_id
+            }
+        }
+        pub fn parent(&self, this: u32) -> u32 {
+            self.id_to_part_parent.read().get(&this).unwrap().1.unwrap()
+        }
+    }
+    impl Default for KeyMap {
+        fn default() -> Self {
+            let mut id_to_part_parent = HashMap::with_capacity(1024);
+            id_to_part_parent.insert(0, (KeyPart::Root, None));
+
+            let parent_part_to_id = HashMap::with_capacity(1024);
+
+            Self { id_to_part_parent: RwLock::new(id_to_part_parent), parent_part_to_id: RwLock::new(parent_part_to_id) }
+        }
+    }
+
 
     // widget_id,
     // location_id,
@@ -31,56 +73,30 @@ pub mod internal {
             }
         ]);
     }
+
+    lazy_static::lazy_static! {
+        pub static ref KEY_MAP: KeyMap = Default::default();
+    }
+
 }
 
-#[cfg(debug_assertions)]
-const KEY_BYTES: usize = 128;
-
-#[cfg(not(debug_assertions))]
-const KEY_BYTES: usize = 64;
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Key {
-    data: [u8; KEY_BYTES],
-    // points to the last byte of the current KeyPart
-    pos: usize,
-}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug)]
+pub struct Key(u32);
 
 impl Key {
     pub fn with(&self, tail: KeyPart) -> Self {
-        let mut new = *self;
-        tail.push_to(&mut new);
-        new
+        Self(internal::KEY_MAP.with(self.0, tail))
     }
 
     pub fn parent(&self) -> Self {
-        // println!("calling parent");
-        // dbg!(self, &self.pos, &self);
-        let mut new = Key::default();
-        let last_size = KeyPart::last_part_size(&self);
-        new.pos = self.pos - last_size;
-        new.data[..new.pos + 1].clone_from_slice(&self.data[..new.pos + 1]);
-        // dbg!(self, &self.pos, &self);
-        new
+        Self(internal::KEY_MAP.parent(self.0))
     }
 
     pub fn starts_with(&self, start: &Key) -> bool {
-        for i in 0..start.pos {
-            if self.data[i] != start.data[i] {
-                return false;
-            }
-        }
-        true
+        unimplemented!()
     }
 }
-
-impl Default for Key {
-    fn default() -> Self {
-        let data = [0; KEY_BYTES];
-        Self { data, pos: 0 }
-    }
-}
-
+/*
 impl Debug for Key {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut first = true;
@@ -94,8 +110,9 @@ impl Debug for Key {
         Ok(())
     }
 }
+*/
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KeyPart {
     Uninitialized,
     Root,
@@ -111,7 +128,7 @@ const HOOK: u8 = 1;
 const FRAGMENT: u8 = 2;
 const FRAGMENT_KEY: u8 = 3;
 
-impl KeyPart {
+impl KeyPart {/*
     pub fn push_to(self, key: &mut Key) {
         assert!(key.pos + 8 < KEY_BYTES);
         assert_ne!(self, KeyPart::Root);
@@ -256,7 +273,7 @@ impl KeyPart {
             FRAGMENT_KEY => 4,
             unk => panic!("unknown key tag {}", unk),
         }
-    }
+    }*/
 }
 
 impl Default for KeyPart {
