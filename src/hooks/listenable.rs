@@ -3,7 +3,7 @@ use crate::heart::Key;
 use std::{marker::PhantomData, ops::Deref};
 
 pub trait ListenableCreate {
-    fn listenable_key<T: Send + Sync + 'static>(&self, key: Key, initial: T) -> Listenable<T>;
+    fn listenable_key<T: Send + Sync + 'static>(&self, key: HookKey, initial: T) -> Listenable<T>;
     fn listenable<T: Send + Sync + 'static>(&mut self, initial: T) -> Listenable<T>;
 }
 
@@ -28,7 +28,7 @@ pub trait ListenableSpy {
 }
 
 impl<'a> ListenableCreate for WidgetContext<'a> {
-    fn listenable_key<T: Send + Sync + 'static>(&self, key: Key, initial: T) -> Listenable<T> {
+    fn listenable_key<T: Send + Sync + 'static>(&self, key: HookKey, initial: T) -> Listenable<T> {
         let listenable = Listenable { key, phantom_data: Default::default() };
         if self.tree.get_unpatched(&listenable.key).is_none() {
             self.tree.shout_non_signalling(listenable, initial)
@@ -165,23 +165,16 @@ impl<'a> ListenableListen for WidgetContext<'a> {
     }
 }
 
-use crate::{CallbackContext, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext};
+use crate::{CallbackContext, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext, HookKey};
 use std::any::Any;
 
 pub struct Listenable<T> {
-    pub key: Key,
+    pub key: HookKey,
     phantom_data: PhantomData<T>,
 }
 impl<T> Listenable<T> {
-    pub unsafe fn uninitialized(key: Key) -> Self {
+    pub unsafe fn uninitialized(key: HookKey) -> Self {
         Listenable { key, phantom_data: Default::default() }
-    }
-
-    pub unsafe fn parse<'a>(&self, any: &'a dyn Any) -> &'a T
-    where
-        T: 'static,
-    {
-        any.downcast_ref().expect("wrong type for argument")
     }
 }
 impl<T> Clone for Listenable<T> {

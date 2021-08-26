@@ -47,9 +47,10 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
-    let event_loop: EventLoop<()> = EventLoop::new();
+    let mut event_loop: EventLoop<()> = EventLoop::new();
     let device = VulkanContext::get().device;
     let surface = window_builder.build_vk_surface(&event_loop, device.instance().clone()).unwrap();
     let queue = VulkanContext::get()
@@ -137,7 +138,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut has_update = true;
     let mut input_render_objects: HashSet<Key, ahash::RandomState> = HashSet::default();
 
-    event_loop.run(move |event, _, control_flow| {
+    event_loop.run_return(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 70));
         match event {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {

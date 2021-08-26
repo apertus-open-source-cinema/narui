@@ -35,14 +35,6 @@ impl KeyMap {
     }
     pub fn key_tail(&self, key: Key) -> KeyPart { self.id_to_part_parent.get(&key.0).unwrap().0 }
     pub fn key_debug(&self, key: Key) -> DebuggableKey { DebuggableKey { key, key_map: &self } }
-    pub fn key_parent_child(&self, maybe_parent: Key, maybe_child: Key) -> bool {
-        // TODO: this is UTTERLY slow
-        if maybe_child.0 > maybe_parent.0 {
-            return false;
-        }
-        let child_parts = self.get_parts(maybe_child);
-        self.get_parts(maybe_parent)[0..child_parts.len()] == child_parts
-    }
     pub fn get_parts(&self, key: Key) -> Vec<KeyPart> {
         let mut parts = Vec::new();
         let mut current = key;
@@ -51,6 +43,11 @@ impl KeyMap {
             current = self.key_parent(current);
         }
         parts
+    }
+    pub fn remove(&mut self, key: &Key) {
+        if let Some((parent, tail)) = self.id_to_part_parent.remove(&key.0) {
+            self.parent_part_to_id.remove(&(tail, parent));
+        }
     }
 }
 impl Default for KeyMap {
@@ -83,8 +80,6 @@ impl<'a> Debug for DebuggableKey<'a> {
 pub enum KeyPart {
     Root,
 
-    Hook(u16),
-
     Fragment { widget_id: u16, location_id: u16 },
     FragmentKey { widget_id: u16, location_id: u16, key: u16 },
 }
@@ -99,7 +94,6 @@ impl Debug for KeyPart {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             KeyPart::Root => write!(f, "Root"),
-            KeyPart::Hook(number) => write!(f, "Hook_{}", number),
             KeyPart::Fragment { widget_id, location_id } => {
                 let name = internal::name_for_widget(*widget_id);
                 write!(f, "{}@{}", name, format_location_id(*location_id))

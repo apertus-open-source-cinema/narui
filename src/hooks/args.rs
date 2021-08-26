@@ -1,5 +1,6 @@
 use crate::{Key, WidgetContext};
 use std::any::Any;
+use std::marker::PhantomData;
 
 pub trait ContextArgs {
     fn listen_args(&self, key: &Key) -> &Vec<Box<dyn Any>>;
@@ -17,18 +18,42 @@ impl<'a> ContextArgs for WidgetContext<'a> {
     }
 }
 
+pub struct ArgRef<T> {
+    marker: PhantomData<T>
+}
+
+impl<T> Clone for ArgRef<T> {
+    fn clone(&self) -> Self { Self::new() }
+}
+impl<T> Copy for ArgRef<T> {}
+
+impl<T> ArgRef<T> {
+    pub fn new() -> Self {
+        Self {
+            marker: PhantomData
+        }
+    }
+
+    pub unsafe fn parse<'a>(&self, any: &'a dyn Any) -> &'a T
+        where
+            T: 'static,
+    {
+        any.downcast_ref().expect("wrong type for argument")
+    }
+}
+
 // shout arg is a macro for not requiring the implementation of PartialEq on all
 // args.
 #[macro_export]
 macro_rules! shout_args {
     ($context:expr, $key:expr, [$($values:ident,)*]) => {{
-        let listenables = ($key,
+        let arg_refs = ($key,
             $({
-                let listenable = unsafe { Listenable::uninitialized($key) };
+                let arg_ref = narui::args::ArgRef::new();
                 #[allow(unused)]
-                pub fn constrain_type<T>(_listenable: Listenable<T>, _value: &T) {};
-                constrain_type(listenable, &$values);
-                listenable
+                pub fn constrain_type<T>(_arg_ref: narui::args::ArgRef<T>, _value: &T) {};
+                constrain_type(arg_ref, &$values);
+                arg_ref
             }),*
         );
 
@@ -59,6 +84,6 @@ macro_rules! shout_args {
             }
         }
 
-        listenables
+        arg_refs
     }};
 }

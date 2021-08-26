@@ -8,10 +8,17 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     assert_eq!(parsed.len(), 1, "the rsx macro can have at maximum one child");
     let (beginning, inplace) = handle_rsx_node(parsed.remove(0));
 
-    let transformed = quote! {{
-        #beginning
-        #inplace
-    }};
+    let transformed = quote! {
+        {
+            context.local_hook = false;
+            let to_return = {
+                #beginning
+                #inplace
+            };
+            context.local_hook = true;
+            to_return
+        }
+    };
 
     // println!("rsx: \n{}\n\n", transformed);
     transformed
