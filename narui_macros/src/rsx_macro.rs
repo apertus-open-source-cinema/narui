@@ -32,10 +32,10 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
                 let column = #column - widget_column;
                 // only every fourth part of the column is relevant, because the minimum size
                 // for a rsx node is four: <a />
-                let column = (column / 4) & 0b11_1111;
-                // use 6 bits for column (good for up to 256 columns)
-                // use 10 bits for line (good for up to 1024 lines)
-                let line = (line & 0b11_1111_1111) << 6;
+                let column = (column / 4) & 0b1_1111;
+                // use 5 bits for column (good for up to 128 columns)
+                // use 9 bits for line (good for up to 512 lines)
+                let line = (line & 0b1_1111_1111) << 5;
                 (column as u16) | (line as u16)
             }
         };
