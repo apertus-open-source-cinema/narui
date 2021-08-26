@@ -33,29 +33,17 @@ pub mod internal {
     }
 }
 
+#[cfg(debug_assertions)]
 const KEY_BYTES: usize = 128;
 
-#[derive(Clone, Copy)]
+#[cfg(not(debug_assertions))]
+const KEY_BYTES: usize = 64;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Key {
     data: [u8; KEY_BYTES],
     // points to the last byte of the current KeyPart
     pos: usize,
-}
-
-impl Eq for Key {}
-
-impl PartialEq for Key {
-    fn eq(&self, other: &Self) -> bool {
-        (self.pos == other.pos) && (self.data[..self.pos + 1] == other.data[..other.pos + 1])
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        (self.pos != other.pos) || (self.data[..self.pos + 1] != other.data[..other.pos + 1])
-    }
-}
-
-impl Hash for Key {
-    fn hash<H: Hasher>(&self, state: &mut H) { self.data[..self.pos + 1].hash(state); }
 }
 
 impl Key {
@@ -115,7 +103,7 @@ pub enum KeyPart {
     Hook(u16),
 
     Fragment { widget_id: u16, location_id: u16 },
-    FragmentKey { widget_id: u16, location_id: u16, key: u32 },
+    FragmentKey { widget_id: u16, location_id: u16, key: u16 },
 }
 
 const UNINITIALIZED: u8 = 0;
@@ -134,26 +122,40 @@ impl KeyPart {
             }
             KeyPart::Hook(idx) => {
                 key.pos += 2;
-                key.data[key.pos - 1] = ((idx >> 4) & 0xff) as u8;
-                key.data[key.pos] = (((idx << 4) & 0xff) as u8 | HOOK) & 0xff;
+                key.data[key.pos - 1] = ((idx >> 6) & 0xff) as u8;
+                key.data[key.pos] = (((idx << 2) & 0xff) as u8 | HOOK) & 0xff;
             }
+            #[cfg(debug_assertions)]
             KeyPart::Fragment { widget_id, location_id } => {
                 key.pos += 4;
                 key.data[key.pos - 3] = (location_id & 0xff) as u8;
                 key.data[key.pos - 2] = ((location_id >> 8) & 0xff) as u8;
-                key.data[key.pos - 1] = ((widget_id >> 4) & 0xff) as u8;
-                key.data[key.pos] = (((widget_id << 4) & 0xff) as u8 | FRAGMENT) & 0xff;
+                key.data[key.pos - 1] = ((widget_id >> 6) & 0xff) as u8;
+                key.data[key.pos] = (((widget_id << 2) & 0xff) as u8 | FRAGMENT) & 0xff;
             }
+            #[cfg(not(debug_assertions))]
+            KeyPart::Fragment { widget_id, location_id } => {
+                key.pos += 2;
+                key.data[key.pos - 1] = ((location_id >> 6) & 0xff) as u8;
+                key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT) & 0xff;
+            }
+            #[cfg(debug_assertions)]
             KeyPart::FragmentKey { widget_id, location_id, key: k } => {
-                key.pos += 8;
-                key.data[key.pos - 7] = ((k >> 0) & 0xff) as u8;
-                key.data[key.pos - 6] = ((k >> 8) & 0xff) as u8;
-                key.data[key.pos - 5] = ((k >> 16) & 0xff) as u8;
-                key.data[key.pos - 4] = ((k >> 24) & 0xff) as u8;
+                key.pos += 6;
+                key.data[key.pos - 5] = ((k >> 0) & 0xff) as u8;
+                key.data[key.pos - 4] = ((k >> 8) & 0xff) as u8;
                 key.data[key.pos - 3] = (location_id & 0xff) as u8;
                 key.data[key.pos - 2] = ((location_id >> 8) & 0xff) as u8;
-                key.data[key.pos - 1] = ((widget_id >> 4) & 0xff) as u8;
-                key.data[key.pos] = (((widget_id << 4) & 0xff) as u8 | FRAGMENT_KEY) & 0xff;
+                key.data[key.pos - 1] = ((widget_id >> 6) & 0xff) as u8;
+                key.data[key.pos] = (((widget_id << 2) & 0xff) as u8 | FRAGMENT_KEY) & 0xff;
+            }
+            #[cfg(not(debug_assertions))]
+            KeyPart::FragmentKey { widget_id, location_id, key: k } => {
+                key.pos += 4;
+                key.data[key.pos - 3] = ((k >> 0) & 0xff) as u8;
+                key.data[key.pos - 2] = ((k >> 8) & 0xff) as u8;
+                key.data[key.pos - 1] = ((location_id >> 6) & 0xff) as u8;
+                key.data[key.pos] = (((location_id << 2) & 0xff) as u8 | FRAGMENT_KEY) & 0xff;
             }
             KeyPart::Root => { unreachable!() }
         }
@@ -164,62 +166,92 @@ impl KeyPart {
         let mut pos = key.pos;
         let mut parts = vec![];
         while pos > 0 {
-            match key.data[pos] & 0xf {
+            match key.data[pos] & 0b11 {
                 UNINITIALIZED => {
                     parts.push(KeyPart::Uninitialized);
                     pos -= 1;
                 }
                 HOOK => {
                     let mut idx = 0u16;
-                    idx |= (key.data[pos - 1] as u16) << 4;
-                    idx |= key.data[pos] as u16 >> 4;
+                    idx |= (key.data[pos - 1] as u16) << 6;
+                    idx |= key.data[pos] as u16 >> 2;
                     parts.push(KeyPart::Hook(idx));
                     pos -= 2;
                 }
+                #[cfg(debug_assertions)]
                 FRAGMENT => {
                     let mut widget_id = 0u16;
                     let mut location_id = 0u16;
 
                     location_id |= key.data[pos - 3] as u16;
                     location_id |= (key.data[pos - 2] as u16) << 8;
-                    widget_id |= (key.data[pos - 1] as u16) << 4;
-                    widget_id |= key.data[pos] as u16 >> 4;
+                    widget_id |= (key.data[pos - 1] as u16) << 6;
+                    widget_id |= key.data[pos] as u16 >> 2;
 
                     parts.push(KeyPart::Fragment { widget_id, location_id });
                     pos -= 4;
                 }
+                #[cfg(not(debug_assertions))]
+                FRAGMENT => {
+                    let mut widget_id = 0u16;
+                    let mut location_id = 0u16;
+
+                    location_id |= (key.data[pos - 1] as u16) << 6;
+                    location_id |= key.data[pos] as u16 >> 2;
+
+                    parts.push(KeyPart::Fragment { widget_id, location_id });
+                    pos -= 2;
+                }
+                #[cfg(debug_assertions)]
                 FRAGMENT_KEY => {
                     let mut widget_id = 0u16;
                     let mut location_id = 0u16;
-                    let mut k = 0u32;
-                    k |= (key.data[pos - 7] as u32) << 0;
-                    k |= (key.data[pos - 6] as u32) << 8;
-                    k |= (key.data[pos - 5] as u32) << 16;
-                    k |= (key.data[pos - 4] as u32) << 24;
+                    let mut k = 0u16;
+                    k |= (key.data[pos - 5] as u16) << 0;
+                    k |= (key.data[pos - 4] as u16) << 8;
                     location_id |= key.data[pos - 3] as u16;
                     location_id |= (key.data[pos - 2] as u16) << 8;
-                    widget_id |= (key.data[pos - 1] as u16) << 4;
-                    widget_id |= key.data[pos] as u16 >> 4;
+                    widget_id |= (key.data[pos - 1] as u16) << 6;
+                    widget_id |= key.data[pos] as u16 >> 2;
 
                     parts.push(KeyPart::FragmentKey { key: k, widget_id, location_id });
-                    pos -= 8;
+                    pos -= 6;
+                }
+                #[cfg(not(debug_assertions))]
+                FRAGMENT_KEY => {
+                    let mut widget_id = 0u16;
+                    let mut location_id = 0u16;
+                    let mut k = 0u16;
+                    k |= (key.data[pos - 5] as u16) << 0;
+                    k |= (key.data[pos - 4] as u16) << 8;
+                    location_id |= (key.data[pos - 1] as u16) << 6;
+                    location_id |= key.data[pos] as u16 >> 2;
+
+                    parts.push(KeyPart::FragmentKey { key: k, widget_id, location_id });
+                    pos -= 4;
                 }
                 unk => panic!("unknown key tag {}", unk),
             }
         }
 
-        assert_eq!(key.data[0] & 0xf, UNINITIALIZED);
+        assert_eq!(key.data[0] & 0b11, UNINITIALIZED);
         parts.push(KeyPart::Root);
 
         parts
     }
 
     fn last_part_size(key: &Key) -> usize {
-        match key.data[key.pos] & 0xf {
+        match key.data[key.pos] & 0b11 {
             UNINITIALIZED => 1,
             HOOK => 2,
+            #[cfg(debug_assertions)]
             FRAGMENT => 4,
-            FRAGMENT_KEY => 8,
+            #[cfg(not(debug_assertions))]
+            FRAGMENT => 2,
+            #[cfg(debug_assertions)]
+            FRAGMENT_KEY => 6,
+            #[cfg(not(debug_assertions))]
+            FRAGMENT_KEY => 4,
             unk => panic!("unknown key tag {}", unk),
         }
     }

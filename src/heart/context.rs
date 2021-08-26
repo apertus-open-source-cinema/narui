@@ -40,6 +40,7 @@ pub struct WidgetContext<'a> {
     #[derivative(Debug = "ignore")]
     pub tree: Arc<PatchedTree>,
     pub args_tree: &'a mut ArgsTree,
+    pub widget_loc: (usize, usize),
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub(crate) after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
 }
@@ -58,7 +59,7 @@ impl<'a> WidgetContext<'a> {
         args_tree: &'a mut ArgsTree,
         after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
     ) -> Self {
-        Self { tree, after_frame_callbacks, args_tree, widget_local: Default::default() }
+        Self { tree, after_frame_callbacks, args_tree, widget_local: Default::default(), widget_loc: (0, 0) }
     }
 
     pub fn for_fragment(
@@ -72,6 +73,7 @@ impl<'a> WidgetContext<'a> {
             after_frame_callbacks,
             args_tree,
             widget_local: WidgetLocalContext::for_key(key),
+            widget_loc: (0, 0)
         }
     }
 
@@ -79,6 +81,7 @@ impl<'a> WidgetContext<'a> {
         WidgetContext {
             tree: self.tree.clone(),
             args_tree: self.args_tree,
+            widget_loc: (0, 0),
             after_frame_callbacks: self.after_frame_callbacks,
             widget_local: WidgetLocalContext::for_key(key),
         }

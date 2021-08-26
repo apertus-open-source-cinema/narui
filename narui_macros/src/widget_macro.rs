@@ -287,8 +287,10 @@ fn transform_function_args_to_context(
         .0
         .to_string();
     let context_ident = Ident::new(&context_string, Span::call_site());
+    let LineColumn { line, column } = Span::call_site().start();
     let function_transformed = quote! {
         #(#attrs)* pub #sig {
+            context.widget_loc = (#line, #column);
             let to_return = {
                 #(#stmts)*
             };
