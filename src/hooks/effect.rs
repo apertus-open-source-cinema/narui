@@ -1,9 +1,9 @@
-use crate::{heart::Key, hooks::*, KeyPart, ListenableGuard, PatchedTree, WidgetContext};
+use crate::{heart::Key, hooks::*, KeyPart, ListenableGuard, PatchedTree, WidgetContext, HookKey};
 use std::{marker::PhantomData, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct EffectHandle<T> {
-    key: Key,
+    key: HookKey,
     tree: Arc<PatchedTree>,
     phantom: PhantomData<T>,
 }
@@ -19,7 +19,7 @@ impl<T> EffectHandle<T> {
 pub trait ContextEffect {
     fn effect_key<T: Send + Sync + 'static>(
         &mut self,
-        key: Key,
+        key: HookKey,
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T>;
@@ -33,12 +33,12 @@ pub trait ContextEffect {
 impl<'a> ContextEffect for WidgetContext<'a> {
     fn effect_key<T: Send + Sync + 'static>(
         &mut self,
-        key: Key,
+        key: HookKey,
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T> {
-        let key = self.key_map.key_with(key, KeyPart::Hook(0));
-        let deps_listenable = self.listenable_key(key, None);
+        let deps_key = self.key_for_hook();
+        let deps_listenable = self.listenable_key(deps_key, None);
         let deps = Some(deps);
         if *self.listen_ref(deps_listenable) != deps {
             self.tree.set_unconditional(deps_listenable.key, Box::new(deps));

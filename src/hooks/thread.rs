@@ -1,4 +1,4 @@
-use crate::{ContextEffect, EffectHandle, Key, ThreadContext, WidgetContext};
+use crate::{ContextEffect, EffectHandle, HookKey, ThreadContext, WidgetContext};
 use std::{
     sync::{
         mpsc::{sync_channel, Receiver, SyncSender},
@@ -33,7 +33,7 @@ impl<T> Drop for ThreadHandle<T> {
 pub trait ContextThread {
     fn thread_key<T: Send + Sync + Clone + 'static>(
         &mut self,
-        key: Key,
+        key: HookKey,
         callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
         stop_value: T,
         deps: impl PartialEq + Send + Sync + 'static,
@@ -50,7 +50,7 @@ pub trait ContextThread {
 impl<'a> ContextThread for WidgetContext<'a> {
     fn thread_key<T: Send + Sync + Clone + 'static>(
         &mut self,
-        key: Key,
+        key: HookKey,
         callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
         stop_value: T,
         deps: impl PartialEq + Send + Sync + 'static,

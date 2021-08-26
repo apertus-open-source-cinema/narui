@@ -1,16 +1,6 @@
 // do partial re evaluation of the changed widget tree
 
-use crate::{
-    heart::{Fragment, Key, LayoutTree},
-    AfterFrameCallback,
-    ArgsTree,
-    CallbackContext,
-    FragmentInner,
-    KeyMap,
-    Layouter,
-    PatchedTree,
-    WidgetContext,
-};
+use crate::{heart::{Fragment, Key, LayoutTree}, AfterFrameCallback, ArgsTree, CallbackContext, FragmentInner, KeyMap, Layouter, PatchedTree, WidgetContext, ExternalHookCount, HookKey};
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
@@ -27,7 +17,7 @@ pub struct EvaluatedFragment {
     pub gen: Rc<dyn Fn(&mut WidgetContext) -> FragmentInner>,
 
     // this field is information that is gathered by the delta evaluator
-    pub deps: HashSet<Key, ahash::RandomState>,
+    pub deps: HashSet<HookKey, ahash::RandomState>,
 
     pub children: Vec<Rc<RefCell<EvaluatedFragment>>>,
 }
@@ -36,7 +26,7 @@ pub struct EvaluatedFragment {
 pub struct EvaluatorInner {
     pub(crate) tree: Arc<PatchedTree>,
     deps_map: HashMap<
-        Key,
+        HookKey,
         HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState>,
         ahash::RandomState,
     >,
@@ -51,6 +41,7 @@ impl EvaluatorInner {
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
         key_map: &mut KeyMap,
     ) -> bool {
+        let mut external_hook_count = Default::default();
         let mut to_update: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState> =
             HashMap::default();
 
@@ -82,6 +73,7 @@ impl EvaluatorInner {
                 self.re_eval_fragment(
                     layout_tree,
                     args_tree,
+                    &mut external_hook_count,
                     after_frame_callbacks,
                     key_map,
                     frag.clone(),
@@ -134,6 +126,7 @@ impl EvaluatorInner {
         &mut self,
         layout_tree: &mut Layouter,
         args_tree: &mut ArgsTree,
+        external_hook_count: &mut ExternalHookCount,
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
         key_map: &mut KeyMap,
         frag_cell: Rc<RefCell<EvaluatedFragment>>,
@@ -149,6 +142,7 @@ impl EvaluatorInner {
 
         let mut context = WidgetContext::for_fragment(
             self.tree.clone(),
+            external_hook_count,
             args_tree,
             frag.key,
             after_frame_callbacks,
@@ -218,11 +212,12 @@ impl EvaluatorInner {
         for to_remove in frag.deps.iter() {
             self.deps_map.entry(*to_remove).or_default().remove(&frag.key);
         }
-        self.tree.remove(frag.key);
+        self.tree.remove_widget(&frag.key);
         self.key_to_fragment.remove(&frag.key);
         args_tree.remove(key_map, frag.key);
         log::trace!("removing layout_node {:?}", key_map.key_debug(frag.key));
         layout_tree.remove_node(&frag.key);
+        key_map.remove(&frag.key);
     }
 
     fn check_unique_keys_children<'k>(children_keys: impl Iterator<Item = &'k Key>) {
@@ -257,6 +252,7 @@ impl Evaluator {
             layout_tree,
             &mut WidgetContext::root(
                 evaluator.inner.tree.clone(),
+                &mut Default::default(),
                 &mut evaluator.args_tree,
                 &mut evaluator.after_frame_callbacks,
                 &mut evaluator.key_map,
