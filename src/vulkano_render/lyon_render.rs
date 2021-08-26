@@ -164,7 +164,7 @@ impl LyonRenderer {
             RenderObject::DebugRect => {
                 let r = render_object.rect;
                 self.stroke_tessellator.tessellate_rectangle(
-                    &lyon::math::rect(r.pos.x, r.pos.y,r.size.x, r.size.y),
+                    &lyon::math::rect(0.0, 0.0,r.size.x, r.size.y),
                     &StrokeOptions::default(),
                     &mut ColoredBuffersBuilder {
                         vertex_buffers,
