@@ -10,8 +10,8 @@ impl<'a> ContextArgs for WidgetContext<'a> {
     fn listen_args(&self, key: &Key) -> &Vec<Box<dyn Any>> {
         self.args_tree.get(key).unwrap_or_else(|| {
             panic!(
-                "args key not present; this is likely an internal narui bug :(, {:?}, {:#?}",
-                &key, self.args_tree
+                "args key not present; this is likely an internal narui bug :(, {:?}, {}",
+                &self.key_map.key_debug(*key), self.args_tree.debug_print(self.key_map)
             )
         })
     }

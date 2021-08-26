@@ -30,6 +30,7 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
 }
 
 fn main() {
+    env_logger::init();
     let window_builder = WindowBuilder::new()
         .with_title("narui circle benchmark")
         .with_gtk_theme_variant("dark".parse().unwrap());

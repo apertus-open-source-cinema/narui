@@ -27,6 +27,7 @@ pub fn counter(initial_value: i32, context: &mut WidgetContext) -> Fragment {
 
 
 fn main() {
+    env_logger::init();
     let window_builder = WindowBuilder::new()
         .with_title("narui counter demo")
         .with_gtk_theme_variant("dark".parse().unwrap());
