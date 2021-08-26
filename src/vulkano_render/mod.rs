@@ -47,6 +47,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+use vulkano::swapchain::PresentMode;
 
 pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let event_loop: EventLoop<()> = EventLoop::new();
@@ -72,6 +73,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             .num_images(caps.min_image_count)
             .composite_alpha(alpha)
             .dimensions(dimensions)
+            .present_mode(if std::env::var("NARUI_PRESENT_MODE_MAILBOX").is_ok() {PresentMode::Mailbox} else {PresentMode::Fifo})
             .format(Format::B8G8R8A8Srgb)
             .build()
             .expect("cant create swapchain")
