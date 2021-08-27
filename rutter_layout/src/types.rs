@@ -21,6 +21,25 @@ impl Default for BoxConstraints {
 }
 
 impl BoxConstraints {
+    pub fn min_width(width: f32) -> Self { Self { min_width: width, ..Default::default() } }
+    pub fn min_height(height: f32) -> Self { Self { min_height: height, ..Default::default() } }
+    pub fn tight_for(size: Size) -> Self {
+        Self {
+            min_width: size.width,
+            max_width: size.width,
+            min_height: size.height,
+            max_height: size.height,
+        }
+    }
+    pub fn tight(width: f32, height: f32) -> Self {
+        Self {
+            min_width: width,
+            max_width: width,
+            min_height: height,
+            max_height: height,
+        }
+    }
+
     pub fn deflate(self, insets: EdgeInsets) -> Self {
         let width = insets.left + insets.right;
         let height = insets.top + insets.bottom;
@@ -32,8 +51,6 @@ impl BoxConstraints {
         Self { min_width, max_width, min_height, max_height }
     }
 
-    pub fn min_width(width: f32) -> Self { Self { min_width: width, ..Default::default() } }
-
     pub fn maximal_bounded_or(self, unbounded_size: Size) -> Size {
         let width = if self.width_is_bounded() { self.max_width } else { unbounded_size.width };
 
@@ -41,7 +58,6 @@ impl BoxConstraints {
 
         self.constrain(Size { width, height })
     }
-
     pub fn maximal_bounded(self) -> Size {
         let width = if self.width_is_bounded() { self.max_width } else { self.min_width };
 
@@ -51,9 +67,7 @@ impl BoxConstraints {
     }
 
     pub fn loosen(self) -> Self { self.loosen_width().loosen_height() }
-
     pub fn loosen_width(self) -> Self { Self { min_width: 0.0, ..self } }
-
     pub fn loosen_height(self) -> Self { Self { min_height: 0.0, ..self } }
 
     pub fn enforce(&self, other: BoxConstraints) -> Self {
@@ -64,7 +78,6 @@ impl BoxConstraints {
             max_height: self.max_height.clamp(other.min_height, other.max_height),
         }
     }
-
     pub fn constrain(&self, size: Size) -> Size {
         Size {
             width: size.width.clamp(self.min_width, self.max_width),
@@ -72,43 +85,27 @@ impl BoxConstraints {
         }
     }
 
-    pub fn width_is_bounded(&self) -> bool { self.max_width.is_finite() }
-
-    pub fn height_is_bounded(&self) -> bool { self.max_height.is_finite() }
-
     pub fn with_unbounded_height(self) -> Self {
         Self { min_height: 0.0, max_height: f32::INFINITY, ..self }
     }
-
     pub fn with_tight_height(self, height: f32) -> Self {
         Self { min_height: height, max_height: height, ..self }
     }
-
     pub fn with_loose_height(self, height: f32) -> Self {
         Self { min_height: 0.0, max_height: height, ..self }
     }
-
-
     pub fn with_unbounded_width(self) -> Self {
         Self { min_width: 0.0, max_width: f32::INFINITY, ..self }
     }
-
     pub fn with_tight_width(self, width: f32) -> Self {
         Self { min_width: width, max_width: width, ..self }
     }
-
     pub fn with_loose_width(self, width: f32) -> Self {
         Self { min_width: 0.0, max_width: width, ..self }
     }
 
-    pub fn tight_for(size: Size) -> Self {
-        Self {
-            min_width: size.width,
-            max_width: size.width,
-            min_height: size.height,
-            max_height: size.height,
-        }
-    }
+    pub fn width_is_bounded(&self) -> bool { self.max_width.is_finite() }
+    pub fn height_is_bounded(&self) -> bool { self.max_height.is_finite() }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
