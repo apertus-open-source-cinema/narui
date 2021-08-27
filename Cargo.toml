@@ -7,6 +7,10 @@ edition = "2018"
 [lib]
 name = "narui"
 
+[features]
+default = []
+debug_bounds = []
+
 [dependencies]
 narui_macros = { path = "narui_macros" }
 rutter_layout = { path = "rutter_layout" }
