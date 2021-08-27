@@ -60,7 +60,7 @@ pub fn slider(
 
         if clicked {
             let new_val = ((position.x - 10.0) / width * (max - min) + min).clamp(min, max);
-            on_change(&context, new_val);
+            on_change(context, new_val);
         }
     };
 

@@ -27,16 +27,14 @@ impl KeyMap {
             let new_id = self.key_count + 1;
             self.id_to_part_parent.insert(new_id, (tail, parent.0));
             self.parent_part_to_id.insert((parent.0, tail), new_id);
-            self.key_count = self.key_count + 1;
+            self.key_count += 1;
 
             Key(new_id)
         }
     }
-    pub fn key_parent(&self, key: Key) -> Key {
-        Key(self.id_to_part_parent.get(&key.0).unwrap().1)
-    }
+    pub fn key_parent(&self, key: Key) -> Key { Key(self.id_to_part_parent.get(&key.0).unwrap().1) }
     pub fn key_tail(&self, key: Key) -> KeyPart { self.id_to_part_parent.get(&key.0).unwrap().0 }
-    pub fn key_debug(&self, key: Key) -> DebuggableKey { DebuggableKey { key, key_map: &self } }
+    pub fn key_debug(&self, key: Key) -> DebuggableKey { DebuggableKey { key, key_map: self } }
     pub fn get_parts(&self, key: Key) -> Vec<KeyPart> {
         let mut parts = Vec::new();
         let mut current = key;

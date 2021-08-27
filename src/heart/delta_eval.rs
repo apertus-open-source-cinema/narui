@@ -1,11 +1,22 @@
 // do partial re evaluation of the changed widget tree
 
-use crate::{heart::{Fragment, Key, LayoutTree}, AfterFrameCallback, ArgsTree, CallbackContext, FragmentInner, KeyMap, Layouter, PatchedTree, WidgetContext, ExternalHookCount, HookKey};
+use crate::{
+    heart::{Fragment, Key, LayoutTree},
+    AfterFrameCallback,
+    ArgsTree,
+    CallbackContext,
+    ExternalHookCount,
+    FragmentInner,
+    HookKey,
+    KeyMap,
+    Layouter,
+    PatchedTree,
+    WidgetContext,
+};
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
-use std::{cell::RefCell, rc::Rc, sync::Arc};
-use std::fmt::Debug;
+use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
 // EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally
 // contains the dependencies of Node for allowing partial rebuild.
@@ -110,7 +121,10 @@ impl EvaluatorInner {
             children,
         }));
 
-        Self::check_unique_keys_children(context.key_map.key_debug(fragment.key),children_keys.iter());
+        Self::check_unique_keys_children(
+            context.key_map.key_debug(fragment.key),
+            children_keys.iter(),
+        );
 
         layout_tree.set_node(&fragment.key, layout, render_object);
         layout_tree.set_children(&fragment.key, &children_keys[..]);
@@ -137,7 +151,10 @@ impl EvaluatorInner {
         // we were on the dirty list, but some fragment above us removed us,
         // so just skip
         if !self.key_to_fragment.contains_key(&frag.key) {
-            log::trace!("wanted to re-evaluate {:?}, but we were already removed", key_map.key_debug(frag.key));
+            log::trace!(
+                "wanted to re-evaluate {:?}, but we were already removed",
+                key_map.key_debug(frag.key)
+            );
             return;
         }
 
@@ -184,13 +201,18 @@ impl EvaluatorInner {
         }
 
 
-        Self::check_unique_keys_children(context.key_map.key_debug(frag.key),children_keys.iter());
+        Self::check_unique_keys_children(context.key_map.key_debug(frag.key), children_keys.iter());
         layout_tree.set_node(&frag.key, layout, render_object);
 
 
-        log::trace!("setting children of {:?} to {:?}", key_map.key_debug(frag.key), children_keys.iter().map(|k| key_map.key_debug(*k)).collect::<Vec<_>>());
-        // if they were both zero nothing changed and we can avoid some unnecessary key lookups
-        if (num_old_children != 0) || (children_keys.len() != 0) {
+        log::trace!(
+            "setting children of {:?} to {:?}",
+            key_map.key_debug(frag.key),
+            children_keys.iter().map(|k| key_map.key_debug(*k)).collect::<Vec<_>>()
+        );
+        // if they were both zero nothing changed and we can avoid some unnecessary key
+        // lookups
+        if (num_old_children != 0) || (!children_keys.is_empty()) {
             layout_tree.set_children(&frag.key, &children_keys);
         }
 
@@ -221,7 +243,10 @@ impl EvaluatorInner {
         key_map.remove(&frag.key);
     }
 
-    fn check_unique_keys_children<'k>(parent_debug: impl Debug, children_keys: impl Iterator<Item = &'k Key>) {
+    fn check_unique_keys_children<'k>(
+        parent_debug: impl Debug,
+        children_keys: impl Iterator<Item = &'k Key>,
+    ) {
         let mut keys = HashSet::new();
         for key in children_keys {
             if keys.contains(key) {
@@ -260,7 +285,7 @@ impl Evaluator {
                 &mut evaluator.key_map,
             ),
         );
-        evaluator.inner.tree.update_tree(&mut evaluator.key_map);
+        let _ = evaluator.inner.tree.update_tree(&mut evaluator.key_map);
 
         evaluator
     }
@@ -274,7 +299,10 @@ impl Evaluator {
         )
     }
 
-    pub fn callback_context<'layout, 'key_map>(&'key_map self, layout: &'layout Layouter) -> CallbackContext<'layout, 'key_map> {
+    pub fn callback_context<'layout, 'key_map>(
+        &'key_map self,
+        layout: &'layout Layouter,
+    ) -> CallbackContext<'layout, 'key_map> {
         CallbackContext { tree: self.inner.tree.clone(), layout, key_map: &self.key_map }
     }
 }

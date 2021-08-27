@@ -32,12 +32,7 @@ impl BoxConstraints {
         }
     }
     pub fn tight(width: f32, height: f32) -> Self {
-        Self {
-            min_width: width,
-            max_width: width,
-            min_height: height,
-            max_height: height,
-        }
+        Self { min_width: width, max_width: width, min_height: height, max_height: height }
     }
 
     pub fn deflate(self, insets: EdgeInsets) -> Self {

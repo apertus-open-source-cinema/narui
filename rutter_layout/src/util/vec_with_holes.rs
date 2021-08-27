@@ -1,14 +1,14 @@
 use crate::util::Idx;
+use derivative::Derivative;
 
-#[derive(Debug)]
+#[derive(Debug, Derivative)]
+#[derivative(Default(bound = "", new = "true"))]
 pub(crate) struct VecWithHoles<T> {
     data: Vec<T>,
     free_list: Vec<usize>,
 }
 
 impl<T> VecWithHoles<T> {
-    pub(crate) fn new() -> Self { Self { data: Vec::new(), free_list: Vec::new() } }
-
     pub(crate) fn add(&mut self, value: T) -> usize {
         if let Some(idx) = self.free_list.pop() {
             self.data[idx] = value;

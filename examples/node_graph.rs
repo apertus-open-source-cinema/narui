@@ -1,15 +1,13 @@
 use lyon::{
-    lyon_tessellation::path::geom::Point,
+    lyon_tessellation::{path::geom::Point, FillTessellator, StrokeTessellator},
     tessellation::{path::path::Builder, LineCap, StrokeOptions},
 };
-use narui::*;
+use narui::{lyon_render::ColoredBuffersBuilder, *};
 use narui_widgets::*;
 use palette::Shade;
+use rutter_layout::Maximal;
 use std::sync::Arc;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
-use rutter_layout::Maximal;
-use lyon::lyon_tessellation::{FillTessellator, StrokeTessellator};
-use narui::lyon_render::ColoredBuffersBuilder;
 
 
 #[widget(on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}))]
@@ -38,7 +36,7 @@ pub fn drag_detector(
             context.shout(click_start_position, position);
             context.shout(click_started, false);
         } else if context.spy(clicked) {
-            on_drag(context.clone(), position - (context.measure_size(key).unwrap() / 2.))
+            on_drag(context, position - (context.measure_size(key).unwrap() / 2.))
         }
     };
 
@@ -96,29 +94,51 @@ pub fn handle(
 }
 
 #[widget]
-pub fn connection(start: Vec2, end: Vec2, color: Color, context: &mut WidgetContext) -> FragmentInner {
-    let path_gen = Arc::new(move |size: Vec2, fill_tess: &mut FillTessellator, stroke_tess: &mut StrokeTessellator, mut buffers_builder: ColoredBuffersBuilder| {
-        let mut builder = Builder::new();
-        builder.begin(start.into());
-        builder.cubic_bezier_to(
-            Point::new((start.x + end.x) / 2.0, start.y),
-            Point::new((start.x + end.x) / 2.0, end.y),
-            end.into(),
-        );
-        builder.end(false);
+pub fn connection(
+    start: Vec2,
+    end: Vec2,
+    color: Color,
+    context: &mut WidgetContext,
+) -> FragmentInner {
+    let path_gen = Arc::new(
+        move |_size: Vec2,
+              _fill_tess: &mut FillTessellator,
+              stroke_tess: &mut StrokeTessellator,
+              mut buffers_builder: ColoredBuffersBuilder| {
+            let mut builder = Builder::new();
+            builder.begin(start.into());
+            builder.cubic_bezier_to(
+                Point::new((start.x + end.x) / 2.0, start.y),
+                Point::new((start.x + end.x) / 2.0, end.y),
+                end.into(),
+            );
+            builder.end(false);
 
-        stroke_tess.tessellate_path(&builder.build(), &StrokeOptions::default().with_line_width(5.0), &mut buffers_builder.with_color(color));
-
-    });
+            stroke_tess
+                .tessellate_path(
+                    &builder.build(),
+                    &StrokeOptions::default().with_line_width(5.0),
+                    &mut buffers_builder.with_color(color),
+                )
+                .unwrap();
+        },
+    );
     let mut stroke_options = StrokeOptions::default();
     stroke_options.line_width = 5.;
     stroke_options.end_cap = LineCap::Round;
     stroke_options.start_cap = LineCap::Round;
 
-    FragmentInner::Leaf { render_object: RenderObject::Path { path_gen }, layout: Box::new(Maximal) }
+    FragmentInner::Leaf {
+        render_object: RenderObject::Path { path_gen },
+        layout: Box::new(Maximal),
+    }
 }
 
-fn get_handle_offset(context: &CallbackContext, handle: Key, node: Key) -> Result<Vec2, MeasureError> {
+fn get_handle_offset(
+    context: &CallbackContext,
+    handle: Key,
+    node: Key,
+) -> Result<Vec2, MeasureError> {
     Ok(context.measure_offset(node, handle)? + (context.measure_size(handle)? / 2.))
 }
 
@@ -158,7 +178,7 @@ pub fn node(
                             </align>
                             <align alignment=Alignment::center_right()>
                                 <column>
-                                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={color!(#ff00ff)} />
+                                    <handle on_drag_end=on_handle_drag_end on_drag_start=on_handle_drag_start graph_root=graph_root parent_node=key on_drag=on_handle_drag color={color!(#ff00ff)} />
                                 </column>
                             </align>
                                 /* TODO: add controls, etc */
@@ -196,11 +216,11 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
             let start = context.spy(drag_handle).unwrap();
             let end = context.spy(drop_handle).unwrap();
             let connection = (
-                (start.2, get_handle_offset(context.clone(), start.0, start.1).unwrap()),
-                (end.2, get_handle_offset(context.clone(), end.0, end.1).unwrap()),
+                (start.2, get_handle_offset(context, start.0, start.1).unwrap()),
+                (end.2, get_handle_offset(context, end.0, end.1).unwrap()),
                 color!(#ffffff),
             );
-            let mut connections = context.spy(settled_connections).clone();
+            let mut connections = context.spy(settled_connections);
             if let Some(i) = connections.iter().position(|x| x == &connection) {
                 connections.remove(i);
             } else {
@@ -229,7 +249,7 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
                                 new_positions[i].1 = position + pos;
                                 context.shout(nodes, new_positions);
                             }}
-                            on_handle_drag=on_handle_drag.clone()
+                            on_handle_drag=on_handle_drag
                             on_handle_drag_end={move |context: &CallbackContext, handle: Key, node: Key| {
                                 if handle != context.spy(drag_handle).unwrap().0 {
                                     context.shout(drop_handle, Some((handle, node, i)));

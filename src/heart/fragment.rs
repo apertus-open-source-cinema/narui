@@ -6,14 +6,14 @@ For layout we create `TreeNodes` with stretch Style attributes.
 
 use crate::heart::*;
 use derivative::Derivative;
-use lyon::{path::Path, tessellation::StrokeOptions};
+
+use crate::vulkano_render::lyon_render::ColoredBuffersBuilder;
 use rutter_layout::Layout;
 use std::{rc::Rc, sync::Arc};
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
     render_pass::RenderPass,
 };
-use crate::vulkano_render::lyon_render::ColoredBuffersBuilder;
 
 /*
 The general flow of a frame in narui:
@@ -66,14 +66,14 @@ pub type PathGenInner = dyn Fn(
     Vec2, // size
     &mut lyon::tessellation::FillTessellator,
     &mut lyon::tessellation::StrokeTessellator,
-    ColoredBuffersBuilder
+    ColoredBuffersBuilder,
 );
 pub type RenderFnInner = dyn Fn(
     Arc<RenderPass>,
     &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
     &DynamicState,
-    Rect,  // target rect
-    Vec2,  // window dimensions
+    Rect, // target rect
+    Vec2, // window dimensions
 );
 // RenderObject is the data structure that really defines _what_ is rendered
 #[derive(Derivative, Clone)]

@@ -59,7 +59,7 @@ impl InputHandler {
 
         let mut updated = false;
         for key in input_render_object {
-            let (rect, obj) = layouter.get_positioned(&key).unwrap();
+            let (rect, obj) = layouter.get_positioned(key).unwrap();
             if let Some(Input { key, on_hover, on_move, on_click }) = obj {
                 let input_state = self.input_states.entry(*key).or_insert(Default::default());
                 if self.cursor_moved {

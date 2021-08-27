@@ -4,8 +4,8 @@ mod delta_eval;
 mod fragment;
 mod key;
 mod layout;
-mod types;
 mod owning_ref;
+mod types;
 
 pub use all_eq::*;
 pub use context::*;

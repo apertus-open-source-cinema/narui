@@ -8,7 +8,7 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
     context.after_frame(move |context| {
         context.shout(frame_counter, context.spy(frame_counter) + 1);
     });
-    let frame_count = context.listen(frame_counter);
+    let _frame_count = context.listen(frame_counter);
 
     rsx! {
         <row main_axis_alignment=MainAxisAlignment::SpaceEvenly>

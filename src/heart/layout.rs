@@ -4,9 +4,10 @@
 //
 
 use crate::heart::*;
-use hashbrown::HashMap;
+
 use rutter_layout::{BoxConstraints, Layout, Offset};
-use std::env;
+
+use derivative::Derivative;
 use std::ops::Deref;
 
 // PositionedRenderObject is the main output data structure of the Layouting
@@ -31,40 +32,32 @@ pub trait LayoutTree {
 #[derive(Debug)]
 struct BoxWithAdditional<T: ?Sized, A> {
     data: Box<T>,
-    additional: A
+    additional: A,
 }
 
 impl<T: ?Sized, A> BoxWithAdditional<T, A> {
-    fn new(data: Box<T>, additional: A) -> Self {
-        Self {
-            data,
-            additional
-        }
-    }
+    fn new(data: Box<T>, additional: A) -> Self { Self { data, additional } }
 }
 
 impl<T: ?Sized, A> Deref for BoxWithAdditional<T, A> {
     type Target = T;
 
-    fn deref(&self) -> &Self::Target {
-        &*self.data
-    }
+    fn deref(&self) -> &Self::Target { &*self.data }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Derivative)]
+#[derivative(Default(new = "true"))]
 pub struct Layouter {
-    layouter: rutter_layout::Layouter<Key, BoxWithAdditional<dyn Layout, Option<RenderObject>>, ahash::RandomState>,
+    layouter: rutter_layout::Layouter<
+        Key,
+        BoxWithAdditional<dyn Layout, Option<RenderObject>>,
+        ahash::RandomState,
+    >,
+    #[derivative(Default(value = "RenderObject::DebugRect"))]
     debug_render_object: RenderObject,
 }
 
 impl Layouter {
-    pub fn new() -> Self {
-        Layouter {
-            layouter: rutter_layout::Layouter::new(),
-            debug_render_object: RenderObject::DebugRect,
-        }
-    }
-
     pub fn do_layout(&mut self, size: Vec2) {
         self.layouter.do_layout(
             BoxConstraints::tight_for(size.into()),
@@ -76,33 +69,28 @@ impl Layouter {
     #[cfg(feature = "debug_bounds")]
     pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
         let real = self.layouter.iter_with_obj(&Key::default()).filter_map(move |layout_item| {
-            layout_item.obj.additional.as_ref().map(|render_object| {
-                PositionedRenderObject {
-                    rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                    z_index: 0,
-                    render_object,
-                }
-            })
-        });
-        let debug_rects = self.layouter.iter(&Key::default()).map(|layout_item| {
-            PositionedRenderObject {
+            layout_item.obj.additional.as_ref().map(|render_object| PositionedRenderObject {
                 rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
                 z_index: 0,
-                render_object: &RenderObject::DebugRect
-            }
+                render_object,
+            })
         });
+        let debug_rects =
+            self.layouter.iter(&Key::default()).map(|layout_item| PositionedRenderObject {
+                rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                z_index: 0,
+                render_object: &RenderObject::DebugRect,
+            });
         real.chain(debug_rects)
     }
 
     #[cfg(not(feature = "debug_bounds"))]
     pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
         self.layouter.iter_with_obj(&Default::default()).filter_map(move |layout_item| {
-            layout_item.obj.additional.as_ref().map(|render_object| {
-                PositionedRenderObject {
-                    rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                    z_index: 0,
-                    render_object,
-                }
+            layout_item.obj.additional.as_ref().map(|render_object| PositionedRenderObject {
+                rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                z_index: 0,
+                render_object,
             })
         })
     }
@@ -115,12 +103,10 @@ impl LayoutTree for Layouter {
         layout: Box<dyn Layout>,
         render_object: Option<RenderObject>,
     ) {
-        self.layouter.set_node(&key, BoxWithAdditional::new(layout, render_object));
+        self.layouter.set_node(key, BoxWithAdditional::new(layout, render_object));
     }
 
-    fn remove_node(&mut self, key: &Key) {
-        self.layouter.remove(&key);
-    }
+    fn remove_node(&mut self, key: &Key) { self.layouter.remove(key); }
 
     fn set_children<'a>(&mut self, parent: &Key, children: &[Key]) {
         self.layouter.set_children(parent, children.iter())
@@ -131,8 +117,4 @@ impl LayoutTree for Layouter {
             (Rect { pos: offset.into(), size: size.into() }, obj.additional.as_ref())
         })
     }
-}
-
-fn indent(text: String, indent_str: String) -> String {
-    text.lines().into_iter().map(|line| format!("{}{}\n", indent_str, line)).collect()
 }
