@@ -227,8 +227,9 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                     }
                 }
 
+                let after_frame_callbacks = std::mem::replace(&mut evaluator.after_frame_callbacks, Vec::new());
                 let context = evaluator.callback_context(&layouter);
-                for callback in evaluator.after_frame_callbacks.drain(..) {
+                for callback in after_frame_callbacks {
                     callback(&context);
                 }
             }
