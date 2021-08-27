@@ -16,7 +16,7 @@ use std::ops::Deref;
 pub struct PositionedRenderObject<'a> {
     pub render_object: &'a RenderObject,
     pub rect: Rect,
-    pub z_index: i32,
+    pub z_index: u32,
 }
 
 
@@ -71,7 +71,7 @@ impl Layouter {
         let real = self.layouter.iter_with_obj(&Key::default()).filter_map(move |layout_item| {
             layout_item.obj.additional.as_ref().map(|render_object| PositionedRenderObject {
                 rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                z_index: 0,
+                z_index: layout_item.z_index,
                 render_object,
             })
         });
@@ -89,7 +89,7 @@ impl Layouter {
         self.layouter.iter_with_obj(&Default::default()).filter_map(move |layout_item| {
             layout_item.obj.additional.as_ref().map(|render_object| PositionedRenderObject {
                 rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                z_index: 0,
+                z_index: layout_item.z_index,
                 render_object,
             })
         })

@@ -30,11 +30,13 @@ pub fn input_composed(
     context: &mut WidgetContext,
 ) -> Fragment {
     rsx! {
-        <stack size_using_first=true>
+        <stack>
             <fragment>
                 {children}
             </fragment>
-            <input on_click = on_click on_hover = on_hover on_move = on_move />
+            <positioned>
+                <input on_click = on_click on_hover = on_hover on_move = on_move />
+            </positioned>
         </stack>
     }
 }

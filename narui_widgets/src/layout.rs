@@ -13,15 +13,14 @@ pub use rutter_layout::{
 };
 use rutter_layout::{Align, Column, Flex, Flexible, Padding, Positioned, Row, SizedBox, Stack};
 
-#[widget(fit = StackFit::Loose, alignment = Alignment::center(), size_using_first = false)]
+#[widget(fit = StackFit::Loose, alignment = Alignment::center())]
 pub fn stack(
     children: Vec<Fragment>,
     fit: StackFit,
     alignment: Alignment,
-    size_using_first: bool,
     context: &mut WidgetContext,
 ) -> FragmentInner {
-    FragmentInner::Node { children, layout: Box::new(Stack { fit, alignment, size_using_first }) }
+    FragmentInner::Node { children, layout: Box::new(Stack { fit, alignment }) }
 }
 
 #[widget(cross_axis_alignment = CrossAxisAlignment::Center, main_axis_alignment = MainAxisAlignment::Center, main_axis_size = MainAxisSize::Max)]
@@ -107,16 +106,11 @@ pub fn sized_box(
 }
 
 
-#[widget(factor_width = None, factor_height = None)]
+#[widget(pos = AbsolutePosition::zero())]
 pub fn positioned(
     children: Vec<Fragment>,
     pos: AbsolutePosition,
-    factor_width: Option<f32>,
-    factor_height: Option<f32>,
     context: &mut WidgetContext,
 ) -> FragmentInner {
-    FragmentInner::Node {
-        children,
-        layout: Box::new(Positioned::fractional(pos, factor_width, factor_height)),
-    }
+    FragmentInner::Node { children, layout: Box::new(Positioned::new(pos)) }
 }

@@ -41,9 +41,11 @@ pub fn drag_detector(
     };
 
     rsx! {
-        <stack size_using_first=true>
+        <stack>
             <fragment>{children}</fragment>
-            <input on_move=on_move on_click=on_click />
+            <positioned>
+                <input on_move=on_move on_click=on_click />
+            </positioned>
         </stack>
     }
 }
@@ -159,19 +161,24 @@ pub fn node(
 
     rsx! {
         <sized_box constraint=BoxConstraints::tight(250., 150.)>
-            <stack size_using_first=true>
+            <stack>
+                <padding padding=EdgeInsets::horizontal(10.0)>
+                    <rect border_radius=Paxel(10.0) fill=Some(fill_color) stroke=Some((stroke_color, 2.0)) />
+                </padding>
                 <column>
-                    <drag_detector on_drag=on_drag>
-                        <column main_axis_size=MainAxisSize::Min>
-                            <text>{name}</text>
-                            <hr color=stroke_color />
-                        </column>
-                    </drag_detector>
+                    <padding padding=EdgeInsets::horizontal(10.0)>
+                        <drag_detector on_drag=on_drag>
+                            <column main_axis_size=MainAxisSize::Min>
+                                <text>{name}</text>
+                                <hr color=stroke_color />
+                            </column>
+                        </drag_detector>
+                    </padding>
 
-                    <flexible>
+                    <flexible fit=FlexFit::Tight>
                         <stack>
                             <align alignment=Alignment::center_left()>
-                                <column>
+                                <column main_axis_alignment=MainAxisAlignment::SpaceEvenly>
                                     <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={color!(#ffff00)} />
                                     <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={color!(#00ffff)} />
                                 </column>
@@ -185,7 +192,6 @@ pub fn node(
                         </stack>
                     </flexible>
                 </column>
-                <rect border_radius=Paxel(10.0) fill=Some(fill_color) stroke=Some((stroke_color, 2.0)) />
             </stack>
         </sized_box>
     }
@@ -235,7 +241,7 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
 
     rsx! {
         <stack>
-            <stack>
+            <stack fit=StackFit::Tight>
             {current_nodes.iter().cloned().enumerate().map(|(i, (name, position))| {
                 let current_nodes_clone = current_nodes_clone.clone();
 

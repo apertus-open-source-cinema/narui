@@ -92,7 +92,13 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                     load: Clear,
                     store: DontCare,
                     format: swapchain.format(),
-                    samples: 4,     // This has to match the image definition.
+                    samples: 4,
+                },
+                depth: {
+                    load: Clear,
+                    store: Store,
+                    format: Format::D16Unorm,
+                    samples: 4,
                 },
                 color: {
                     load: DontCare,
@@ -103,7 +109,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
             },
             pass: {
                 color: [intermediary],
-                depth_stencil: {},
+                depth_stencil: {depth},
                 resolve: [color],
             }
         )
@@ -169,7 +175,8 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
 
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-                let clear_values = vec![theme::BG.into_raw::<[f32; 4]>().into(), ClearValue::None];
+                let clear_values =
+                    vec![theme::BG.into_raw::<[f32; 4]>().into(), 1f32.into(), ClearValue::None];
                 let mut builder = AutoCommandBufferBuilder::primary(
                     device.clone(),
                     queue.family(),
@@ -301,9 +308,26 @@ fn window_size_dependent_setup(
             )
             .unwrap();
             let view = ImageView::new(image.clone()).unwrap();
+            let depth_buffer = ImageView::new(
+                AttachmentImage::multisampled_with_usage(
+                    render_pass.device().clone(),
+                    [dimensions.width(), dimensions.height()],
+                    Sample4,
+                    Format::D16Unorm,
+                    ImageUsage {
+                        transient_attachment: true,
+                        input_attachment: true,
+                        ..ImageUsage::none()
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
             Arc::new(
                 Framebuffer::start(render_pass.clone())
                     .add(intermediary)
+                    .unwrap()
+                    .add(depth_buffer)
                     .unwrap()
                     .add(view)
                     .unwrap()

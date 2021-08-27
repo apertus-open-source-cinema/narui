@@ -17,7 +17,11 @@ use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
     device::Device,
-    pipeline::{vertex::BuffersDefinition, GraphicsPipeline},
+    pipeline::{
+        depth_stencil::{Compare, DepthStencil},
+        vertex::BuffersDefinition,
+        GraphicsPipeline,
+    },
     render_pass::{RenderPass, Subpass},
 };
 
@@ -31,13 +35,13 @@ mod vertex_shader {
                 uint width;
                 uint height;
             } params;
-            layout(location = 0) in vec2 position;
+            layout(location = 0) in vec3 position;
             layout(location = 1) in vec4 color;
             layout(location = 0) out vec4 color_frag;
             void main() {
                 color_frag = color;
-                vec2 zero_to_one = position / vec2(params.width, params.height);
-                gl_Position = vec4(vec2(zero_to_one * 2. - vec2(1.)), 0.0, 1.0);
+                vec2 zero_to_one = position.xy / vec2(params.width, params.height);
+                gl_Position = vec4(vec2(zero_to_one * 2. - vec2(1.)), position.z, 1.0);
             }
         "
     }
@@ -59,7 +63,7 @@ mod fragment_shader {
 
 #[derive(Default, Debug, Clone)]
 pub struct Vertex {
-    position: [f32; 2],
+    position: [f32; 3],
     color: [f32; 4],
 }
 vulkano::impl_vertex!(Vertex, position, color);
@@ -70,21 +74,24 @@ pub struct LyonRendererState(VertexBuffers<Vertex, u16>);
 pub struct ColoredBuffersBuilder<'a> {
     vertex_buffers: &'a mut VertexBuffers<Vertex, u16>,
     pos: Vec2,
+    z_index: f32,
 }
 
-pub struct PositionedColoredConstructor(Vec2, [f32; 4]);
+pub struct PositionedColoredConstructor(Vec2, [f32; 4], f32);
 
 impl FillVertexConstructor<Vertex> for PositionedColoredConstructor {
     fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
         let pos: Vec2 = vertex.position().into();
-        Vertex { position: (pos + self.0).into(), color: self.1 }
+        let pos = pos + self.0;
+        Vertex { position: [pos.x, pos.y, self.2], color: self.1 }
     }
 }
 
 impl StrokeVertexConstructor<Vertex> for PositionedColoredConstructor {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
         let pos: Vec2 = vertex.position().into();
-        Vertex { position: (pos + self.0).into(), color: self.1 }
+        let pos = pos + self.0;
+        Vertex { position: [pos.x, pos.y, self.2], color: self.1 }
     }
 }
 
@@ -95,7 +102,7 @@ impl<'a> ColoredBuffersBuilder<'a> {
     ) -> BuffersBuilder<Vertex, u16, PositionedColoredConstructor> {
         BuffersBuilder::new(
             &mut self.vertex_buffers,
-            PositionedColoredConstructor(self.pos, color.into_raw::<[f32; 4]>()),
+            PositionedColoredConstructor(self.pos, color.into_raw::<[f32; 4]>(), self.z_index),
         )
     }
 }
@@ -121,6 +128,10 @@ impl LyonRenderer {
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
                 .blend_alpha_blending()
+                .depth_stencil(DepthStencil {
+                    depth_compare: Compare::LessOrEqual,
+                    ..DepthStencil::simple_depth_test()
+                })
                 .render_pass(Subpass::from(render_pass, 0).unwrap())
                 .build(device.clone())
                 .unwrap(),
@@ -147,7 +158,11 @@ impl LyonRenderer {
                     render_object.rect.size,
                     &mut self.fill_tessellator,
                     &mut self.stroke_tessellator,
-                    ColoredBuffersBuilder { vertex_buffers, pos: render_object.rect.pos },
+                    ColoredBuffersBuilder {
+                        vertex_buffers,
+                        pos: render_object.rect.pos,
+                        z_index: 1.0 - render_object.z_index as f32 / 65535.0,
+                    },
                 );
             }
             RenderObject::DebugRect => {
@@ -156,8 +171,12 @@ impl LyonRenderer {
                     .tessellate_rectangle(
                         &lyon::math::rect(0.0, 0.0, r.size.x, r.size.y),
                         &StrokeOptions::default().with_line_width(2.0),
-                        &mut ColoredBuffersBuilder { vertex_buffers, pos: render_object.rect.pos }
-                            .with_color(Color::new(1.0, 0.0, 0.0, 0.25)),
+                        &mut ColoredBuffersBuilder {
+                            vertex_buffers,
+                            pos: render_object.rect.pos,
+                            z_index: 0.0,
+                        }
+                        .with_color(Color::new(1.0, 0.0, 0.0, 0.25)),
                     )
                     .unwrap();
             }

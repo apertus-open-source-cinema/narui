@@ -24,7 +24,12 @@ use vulkano::{
     device::{Device, Queue},
     format::Format,
     image::{view::ImageView, ImageDimensions, ImmutableImage, MipmapsCount},
-    pipeline::{vertex::BuffersDefinition, GraphicsPipeline, GraphicsPipelineAbstract},
+    pipeline::{
+        depth_stencil::{Compare, DepthStencil},
+        vertex::BuffersDefinition,
+        GraphicsPipeline,
+        GraphicsPipelineAbstract,
+    },
     render_pass::{RenderPass, Subpass},
     sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
 };
@@ -50,6 +55,7 @@ mod vertex_shader {
             layout(location = 3) in vec2 tex_min;
             layout(location = 4) in vec2 tex_max;
             layout(location = 5) in vec4 color;
+            layout(location = 6) in float z_index;
 
             layout(location = 0) out vec2 tex_frag;
             layout(location = 1) out vec4 color_frag;
@@ -76,7 +82,7 @@ mod vertex_shader {
                         tex_frag = tex_max;
                         break;
                 }
-                gl_Position = vec4((pos / (vec2(params.width, params.height) / 2.) - vec2(1.)), 0.0, 1.0);
+                gl_Position = vec4((pos / (vec2(params.width, params.height) / 2.) - vec2(1.)), z_index, 1.0);
             }
         "
     }
@@ -117,8 +123,9 @@ struct InstanceData {
     tex_min: [f32; 2],
     tex_max: [f32; 2],
     color: [f32; 4],
+    z_index: f32,
 }
-vulkano::impl_vertex!(InstanceData, pos_min, pos_max, tex_min, tex_max, color);
+vulkano::impl_vertex!(InstanceData, pos_min, pos_max, tex_min, tex_max, color, z_index);
 
 pub struct TextRenderer {
     device: Arc<Device>,
@@ -153,6 +160,10 @@ impl TextRenderer {
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
                 .blend_alpha_blending()
+                .depth_stencil(DepthStencil {
+                    depth_compare: Compare::LessOrEqual,
+                    ..DepthStencil::simple_depth_test()
+                })
                 .render_pass(Subpass::from(render_pass, 0).unwrap())
                 .build(device.clone())
                 .unwrap(),
@@ -232,6 +243,7 @@ impl TextRenderer {
                 Section::default()
                     .add_text(
                         Text::new(&*text)
+                            .with_z(1.0 - render_object.z_index as f32 / 65535.0)
                             .with_color(color.into_linear().into_raw::<[f32; 4]>())
                             .with_scale(PxScale::from(*size)),
                     )
@@ -267,6 +279,7 @@ impl TextRenderer {
                 tex_min: [vertex_data.tex_coords.min.x, vertex_data.tex_coords.min.y],
                 tex_max: [vertex_data.tex_coords.max.x, vertex_data.tex_coords.max.y],
                 color: vertex_data.extra.color,
+                z_index: vertex_data.extra.z,
             },
         ) {
             Ok(BrushAction::Draw(vertices)) => {
