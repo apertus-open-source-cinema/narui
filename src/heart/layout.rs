@@ -55,43 +55,13 @@ impl<T: ?Sized, A> Deref for BoxWithAdditional<T, A> {
 pub struct Layouter {
     layouter: rutter_layout::Layouter<Key, BoxWithAdditional<dyn Layout, Option<RenderObject>>, ahash::RandomState>,
     debug_render_object: RenderObject,
-    debug_layout_bounds: bool,
-}
-
-struct MaybeLayoutDebugIter<'a> {
-    rect: Rect,
-    item: Option<&'a RenderObject>,
-    debug_render_object: &'a RenderObject,
-    debug_layout_bounds: bool,
-}
-
-impl<'a> Iterator for MaybeLayoutDebugIter<'a> {
-    type Item = PositionedRenderObject<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(render_object) = self.item.take() {
-            Some(PositionedRenderObject { render_object, rect: self.rect, z_index: 0 })
-        } else if self.debug_layout_bounds {
-            self.debug_layout_bounds = false;
-            Some(PositionedRenderObject {
-                render_object: self.debug_render_object,
-                rect: self.rect,
-                z_index: 0,
-            })
-        } else {
-            None
-        }
-    }
 }
 
 impl Layouter {
     pub fn new() -> Self {
-        let debug_layout_bounds = env::var("NARUI_LAYOUT_BOUNDS").is_ok();
-
         Layouter {
             layouter: rutter_layout::Layouter::new(),
             debug_render_object: RenderObject::DebugRect,
-            debug_layout_bounds,
         }
     }
 
@@ -103,17 +73,28 @@ impl Layouter {
         );
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "debug_bounds")]
     pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
-        self.layouter.iter_with_obj(&Default::default()).flat_map(move |layout_item| MaybeLayoutDebugIter {
-            rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-            item: layout_item.obj.additional.as_ref(),
-            debug_layout_bounds: self.debug_layout_bounds,
-            debug_render_object: &self.debug_render_object,
-        })
+        let real = self.layouter.iter_with_obj(&Key::default()).filter_map(move |layout_item| {
+            layout_item.obj.additional.as_ref().map(|render_object| {
+                PositionedRenderObject {
+                    rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                    z_index: 0,
+                    render_object,
+                }
+            })
+        });
+        let debug_rects = self.layouter.iter(&Key::default()).map(|layout_item| {
+            PositionedRenderObject {
+                rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                z_index: 0,
+                render_object: &RenderObject::DebugRect
+            }
+        });
+        real.chain(debug_rects)
     }
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(feature = "debug_bounds"))]
     pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
         self.layouter.iter_with_obj(&Default::default()).filter_map(move |layout_item| {
             layout_item.obj.additional.as_ref().map(|render_object| {
