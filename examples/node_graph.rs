@@ -1,58 +1,61 @@
-/*
 use lyon::{
     lyon_tessellation::path::geom::Point,
     tessellation::{path::path::Builder, LineCap, StrokeOptions},
 };
-use narui::{style::*, *};
+use narui::*;
+use narui_widgets::*;
 use palette::Shade;
 use std::sync::Arc;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
+use rutter_layout::Maximal;
+use lyon::lyon_tessellation::{FillTessellator, StrokeTessellator};
+use narui::lyon_render::ColoredBuffersBuilder;
 
 
-#[widget(style = Default::default(), on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}))]
+#[widget(on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}))]
 pub fn drag_detector(
-    style: Style,
-    on_drag: impl Fn(Context, Vec2) + Clone + Sync + Send + 'static,
-    on_start: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
-    on_end: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
+    on_drag: impl Fn(&CallbackContext, Vec2) + Clone + Sync + Send + 'static,
+    on_start: impl Fn(&CallbackContext, Key) + Clone + Sync + Send + 'static,
+    on_end: impl Fn(&CallbackContext, Key) + Clone + Sync + Send + 'static,
     children: Vec<Fragment>,
-    context: Context,
+    context: &mut WidgetContext,
 ) -> Fragment {
     let click_start_position = context.listenable(Vec2::zero());
     let click_started = context.listenable(false);
     let clicked = context.listenable(false);
     let key = context.widget_local.key;
-    let on_click = move |context: Context, clicked_current| {
+    let on_click = move |context: &CallbackContext, clicked_current| {
         context.shout(clicked, clicked_current);
         if clicked_current {
             context.shout(click_started, true);
-            on_start(context.clone(), key)
+            on_start(context, key)
         } else {
-            on_end(context.clone(), key)
+            on_end(context, key)
         }
     };
-    let on_move = move |context: Context, position| {
-        if context.listen(click_started) {
+    let on_move = move |context: &CallbackContext, position| {
+        if context.spy(click_started) {
             context.shout(click_start_position, position);
             context.shout(click_started, false);
-        } else if context.listen(clicked) {
-            on_drag(context.clone(), position - context.listen(click_start_position))
+        } else if context.spy(clicked) {
+            on_drag(context.clone(), position - (context.measure_size(key).unwrap() / 2.))
         }
     };
 
     rsx! {
-        <input style=style on_move=on_move on_click=on_click>
-            {children}
-        </input>
+        <stack size_using_first=true>
+            <fragment>{children}</fragment>
+            <input on_move=on_move on_click=on_click />
+        </stack>
     }
 }
 
 #[widget]
-pub fn hr(color: Color, context: Context) -> Fragment {
+pub fn hr(color: Color, context: &mut WidgetContext) -> Fragment {
     rsx! {
-        <rect fill_color=Some(color) >
-            <min_size width={Percent(1.0)} height={Points(2.0)} />
-        </rect>
+        <sized_box constraint={BoxConstraints::min_height(10.)}>
+            <rect fill=Some(color) />
+        </sized_box>
     }
 }
 
@@ -61,13 +64,14 @@ pub fn handle(
     color: Color,
     size: f32,
     graph_root: Key,
-    on_drag: impl Fn(Context, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
-    on_drag_end: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
-    on_drag_start: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
-    context: Context,
+    parent_node: Key,
+    on_drag: impl Fn(&CallbackContext, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
+    on_drag_end: impl Fn(&CallbackContext, Key, Key) + Clone + Sync + Send + 'static,
+    on_drag_start: impl Fn(&CallbackContext, Key, Key) + Clone + Sync + Send + 'static,
+    context: &mut WidgetContext,
 ) -> Fragment {
     let this_key = context.widget_local.key;
-    let on_drag = move |context: Context, pos: Vec2| {
+    let on_drag = move |context: &CallbackContext, pos: Vec2| {
         let size = context.measure_size(this_key).unwrap();
         let position = context.measure_offset(graph_root, this_key).unwrap();
         let start = position + (size / 2.);
@@ -76,108 +80,99 @@ pub fn handle(
     };
 
     rsx! {
-        <drag_detector on_drag=on_drag on_end=on_drag_end on_start=on_drag_start>
-            <rect
-                fill_color=Some(color)
-                border_radius=Points(size)
-                style={STYLE.width(Points(size)).height(Points(size))}
-            />
-        </drag_detector>
+        <sized_box constraint={BoxConstraints::tight(size, size)}>
+            <drag_detector
+                on_drag=on_drag
+                on_end=(move |context, key| {on_drag_end(context, key, parent_node)})
+                on_start=(move |context, key| {on_drag_start(context, key, parent_node)})
+            >
+                <rect
+                    fill=Some(color)
+                    border_radius=Paxel(size)
+                />
+            </drag_detector>
+        </sized_box>
     }
 }
 
 #[widget]
-pub fn connection(start: Vec2, end: Vec2, color: Color, context: Context) -> FragmentInner {
-    let path_gen = Arc::new(move |size: Size<f32>| {
+pub fn connection(start: Vec2, end: Vec2, color: Color, context: &mut WidgetContext) -> FragmentInner {
+    let path_gen = Arc::new(move |size: Vec2, fill_tess: &mut FillTessellator, stroke_tess: &mut StrokeTessellator, mut buffers_builder: ColoredBuffersBuilder| {
         let mut builder = Builder::new();
-        builder.begin(Point::new(0., 0.));
+        builder.begin(start.into());
         builder.cubic_bezier_to(
-            Point::new(size.width / 2.0, 0.0),
-            Point::new(size.width / 2.0, size.height),
-            Point::new(size.width, size.height),
+            Point::new((start.x + end.x) / 2.0, start.y),
+            Point::new((start.x + end.x) / 2.0, end.y),
+            end.into(),
         );
         builder.end(false);
-        builder.build()
+
+        stroke_tess.tessellate_path(&builder.build(), &StrokeOptions::default().with_line_width(5.0), &mut buffers_builder.with_color(color));
+
     });
     let mut stroke_options = StrokeOptions::default();
     stroke_options.line_width = 5.;
     stroke_options.end_cap = LineCap::Round;
     stroke_options.start_cap = LineCap::Round;
 
-    let render_objects = vec![(
-        KeyPart::RenderObject(0),
-        RenderObject::StrokePath { path_gen, color, stroke_options },
-    )];
-
-    let style = STYLE
-        .position_type(Absolute)
-        .top(Points(start.y))
-        .left(Points(start.x))
-        .width(Points(end.x - start.x))
-        .height(Points(end.y - start.y));
-
-    FragmentInner {
-        children: vec![],
-        layout_object: Some(LayoutObject { style, measure_function: None, render_objects }),
-    }
+    FragmentInner::Leaf { render_object: RenderObject::Path { path_gen }, layout: Box::new(Maximal) }
 }
 
-fn get_handle_offset(context: Context, key: Key) -> Result<Vec2, MeasureError> {
-    Ok(context.measure_offset(key.parent().parent().parent().parent(), key)?
-        + (context.measure_size(key)? / 2.))
+fn get_handle_offset(context: &CallbackContext, handle: Key, node: Key) -> Result<Vec2, MeasureError> {
+    Ok(context.measure_offset(node, handle)? + (context.measure_size(handle)? / 2.))
 }
 
-#[widget(style = Default::default())]
+#[widget]
 pub fn node(
     name: impl ToString + Clone + Send + Sync + 'static,
-    style: Style,
-    on_drag: impl Fn(Context, Vec2) + Clone + Sync + Send + 'static,
-    on_handle_drag: impl Fn(Context, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
-    on_handle_drag_start: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
-    on_handle_drag_end: impl Fn(Context, Key) + Clone + Sync + Send + 'static,
+    on_drag: impl Fn(&CallbackContext, Vec2) + Clone + Sync + Send + 'static,
+    on_handle_drag: impl Fn(&CallbackContext, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
+    on_handle_drag_start: impl Fn(&CallbackContext, Key, Key) + Clone + Sync + Send + 'static,
+    on_handle_drag_end: impl Fn(&CallbackContext, Key, Key) + Clone + Sync + Send + 'static,
     graph_root: Key,
-    context: Context,
+    context: &mut WidgetContext,
 ) -> Fragment {
+    let key = context.widget_local.key;
+
     let fill_color = Color::from_linear(Shade::lighten(&BG_DARK.into_linear(), 0.1));
     let stroke_color = Color::from_linear(Shade::lighten(&BG_LIGHT.into_linear(), 0.2));
 
-    let handle_container_style = STYLE
-        .position_type(Absolute)
-        .height_fill()
-        .flex_direction(Column)
-        .justify_content(SpaceEvenly);
-
     rsx! {
-        <rect
-            border_radius=Points(10.0)
-            fill_color=Some(fill_color)
-            stroke_color=Some(stroke_color)
-            style={style.flex_direction(Column).align_items(AlignItems::Stretch)}
-        >
-            <drag_detector on_drag=on_drag style={STYLE.flex_direction(Column).flex_grow(1.0)} >
-                <text style={STYLE.align_self(AlignSelf::Center)}>
-                    {name}
-                </text>
-               <hr color=stroke_color />
-            </drag_detector>
+        <sized_box constraint=BoxConstraints::tight(250., 150.)>
+            <stack size_using_first=true>
+                <column>
+                    <drag_detector on_drag=on_drag>
+                        <column main_axis_size=MainAxisSize::Min>
+                            <text>{name}</text>
+                            <hr color=stroke_color />
+                        </column>
+                    </drag_detector>
 
-            <min_size width={Points(250.0)} height={Points(150.0)} >
-                <container style={handle_container_style.left(Points(-10.))}>
-                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#ffff00)} />
-                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#00ffff)} />
-                </container>
-                <container style={handle_container_style.right(Points(-10.))}>
-                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root on_drag=on_handle_drag.clone() color={color!(#ff00ff)} />
-                </container>
-
-                /* TODO: add controls, etc in this area */
-            </min_size>
-        </rect>
+                    <flexible>
+                        <stack>
+                            <align alignment=Alignment::center_left()>
+                                <column>
+                                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={color!(#ffff00)} />
+                                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={color!(#00ffff)} />
+                                </column>
+                            </align>
+                            <align alignment=Alignment::center_right()>
+                                <column>
+                                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={color!(#ff00ff)} />
+                                </column>
+                            </align>
+                                /* TODO: add controls, etc */
+                        </stack>
+                    </flexible>
+                </column>
+                <rect border_radius=Paxel(10.0) fill=Some(fill_color) stroke=Some((stroke_color, 2.0)) />
+            </stack>
+        </sized_box>
     }
 }
 
 #[widget]
-pub fn node_graph(context: Context) -> Fragment {
+pub fn node_graph(context: &mut WidgetContext) -> Fragment {
     let this_key = context.widget_local.key;
 
     let nodes = context.listenable(vec![
@@ -191,21 +186,21 @@ pub fn node_graph(context: Context) -> Fragment {
     let current_connection = context.listenable(None);
     let settled_connections: Listenable<Vec<((usize, Vec2), (usize, Vec2), Color)>> =
         context.listenable(vec![]);
-    let on_handle_drag = move |context: Context, start: Vec2, end: Vec2, color: Color| {
+    let on_handle_drag = move |context: &CallbackContext, start: Vec2, end: Vec2, color: Color| {
         context.shout(current_connection, Some((start, end, color)))
     };
-    let drop_handle: Listenable<Option<(Key, usize)>> = context.listenable(None);
-    let drag_handle: Listenable<Option<(Key, usize)>> = context.listenable(None);
+    let drop_handle: Listenable<Option<(Key, Key, usize)>> = context.listenable(None);
+    let drag_handle: Listenable<Option<(Key, Key, usize)>> = context.listenable(None);
     context.after_frame(move |context| {
-        if context.listen(drop_handle).is_some() {
-            let start = context.listen(drag_handle).unwrap();
-            let end = context.listen(drop_handle).unwrap();
+        if context.spy(drop_handle).is_some() {
+            let start = context.spy(drag_handle).unwrap();
+            let end = context.spy(drop_handle).unwrap();
             let connection = (
-                (start.1, get_handle_offset(context.clone(), start.0).unwrap()),
-                (end.1, get_handle_offset(context.clone(), end.0).unwrap()),
+                (start.2, get_handle_offset(context.clone(), start.0, start.1).unwrap()),
+                (end.2, get_handle_offset(context.clone(), end.0, end.1).unwrap()),
                 color!(#ffffff),
             );
-            let mut connections = context.listen(settled_connections).clone();
+            let mut connections = context.spy(settled_connections).clone();
             if let Some(i) = connections.iter().position(|x| x == &connection) {
                 connections.remove(i);
             } else {
@@ -219,36 +214,36 @@ pub fn node_graph(context: Context) -> Fragment {
     });
 
     rsx! {
-        <container style=STYLE.fill()>
-            <fragment>
+        <stack>
+            <stack>
             {current_nodes.iter().cloned().enumerate().map(|(i, (name, position))| {
                 let current_nodes_clone = current_nodes_clone.clone();
 
                 rsx! {
-                     <node
-                        name=name
-                        key=&i
-                        graph_root=this_key
-                        style={STYLE.position_type(Absolute).top(Points(position.y)).left(Points(position.x))}
-                        on_drag={move |context: Context, pos: Vec2| {
-                            let mut new_positions = current_nodes_clone.clone();
-                            new_positions[i].1 = position + pos;
-                            context.shout(nodes, new_positions);
-                        }}
-                        on_handle_drag=on_handle_drag.clone()
-                        on_handle_drag_end={move |context: Context, key: Key| {
-                            if key != context.listen(drag_handle).unwrap().0 {
-                                context.shout(drop_handle, Some((key, i)));
-                            }
-                            context.shout(current_connection, None);
-                        }}
-                        on_handle_drag_start={move |context: Context, key: Key| {
-                            context.shout(drag_handle, Some((key, i)));
-                        }}
-                    />
+                    <positioned pos=AbsolutePosition::from_offset(position.into()) key=i>
+                         <node
+                            name=name
+                            graph_root=this_key
+                            on_drag={move |context: &CallbackContext, pos: Vec2| {
+                                let mut new_positions = current_nodes_clone.clone();
+                                new_positions[i].1 = position + pos;
+                                context.shout(nodes, new_positions);
+                            }}
+                            on_handle_drag=on_handle_drag.clone()
+                            on_handle_drag_end={move |context: &CallbackContext, handle: Key, node: Key| {
+                                if handle != context.spy(drag_handle).unwrap().0 {
+                                    context.shout(drop_handle, Some((handle, node, i)));
+                                }
+                                context.shout(current_connection, None);
+                            }}
+                            on_handle_drag_start={move |context: &CallbackContext, handle, node| {
+                                context.shout(drag_handle, Some((handle, node, i)));
+                            }}
+                        />
+                    </positioned>
                 }
             }).collect()}
-        </fragment>
+        </stack>
         <fragment>
             {
                 if let Some((start, end, color)) = context.listen(current_connection) {
@@ -256,7 +251,7 @@ pub fn node_graph(context: Context) -> Fragment {
                 } else { vec![] }
             }
         </fragment>
-        <fragment>
+        <stack>
             {
                 context.listen(settled_connections).iter().enumerate().map(|(i, (start, end, color))| {
                     let start = {
@@ -267,11 +262,11 @@ pub fn node_graph(context: Context) -> Fragment {
                         let (i, vec) = end;
                         context.listen(nodes)[*i].1 + *vec
                     };
-                    rsx! {<connection key=&i start=start end=end color=*color />}
+                    rsx! {<connection key=i  start=start end=end color=*color />}
                 }).collect()
             }
-        </fragment>
-    </container>
+        </stack>
+    </stack>
     }
 }
 
@@ -288,5 +283,3 @@ fn main() {
         },
     );
 }
-*/
-fn main() {}

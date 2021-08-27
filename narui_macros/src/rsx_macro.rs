@@ -61,7 +61,13 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             let name = attribute.name.as_ref().unwrap();
             let value = attribute.value.as_ref().unwrap().clone();
             if name.to_string() == "key" {
-                key = quote! { KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value }}
+                key = quote! {
+                    KeyPart::FragmentKey {
+                        widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst),
+                        location_id: #loc,
+                        key: #value as u16,
+                    }
+                }
             } else {
                 processed_attributes.push(quote! {#name=#value});
             }
