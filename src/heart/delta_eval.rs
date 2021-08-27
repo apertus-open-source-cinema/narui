@@ -238,10 +238,10 @@ impl EvaluatorInner {
 // the LayoutTree trait.
 #[derive(Default)]
 pub struct Evaluator {
-    args_tree: ArgsTree,
-    pub after_frame_callbacks: Vec<AfterFrameCallback>,
-    inner: EvaluatorInner,
     pub(crate) key_map: KeyMap,
+    pub(crate) after_frame_callbacks: Vec<AfterFrameCallback>,
+    args_tree: ArgsTree,
+    inner: EvaluatorInner,
 }
 
 impl Evaluator {
@@ -272,7 +272,7 @@ impl Evaluator {
         )
     }
 
-    pub fn callback_context<'layout>(&self, layout: &'layout Layouter) -> CallbackContext<'layout> {
-        CallbackContext { tree: self.inner.tree.clone(), layout }
+    pub fn callback_context<'layout, 'key_map>(&'key_map self, layout: &'layout Layouter) -> CallbackContext<'layout, 'key_map> {
+        CallbackContext { tree: self.inner.tree.clone(), layout, key_map: &self.key_map }
     }
 }

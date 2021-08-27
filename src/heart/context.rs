@@ -146,9 +146,10 @@ pub struct ThreadContext {
     pub(crate) tree: Arc<PatchedTree>,
 }
 
-pub struct CallbackContext<'a> {
+pub struct CallbackContext<'layouter, 'key_map> {
     pub(crate) tree: Arc<PatchedTree>,
-    pub(crate) layout: &'a Layouter,
+    pub key_map: &'key_map KeyMap,
+    pub(crate) layout: &'layouter Layouter,
 }
 
 // thread access
@@ -260,7 +261,7 @@ impl PatchedTree {
     }
 }
 
-pub type AfterFrameCallback = Box<dyn for<'a> Fn(&'a CallbackContext<'a>)>;
+pub type AfterFrameCallback = Box<dyn for<'a, 'b> Fn(&'a CallbackContext<'a, 'b>)>;
 
 #[derive(Clone, Debug, Default)]
 pub struct WidgetLocalContext {
