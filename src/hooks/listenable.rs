@@ -1,5 +1,3 @@
-use crate::heart::Key;
-
 use std::{marker::PhantomData, ops::Deref};
 
 pub trait ListenableCreate {
@@ -165,8 +163,8 @@ impl<'a> ListenableListen for WidgetContext<'a> {
     }
 }
 
-use crate::{CallbackContext, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext, HookKey};
-use std::any::Any;
+use crate::{CallbackContext, HookKey, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext};
+
 
 pub struct Listenable<T> {
     pub key: HookKey,

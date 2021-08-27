@@ -1534,6 +1534,7 @@ name = "rutter_layout"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "derivative",
  "hashbrown",
  "smallvec",
  "tinyset",

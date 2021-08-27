@@ -1,10 +1,10 @@
-use crate::{Key, KeyMap, KeyPart, Layouter};
+use crate::{Key, KeyMap, Layouter};
 use dashmap::DashMap;
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
-use std::{any::Any, fmt::Debug, ops::Deref, sync::Arc};
 use crate::heart::owning_ref::OwningRef;
+use std::{any::Any, fmt::Debug, ops::Deref, sync::Arc};
 
 #[derive(Debug, Default)]
 pub struct ArgsTree {
@@ -45,7 +45,7 @@ impl ArgsTree {
 
 #[derive(Debug, Default)]
 pub struct ExternalHookCount {
-    counts: HashMap<Key, u16>
+    counts: HashMap<Key, u16>,
 }
 
 impl ExternalHookCount {
@@ -77,11 +77,19 @@ impl<'a> WidgetContext<'a> {
         if self.local_hook {
             let counter = self.widget_local.hook_counter;
             self.widget_local.hook_counter += 1;
-            log::trace!("creating local hook: {:?}:{}", self.key_map.key_debug(self.widget_local.key), counter);
+            log::trace!(
+                "creating local hook: {:?}:{}",
+                self.key_map.key_debug(self.widget_local.key),
+                counter
+            );
             (self.widget_local.key, counter)
         } else {
             let key = self.external_hook_count.next(self.widget_local.key) | 0b1000_0000_0000_0000;
-            log::trace!("creating external hook: {:?}:{}", self.key_map.key_debug(self.widget_local.key), key);
+            log::trace!(
+                "creating external hook: {:?}:{}",
+                self.key_map.key_debug(self.widget_local.key),
+                key
+            );
             (self.widget_local.key, key)
         }
     }
@@ -103,7 +111,7 @@ impl<'a> WidgetContext<'a> {
             widget_loc: (0, 0),
             key_map,
             external_hook_count,
-            local_hook: true
+            local_hook: true,
         }
     }
 
@@ -123,7 +131,7 @@ impl<'a> WidgetContext<'a> {
             widget_loc: (0, 0),
             key_map,
             external_hook_count,
-            local_hook: true
+            local_hook: true,
         }
     }
 
@@ -190,7 +198,10 @@ pub struct PatchTreeEntry<'a> {
 }
 
 impl<'a> PatchTreeEntry<'a> {
-    fn new(patched_entry: Option<HashPatchRef<'a>>, unpatched_entry: Option<OwningRef<'a, HashRef<'a>, TreeItem>>) -> Self {
+    fn new(
+        patched_entry: Option<HashPatchRef<'a>>,
+        unpatched_entry: Option<OwningRef<'a, HashRef<'a>, TreeItem>>,
+    ) -> Self {
         Self { patched_entry, unpatched_entry }
     }
 }
@@ -213,27 +224,21 @@ impl PatchedTree {
     pub fn get_patched(&self, key: &HookKey) -> Option<PatchTreeEntry> {
         match self.patch.get(key) {
             None => self.get_unpatched(key),
-            Some(patch) => {
-                Some(PatchTreeEntry::new(Some(patch), None))
-            },
+            Some(patch) => Some(PatchTreeEntry::new(Some(patch), None)),
         }
     }
 
     pub fn get_unpatched<'a>(&'a self, key: &HookKey) -> Option<PatchTreeEntry<'a>> {
         let key = *key;
-        self.tree.get(&key.0).and_then(|entry| {
-                match entry.get(&key.1) {
-                    Some(_) => {
-                        Some(PatchTreeEntry::new(None, Some(
-                            unsafe {
-                                OwningRef::new_assert_stable_address(entry).map_assert_stable_address(|v| {
-                                    (*v).get(&key.1).unwrap()
-                                })
-                            }
-                        )))
-                    },
-                    None => None
-                }
+        self.tree.get(&key.0).and_then(|entry| match entry.get(&key.1) {
+            Some(_) => Some(PatchTreeEntry::new(
+                None,
+                Some(unsafe {
+                    OwningRef::new_assert_stable_address(entry)
+                        .map_assert_stable_address(|v| (*v).get(&key.1).unwrap())
+                }),
+            )),
+            None => None,
         })
     }
 
@@ -241,12 +246,10 @@ impl PatchedTree {
     pub fn set_unconditional(&self, key: HookKey, value: TreeItem) {
         self.tree.entry(key.0).or_default().insert(key.1, value);
     }
-    pub fn remove_widget(&self, key: &Key) {
-        self.tree.remove(key);
-    }
+    pub fn remove_widget(&self, key: &Key) { self.tree.remove(key); }
 
     // apply the patch to the tree starting a new frame
-    pub fn update_tree(&self, key_map: &mut KeyMap) -> impl Iterator<Item=HookKey> {
+    pub fn update_tree(&self, _key_map: &mut KeyMap) -> impl Iterator<Item = HookKey> {
         let mut keys = vec![];
         for kv in self.patch.iter() {
             keys.push(*kv.key());

@@ -45,9 +45,9 @@ use vulkano_win::VkSurfaceBuild;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
+    platform::run_return::EventLoopExtRunReturn,
     window::{Window, WindowBuilder},
 };
-use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut event_loop: EventLoop<()> = EventLoop::new();
@@ -227,7 +227,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                     }
                 }
 
-                let after_frame_callbacks = std::mem::replace(&mut evaluator.after_frame_callbacks, Vec::new());
+                let after_frame_callbacks = std::mem::take(&mut evaluator.after_frame_callbacks);
                 let context = evaluator.callback_context(&layouter);
                 for callback in after_frame_callbacks {
                     callback(&context);

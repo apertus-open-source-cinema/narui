@@ -1,26 +1,18 @@
 use super::VulkanContext;
 use crate::heart::*;
-use hashbrown::HashMap;
+
 use lyon::{
-    algorithms::path::{geom::rect, Winding},
     lyon_tessellation::{
         BuffersBuilder,
-        FillOptions,
         FillTessellator,
         FillVertex,
         StrokeVertexConstructor,
         VertexBuffers,
     },
-    tessellation::{
-        path::{builder::PathBuilder, path::Builder, Path},
-        FillVertexConstructor,
-        StrokeOptions,
-        StrokeTessellator,
-        StrokeVertex,
-    },
+    tessellation::{FillVertexConstructor, StrokeOptions, StrokeTessellator, StrokeVertex},
 };
 use palette::Pixel;
-use std::{mem, mem::size_of, ops::Deref, sync::Arc};
+use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
@@ -77,7 +69,7 @@ pub struct LyonRendererState(VertexBuffers<Vertex, u16>);
 
 pub struct ColoredBuffersBuilder<'a> {
     vertex_buffers: &'a mut VertexBuffers<Vertex, u16>,
-    pos: Vec2
+    pos: Vec2,
 }
 
 pub struct PositionedColoredConstructor(Vec2, [f32; 4]);
@@ -85,24 +77,26 @@ pub struct PositionedColoredConstructor(Vec2, [f32; 4]);
 impl FillVertexConstructor<Vertex> for PositionedColoredConstructor {
     fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
         let pos: Vec2 = vertex.position().into();
-        Vertex {
-            position: (pos + self.0).into(), color: self.1
-        }
+        Vertex { position: (pos + self.0).into(), color: self.1 }
     }
 }
 
 impl StrokeVertexConstructor<Vertex> for PositionedColoredConstructor {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
         let pos: Vec2 = vertex.position().into();
-        Vertex {
-            position: (pos + self.0).into(), color: self.1
-        }
+        Vertex { position: (pos + self.0).into(), color: self.1 }
     }
 }
 
 impl<'a> ColoredBuffersBuilder<'a> {
-    pub fn with_color(&mut self, color: Color) -> BuffersBuilder<Vertex, u16, PositionedColoredConstructor> {
-        BuffersBuilder::new(&mut self.vertex_buffers, PositionedColoredConstructor(self.pos, color.into_raw::<[f32; 4]>().into()))
+    pub fn with_color(
+        &mut self,
+        color: Color,
+    ) -> BuffersBuilder<Vertex, u16, PositionedColoredConstructor> {
+        BuffersBuilder::new(
+            &mut self.vertex_buffers,
+            PositionedColoredConstructor(self.pos, color.into_raw::<[f32; 4]>()),
+        )
     }
 }
 
@@ -140,9 +134,7 @@ impl LyonRenderer {
             stroke_tessellator: StrokeTessellator::new(),
         }
     }
-    pub fn begin(&self) -> LyonRendererState {
-        Default::default()
-    }
+    pub fn begin(&self) -> LyonRendererState { Default::default() }
     pub fn render<'a>(
         &mut self,
         state: &mut LyonRendererState,
@@ -152,26 +144,24 @@ impl LyonRenderer {
         match render_object.render_object {
             RenderObject::Path { path_gen } => {
                 (path_gen)(
-                    render_object.rect.size.into(),
+                    render_object.rect.size,
                     &mut self.fill_tessellator,
                     &mut self.stroke_tessellator,
-                    ColoredBuffersBuilder {
-                        vertex_buffers,
-                        pos: render_object.rect.pos
-                    }
+                    ColoredBuffersBuilder { vertex_buffers, pos: render_object.rect.pos },
                 );
             }
             RenderObject::DebugRect => {
                 let r = render_object.rect;
-                self.stroke_tessellator.tessellate_rectangle(
-                    &lyon::math::rect(0.0, 0.0,r.size.x, r.size.y),
-                    &StrokeOptions::default().with_line_width(2.0),
-                    &mut ColoredBuffersBuilder {
-                        vertex_buffers,
-                        pos: render_object.rect.pos
-                    }.with_color(Color::new(1.0, 0.0, 0.0, 0.25)));
+                self.stroke_tessellator
+                    .tessellate_rectangle(
+                        &lyon::math::rect(0.0, 0.0, r.size.x, r.size.y),
+                        &StrokeOptions::default().with_line_width(2.0),
+                        &mut ColoredBuffersBuilder { vertex_buffers, pos: render_object.rect.pos }
+                            .with_color(Color::new(1.0, 0.0, 0.0, 0.25)),
+                    )
+                    .unwrap();
             }
-            _ => {},
+            _ => {}
         };
     }
     pub fn finish(

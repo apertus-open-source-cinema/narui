@@ -1,6 +1,6 @@
 use crate::{Key, WidgetContext};
-use std::any::Any;
-use std::marker::PhantomData;
+use derivative::Derivative;
+use std::{any::Any, marker::PhantomData};
 
 pub trait ContextArgs {
     fn listen_args(&self, key: &Key) -> &Vec<Box<dyn Any>>;
@@ -12,14 +12,17 @@ impl<'a> ContextArgs for WidgetContext<'a> {
         self.args_tree.get(key).unwrap_or_else(|| {
             panic!(
                 "args key not present; this is likely an internal narui bug :(, {:?}, {}",
-                &self.key_map.key_debug(*key), self.args_tree.debug_print(self.key_map)
+                &self.key_map.key_debug(*key),
+                self.args_tree.debug_print(self.key_map)
             )
         })
     }
 }
 
+#[derive(Debug, Derivative)]
+#[derivative(Default(bound = "", new = "true"))]
 pub struct ArgRef<T> {
-    marker: PhantomData<T>
+    marker: PhantomData<T>,
 }
 
 impl<T> Clone for ArgRef<T> {
@@ -28,15 +31,9 @@ impl<T> Clone for ArgRef<T> {
 impl<T> Copy for ArgRef<T> {}
 
 impl<T> ArgRef<T> {
-    pub fn new() -> Self {
-        Self {
-            marker: PhantomData
-        }
-    }
-
     pub unsafe fn parse<'a>(&self, any: &'a dyn Any) -> &'a T
-        where
-            T: 'static,
+    where
+        T: 'static,
     {
         any.downcast_ref().expect("wrong type for argument")
     }

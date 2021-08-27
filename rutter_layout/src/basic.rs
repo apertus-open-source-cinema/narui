@@ -1,4 +1,5 @@
 use crate::{BoxConstraints, Layout, LayoutableChildren, Offset, Size, TraitComparable};
+use derivative::Derivative;
 use std::{
     any::Any,
     fmt::{Debug, Formatter},
@@ -456,16 +457,17 @@ pub enum StackFit {
     Loose,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Derivative)]
+#[derivative(Default(new = "true"))]
 pub struct Stack {
+    #[derivative(Default(value = "StackFit::Loose"))]
     pub fit: StackFit,
+    #[derivative(Default(value = "Alignment::center()"))]
     pub alignment: Alignment,
     pub size_using_first: bool,
 }
 
 impl Stack {
-    pub fn new() -> Self { Self::from(StackFit::Loose, Alignment::center(), false) }
-
     pub fn from(fit: StackFit, alignment: Alignment, size_using_first: bool) -> Self {
         Self { fit, alignment, size_using_first }
     }

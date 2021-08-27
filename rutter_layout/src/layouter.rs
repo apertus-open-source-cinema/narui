@@ -4,6 +4,7 @@ use crate::{
     Offset,
     Size,
 };
+use derivative::Derivative;
 use std::{
     any::Any,
     cell::Cell,
@@ -50,18 +51,14 @@ pub trait Layout: std::fmt::Debug + TraitComparable {
 pub struct LayoutItemWithObj<'a, T> {
     pub size: Size,
     pub pos: Offset,
-    pub obj: &'a T
+    pub obj: &'a T,
 }
 
 impl<'a, T> LayoutItemWithObj<'a, T> {
     fn new<Key, H: BuildHasher>(layouter: &'a Layouter<Key, T, H>, idx: Idx) -> Self {
         let node = &layouter.nodes[idx.get()];
 
-        Self {
-            size: node.size.get().unwrap(),
-            pos: node.abs_pos.get().unwrap(),
-            obj: &node.obj
-        }
+        Self { size: node.size.get().unwrap(), pos: node.abs_pos.get().unwrap(), obj: &node.obj }
     }
 }
 
@@ -123,14 +120,11 @@ impl<'a, Key: Hash + Eq + Clone, T, H: BuildHasher> Iterator for LayoutIter<'a, 
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Derivative)]
+#[derivative(Default(bound = "Hasher: Default", new = "true"))]
 pub struct Layouter<Key, T, Hasher = DefaultHasher> {
     key_to_idx: BiMap<Key, Idx, Hasher>,
     nodes: VecWithHoles<PositionedNode<T>>,
-}
-
-impl<Key, T, H: Default> Layouter<Key, T, H> {
-    pub fn new() -> Self { Self { key_to_idx: BiMap::new(), nodes: VecWithHoles::new() } }
 }
 
 impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H: BuildHasher>
@@ -179,13 +173,13 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H:
 
         if let Some(first_child) = children.next() {
             len = 1;
-            let new_child_idx = *self.key_to_idx.get_left(&first_child).unwrap();
+            let new_child_idx = *self.key_to_idx.get_left(first_child).unwrap();
             self.nodes[parent_idx].child = Some(new_child_idx);
             let mut last_child_idx = new_child_idx;
 
             for new_child in children {
                 len += 1;
-                let new_child_idx = *self.key_to_idx.get_left(&new_child).unwrap();
+                let new_child_idx = *self.key_to_idx.get_left(new_child).unwrap();
 
                 let last = &mut self.nodes[last_child_idx];
                 any_child_dirty = any_child_dirty || last.any_dirty_children.get();
@@ -234,12 +228,12 @@ impl<Key: Hash + Eq + Clone, T: Deref<Target = dyn Layout> + std::fmt::Debug, H:
 
     pub fn iter(&self, top: &Key) -> impl Iterator<Item = LayoutItem<Key>> {
         let idx = self.key_to_idx.get_left(top).unwrap();
-        LayoutIter::new(self, *idx).map(move |idx| LayoutItem::new(&self, idx))
+        LayoutIter::new(self, *idx).map(move |idx| LayoutItem::new(self, idx))
     }
 
     pub fn iter_with_obj(&self, top: &Key) -> impl Iterator<Item = LayoutItemWithObj<T>> {
         let idx = self.key_to_idx.get_left(top).unwrap();
-        LayoutIter::new(self, *idx).map(move |idx| LayoutItemWithObj::new(&self, idx))
+        LayoutIter::new(self, *idx).map(move |idx| LayoutItemWithObj::new(self, idx))
     }
 
     fn propagate_abs_pos(&self, root: Idx, offset: Offset, dirty: bool) {
