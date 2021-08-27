@@ -34,7 +34,9 @@ impl Flexible {
 
 impl Layout for Flexible {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
-        assert!(children.len() <= 1);
+        if children.len() > 1 {
+            panic!("Flexible marker can have zero or one child but has {}", children.len())
+        }
         if let Some(child) = children.into_iter().last() {
             let size = child.layout(constraint);
             child.set_pos(Offset::zero());
