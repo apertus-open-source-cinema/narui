@@ -5,6 +5,7 @@ use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
 use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::fmt::Debug;
 
 // EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally
 // contains the dependencies of Node for allowing partial rebuild.
@@ -109,7 +110,7 @@ impl EvaluatorInner {
             children,
         }));
 
-        Self::check_unique_keys_children(children_keys.iter());
+        Self::check_unique_keys_children(context.key_map.key_debug(fragment.key),children_keys.iter());
 
         layout_tree.set_node(&fragment.key, layout, render_object);
         layout_tree.set_children(&fragment.key, &children_keys[..]);
@@ -183,7 +184,7 @@ impl EvaluatorInner {
         }
 
 
-        Self::check_unique_keys_children(children_keys.iter());
+        Self::check_unique_keys_children(context.key_map.key_debug(frag.key),children_keys.iter());
         layout_tree.set_node(&frag.key, layout, render_object);
 
 
@@ -220,12 +221,13 @@ impl EvaluatorInner {
         key_map.remove(&frag.key);
     }
 
-    fn check_unique_keys_children<'k>(children_keys: impl Iterator<Item = &'k Key>) {
+    fn check_unique_keys_children<'k>(parent_debug: impl Debug, children_keys: impl Iterator<Item = &'k Key>) {
         let mut keys = HashSet::new();
         for key in children_keys {
             if keys.contains(key) {
                 panic!(
-                    "elements need to have unique keys but do not. consider passing an explicit key."
+                    "elements need to have unique keys but children of {:?} do not. consider passing an explicit key.",
+                    parent_debug,
                 );
             } else {
                 keys.insert(*key);
