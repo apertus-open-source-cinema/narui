@@ -50,7 +50,7 @@ macro_rules! shout_args {
         );
 
         let idx = match $context.args_tree.get_idx($key) {
-            None => $context.args_tree.set($key, vec![$(Box::new($values),)*]),
+            None => $context.args_tree.add($key, vec![$(Box::new($values),)*]),
             Some(old_idx) => {
                 let old_values = $context.args_tree.get_unconditional(old_idx);
                 let mut changed = false;

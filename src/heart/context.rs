@@ -30,6 +30,12 @@ impl ArgsTree {
             }
         }
     }
+    pub fn add(&mut self, key: Key, values: Vec<Box<dyn Any>>) -> Idx {
+        self.dirty.insert(key);
+        let idx = self.data.add(values);
+        self.map.insert(key, idx);
+        idx
+    }
 
     pub fn set_unconditional(&mut self, key: Key, idx: Idx, values: Vec<Box<dyn Any>>) -> Idx {
         self.dirty.insert(key);
