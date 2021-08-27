@@ -56,7 +56,7 @@ pub fn rect(
                 &border_radii,
                 Winding::Positive,
             );
-            stroke_tess.tessellate_path(&builder.build(), &Default::default(), &mut buffers_builder.with_color(stroke));
+            stroke_tess.tessellate_path(&builder.build(), &StrokeOptions::default().with_line_width(border_width), &mut buffers_builder.with_color(stroke));
         }
     });
 

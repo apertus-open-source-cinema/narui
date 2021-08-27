@@ -15,7 +15,7 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
             {(0..100).map(|x| rsx!{
                 <column main_axis_alignment=MainAxisAlignment::SpaceEvenly key=x>
                     {(0..100).map(|y| rsx! {
-                        <sized_box constraint=BoxConstraints::tight_for(rutter_layout::Size::new(10.0 + ((frame_count + y) % 100) as f32 / 20.0, 10.0 + ((frame_count + x) % 100) as f32 / 20.0)) key=y>
+                        <sized_box constraint=BoxConstraints::tight(10.0, 10.0) key=y>
                             <rect
                                 fill=Some({
                                     let val = context.listen(frame_counter);
