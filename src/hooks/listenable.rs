@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, ops::Deref};
 
 pub trait ListenableCreate {
-    fn listenable_key<T: Send + Sync + 'static>(&self, key: HookKey, initial: T) -> Listenable<T>;
+    fn listenable_with<T: Send + Sync + 'static>(&mut self, gen: impl FnOnce() -> T) -> Listenable<T>;
     fn listenable<T: Send + Sync + 'static>(&mut self, initial: T) -> Listenable<T>;
 }
 
@@ -26,33 +26,22 @@ pub trait ListenableSpy {
 }
 
 impl<'a> ListenableCreate for WidgetContext<'a> {
-    fn listenable_key<T: Send + Sync + 'static>(&self, key: HookKey, initial: T) -> Listenable<T> {
-        let listenable = Listenable { key, phantom_data: Default::default() };
-        if self.tree.get_unpatched(&listenable.key).is_none() {
-            self.tree.shout_non_signalling(listenable, initial)
-        };
-        listenable
+    fn listenable_with<T: Send + Sync + 'static>(&mut self, gen: impl FnOnce() -> T) -> Listenable<T> {
+        let key = self.key_for_hook();
+        let key = self.tree.initialize_with(key, || Box::new(gen()));
+        Listenable { key, phantom_data: Default::default() }
     }
 
     fn listenable<T: Send + Sync + 'static>(&mut self, initial: T) -> Listenable<T> {
         let key = self.key_for_hook();
-        self.listenable_key(key, initial)
+        let key = self.tree.initialize_with(key, || Box::new(initial));
+        Listenable { key, phantom_data: Default::default() }
     }
 }
 
 impl ListenableShout for PatchedTree {
     fn shout<T: Send + Sync + 'static + PartialEq>(&self, listenable: Listenable<T>, new_value: T) {
-        match self.get_unpatched(&listenable.key) {
-            None => self.set(listenable.key, Box::new(new_value)),
-            Some(old_value) => {
-                // TODO(robin): is this needed for anything other than debugging?
-                if (&**old_value).downcast_ref::<T>().expect("old value has wrong type")
-                    != &new_value
-                {
-                    self.set(listenable.key, Box::new(new_value))
-                }
-            }
-        }
+        self.set(listenable.key, Box::new(new_value));
     }
 
     fn shout_non_signalling<T: Send + Sync + 'static>(
@@ -60,7 +49,7 @@ impl ListenableShout for PatchedTree {
         listenable: Listenable<T>,
         new_value: T,
     ) {
-        self.set_unconditional(listenable.key, Box::new(new_value))
+        self.set_unconditional(listenable.key.1, Box::new(new_value))
     }
 }
 
@@ -97,8 +86,7 @@ impl ListenableSpy for PatchedTree {
     where
         T: Clone,
     {
-        self.get_patched(&listenable.key)
-            .expect("cant find key of listenable in Context")
+        self.get_patched(listenable.key)
             .downcast_ref::<T>()
             .expect("Listenable has wrong type")
             .clone()
@@ -106,7 +94,7 @@ impl ListenableSpy for PatchedTree {
 
     fn spy_ref<T: Send + Sync>(&self, listenable: Listenable<T>) -> ListenableGuard<T> {
         ListenableGuard::new(
-            self.get_patched(&listenable.key).expect("cant find key of ListenableGuard in Context"),
+            self.get_patched(listenable.key),
         )
     }
 }
@@ -142,10 +130,9 @@ impl<'a> ListenableListen for WidgetContext<'a> {
     where
         T: Clone,
     {
-        self.widget_local.mark_used(listenable.key);
+        self.widget_local.mark_used(listenable.key.0);
         self.tree
-            .get_unpatched(&listenable.key)
-            .expect("cant find key of listenable in Context")
+            .get_unpatched(listenable.key)
             .downcast_ref::<T>()
             .expect("Listenable has wrong type")
             .clone()
@@ -153,27 +140,21 @@ impl<'a> ListenableListen for WidgetContext<'a> {
 
     fn listen_ref<T: Send + Sync>(&mut self, listenable: Listenable<T>) -> ListenableGuard<T> {
         // TODO(robin): why was this previously not marked as used?
-        self.widget_local.mark_used(listenable.key);
+        self.widget_local.mark_used(listenable.key.0);
 
         ListenableGuard::new(
             self.tree
-                .get_unpatched(&listenable.key)
-                .expect("cant find key of ListenableGuard in Context"),
+                .get_unpatched(listenable.key)
         )
     }
 }
 
-use crate::{CallbackContext, HookKey, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext};
+use crate::{CallbackContext, HookKey, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext, HookRef};
 
 
 pub struct Listenable<T> {
-    pub key: HookKey,
+    pub key: HookRef,
     phantom_data: PhantomData<T>,
-}
-impl<T> Listenable<T> {
-    pub unsafe fn uninitialized(key: HookKey) -> Self {
-        Listenable { key, phantom_data: Default::default() }
-    }
 }
 impl<T> Clone for Listenable<T> {
     fn clone(&self) -> Self { Self { key: self.key, phantom_data: Default::default() } }

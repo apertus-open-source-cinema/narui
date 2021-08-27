@@ -1,28 +1,22 @@
-use crate::{hooks::*, HookKey, ListenableGuard, PatchedTree, WidgetContext};
+use crate::{hooks::*, HookKey, ListenableGuard, PatchedTree, WidgetContext, HookRef};
 use std::{marker::PhantomData, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct EffectHandle<T> {
-    key: HookKey,
+    key: HookRef,
     tree: Arc<PatchedTree>,
     phantom: PhantomData<T>,
 }
 impl<T> EffectHandle<T> {
     pub fn read(&self) -> ListenableGuard<T> {
         ListenableGuard {
-            entry: self.tree.get_unpatched(&self.key).unwrap(),
+            entry: self.tree.get_unpatched(self.key),
             phantom: Default::default(),
         }
     }
 }
 
 pub trait ContextEffect {
-    fn effect_key<T: Send + Sync + 'static>(
-        &mut self,
-        key: HookKey,
-        callback: impl Fn() -> T,
-        deps: impl PartialEq + Send + Sync + 'static,
-    ) -> EffectHandle<T>;
     fn effect<T: Send + Sync + 'static>(
         &mut self,
         callback: impl Fn() -> T,
@@ -31,30 +25,22 @@ pub trait ContextEffect {
 }
 
 impl<'a> ContextEffect for WidgetContext<'a> {
-    fn effect_key<T: Send + Sync + 'static>(
-        &mut self,
-        key: HookKey,
-        callback: impl Fn() -> T,
-        deps: impl PartialEq + Send + Sync + 'static,
-    ) -> EffectHandle<T> {
-        let deps_key = self.key_for_hook();
-        let deps_listenable = self.listenable_key(deps_key, None);
-        let deps = Some(deps);
-        if *self.listen_ref(deps_listenable) != deps {
-            self.tree.set_unconditional(deps_listenable.key, Box::new(deps));
-            let handle = callback();
-            self.tree.set_unconditional(key, Box::new(handle))
-        }
-        EffectHandle { key, tree: self.tree.clone(), phantom: Default::default() }
-    }
-
     fn effect<T: Send + Sync + 'static>(
         &mut self,
         callback: impl Fn() -> T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T> {
-        let key = self.key_for_hook();
-        self.effect_key(key, callback, deps)
+        let deps_listenable = self.listenable(None);
+        let handle_listenable = self.listenable_with(|| {
+            callback()
+        });
+        let deps = Some(deps);
+        if *self.listen_ref(deps_listenable) != deps {
+            self.tree.set_unconditional(deps_listenable.key.1, Box::new(deps));
+            let handle = callback();
+            self.tree.set_unconditional(handle_listenable.key.1, Box::new(handle))
+        }
+        EffectHandle { key: handle_listenable.key, tree: self.tree.clone(), phantom: Default::default() }
     }
 }
 

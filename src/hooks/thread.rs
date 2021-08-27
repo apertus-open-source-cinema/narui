@@ -31,14 +31,6 @@ impl<T> Drop for ThreadHandle<T> {
 }
 
 pub trait ContextThread {
-    fn thread_key<T: Send + Sync + Clone + 'static>(
-        &mut self,
-        key: HookKey,
-        callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
-        stop_value: T,
-        deps: impl PartialEq + Send + Sync + 'static,
-    ) -> EffectHandle<ThreadHandle<T>>;
-
     fn thread<T: Send + Sync + Clone + 'static>(
         &mut self,
         callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
@@ -48,17 +40,15 @@ pub trait ContextThread {
 }
 
 impl<'a> ContextThread for WidgetContext<'a> {
-    fn thread_key<T: Send + Sync + Clone + 'static>(
+    fn thread<T: Send + Sync + Clone + 'static>(
         &mut self,
-        key: HookKey,
         callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
         stop_value: T,
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<ThreadHandle<T>> {
         let thread_context = self.thread_context();
         let callback = Arc::new(callback);
-        self.effect_key(
-            key,
+        self.effect(
             move || {
                 let thread_context = thread_context.clone();
                 let cloned_callback = callback.clone();
@@ -75,15 +65,5 @@ impl<'a> ContextThread for WidgetContext<'a> {
             },
             deps,
         )
-    }
-
-    fn thread<T: Send + Sync + Clone + 'static>(
-        &mut self,
-        callback: impl Fn(ThreadContext, Receiver<T>) + Sync + Send + 'static,
-        stop_value: T,
-        deps: impl PartialEq + Send + Sync + 'static,
-    ) -> EffectHandle<ThreadHandle<T>> {
-        let key = self.key_for_hook();
-        self.thread_key(key, callback, stop_value, deps)
     }
 }
