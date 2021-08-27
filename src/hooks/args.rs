@@ -1,7 +1,7 @@
 use crate::{Key, WidgetContext};
 use derivative::Derivative;
-use std::{any::Any, marker::PhantomData};
 pub use freelist::Idx;
+use std::{any::Any, marker::PhantomData};
 
 pub trait ContextArgs {
     fn listen_args(&self, key: &Idx) -> &Vec<Box<dyn Any>>;

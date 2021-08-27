@@ -4,10 +4,10 @@ use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
 use crate::heart::owning_ref::OwningRef;
-use std::{any::Any, cell::RefCell, fmt::Debug, ops::Deref, rc::Rc, sync::Arc};
-use rutter_layout::Idx;
 use freelist::FreeList;
-use parking_lot::{RwLock, RwLockReadGuard, MappedRwLockReadGuard};
+use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
+use rutter_layout::Idx;
+use std::{any::Any, cell::RefCell, fmt::Debug, ops::Deref, rc::Rc, sync::Arc};
 
 #[derive(Debug, Default)]
 pub struct ArgsTree {
@@ -23,7 +23,7 @@ impl ArgsTree {
             Some(idx) => {
                 self.data[*idx] = values;
                 *idx
-            },
+            }
             None => {
                 let idx = self.data.add(values);
                 self.map.insert(key, idx);
@@ -38,13 +38,9 @@ impl ArgsTree {
         idx
     }
 
-    pub fn get_idx(&self, key: Key) -> Option<Idx> {
-        self.map.get(&key).cloned()
-    }
+    pub fn get_idx(&self, key: Key) -> Option<Idx> { self.map.get(&key).cloned() }
 
-    pub fn get_unconditional(&self, idx: Idx) -> &Vec<Box<dyn Any>> {
-        &self.data[idx]
-    }
+    pub fn get_unconditional(&self, idx: Idx) -> &Vec<Box<dyn Any>> { &self.data[idx] }
 
     pub fn remove(&mut self, key_map: &mut KeyMap, root: Key) {
         log::trace!("removing {:?}", key_map.key_debug(root));
@@ -206,7 +202,7 @@ pub type TreeItem = Box<dyn Any + Send + Sync>;
 #[derive(Debug)]
 struct Patch<T> {
     key: HookKey,
-    value: T
+    value: T,
 }
 
 // TODO(robin): investigate evmap instead
@@ -232,10 +228,7 @@ pub struct PatchTreeEntry<'a> {
 }
 
 impl<'a> PatchTreeEntry<'a> {
-    fn new(
-        patched_entry: Option<HashPatchRef<'a>>,
-        unpatched_entry: Option<DataRef<'a>>,
-    ) -> Self {
+    fn new(patched_entry: Option<HashPatchRef<'a>>, unpatched_entry: Option<DataRef<'a>>) -> Self {
         Self { patched_entry, unpatched_entry }
     }
 }
@@ -263,35 +256,40 @@ impl PatchedTree {
     }
 
     pub fn get_unpatched(&self, idx: HookRef) -> PatchTreeEntry {
-        PatchTreeEntry::new(
-            None,
-            Some(
-                RwLockReadGuard::map(self.data.read(), |v| {
-                    &v[idx.1]
-                })
-            )
-        )
+        PatchTreeEntry::new(None, Some(RwLockReadGuard::map(self.data.read(), |v| &v[idx.1])))
     }
 
     pub fn initialize(&self, key: HookKey, value: TreeItem) -> HookRef {
-        (key, *self.key_to_idx.write().entry(key.0).or_default().entry(key.1).or_insert_with(|| {
-            self.data.write().add(value)
-        }))
+        (
+            key,
+            *self
+                .key_to_idx
+                .write()
+                .entry(key.0)
+                .or_default()
+                .entry(key.1)
+                .or_insert_with(|| self.data.write().add(value)),
+        )
     }
 
     pub fn initialize_with(&self, key: HookKey, gen: impl FnOnce() -> TreeItem) -> HookRef {
-        (key, *self.key_to_idx.write().entry(key.0).or_default().entry(key.1).or_insert_with(|| {
-            self.data.write().add(gen())
-        }))
+        (
+            key,
+            *self
+                .key_to_idx
+                .write()
+                .entry(key.0)
+                .or_default()
+                .entry(key.1)
+                .or_insert_with(|| self.data.write().add(gen())),
+        )
     }
 
     pub fn set(&self, idx: HookRef, value: TreeItem) {
         self.patch.insert(idx.1, Patch { value, key: idx.0 });
     }
 
-    pub fn set_unconditional(&self, idx: Idx, value: TreeItem) {
-        self.data.write()[idx] = value;
-    }
+    pub fn set_unconditional(&self, idx: Idx, value: TreeItem) { self.data.write()[idx] = value; }
 
     pub fn remove_widget(&self, key: &Key) {
         if let Some(indices) = self.key_to_idx.write().remove(key) {

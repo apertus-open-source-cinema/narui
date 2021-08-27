@@ -32,6 +32,8 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
 
         let args_listenable_ident =
             Ident::new(&format!("__{}_{}_{}_args", name_str, line, column), Span::call_site());
+        let widget_key_ident =
+            Ident::new(&format!("__{}_{}_{}_key", name_str, line, column), Span::call_site());
         let loc = quote! {
             {
                 let (widget_line, widget_column) = context.widget_loc;
@@ -84,9 +86,10 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         };
 
         let beginning = quote! {
+            let #widget_key_ident = #key;
             let #args_listenable_ident = {
                 let before_key = context.widget_local.key;
-                context.widget_local.key = context.key_map.key_with(context.widget_local.key, #key);
+                context.widget_local.key = context.key_map.key_with(context.widget_local.key, #widget_key_ident);
 
                 #beginning
                 let to_return = #constructor_path!(
@@ -102,7 +105,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         };
         let inplace = quote! {
             Fragment {
-                key: context.key_map.key_with(context.widget_local.key, #key),
+                key: context.key_map.key_with(context.widget_local.key, #widget_key_ident),
                 gen: std::rc::Rc::new(move |context: &mut WidgetContext| {
                     #constructor_path!(@construct listenable=#args_listenable_ident, context=context)
                 })
