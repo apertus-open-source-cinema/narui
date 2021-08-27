@@ -1,6 +1,7 @@
 use crate::heart::{RenderObject::Input, *};
 use hashbrown::{HashMap, HashSet};
 
+use rutter_layout::Idx;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
 #[derive(Default)]
@@ -49,7 +50,7 @@ impl InputHandler {
     }
     pub fn handle_input(
         &mut self,
-        input_render_object: &HashSet<Key, ahash::RandomState>,
+        input_render_object: &HashSet<Idx, ahash::RandomState>,
         layouter: &Layouter,
         context: CallbackContext,
     ) -> bool {
@@ -59,7 +60,7 @@ impl InputHandler {
 
         let mut updated = false;
         for key in input_render_object {
-            let (rect, obj) = layouter.get_positioned(key).unwrap();
+            let (rect, obj) = layouter.get_positioned(*key);
             if let Some(Input { key, on_hover, on_move, on_click }) = obj {
                 let input_state = self.input_states.entry(*key).or_insert(Default::default());
                 if self.cursor_moved {

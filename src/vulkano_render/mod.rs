@@ -11,6 +11,7 @@ use hashbrown::HashSet;
 use input_handler::InputHandler;
 use lyon_render::LyonRenderer;
 use palette::Pixel;
+use rutter_layout::Idx;
 use std::{
     collections::VecDeque,
     sync::Arc,
@@ -142,7 +143,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut recreate_swapchain = false;
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
     let mut has_update = true;
-    let mut input_render_objects: HashSet<Key, ahash::RandomState> = HashSet::default();
+    let mut input_render_objects: HashSet<Idx, ahash::RandomState> = HashSet::default();
 
     event_loop.run_return(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 70));
@@ -188,20 +189,20 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                     .begin_render_pass(framebuffer, SubpassContents::Inline, clear_values)
                     .unwrap();
 
-                layouter.do_layout(dimensions.into());
+                layouter.do_layout(evaluator.top_node, dimensions.into());
 
                 input_render_objects.clear();
                 let mut lyon_state = lyon_renderer.begin();
-                for obj in layouter.iter_layouted() {
+                for (idx, obj) in layouter.iter_layouted(evaluator.top_node) {
                     raw_render.render(&mut builder, &dynamic_state, &dimensions, &obj);
                     lyon_renderer.render(&mut lyon_state, &obj);
                     text_render.render(&obj);
                     if let PositionedRenderObject {
-                        render_object: RenderObject::Input { key, .. },
+                        render_object: RenderObject::Input { .. },
                         ..
                     } = &obj
                     {
-                        input_render_objects.insert(*key);
+                        input_render_objects.insert(idx);
                     }
                 }
                 lyon_renderer.finish(lyon_state, &mut builder, &dynamic_state, &dimensions);

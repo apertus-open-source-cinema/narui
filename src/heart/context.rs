@@ -1,10 +1,10 @@
-use crate::{Key, KeyMap, Layouter};
+use crate::{EvaluatedFragment, Key, KeyMap, Layouter};
 use dashmap::DashMap;
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
 use crate::heart::owning_ref::OwningRef;
-use std::{any::Any, fmt::Debug, ops::Deref, sync::Arc};
+use std::{any::Any, cell::RefCell, fmt::Debug, ops::Deref, rc::Rc, sync::Arc};
 
 #[derive(Debug, Default)]
 pub struct ArgsTree {
@@ -155,10 +155,11 @@ pub struct ThreadContext {
     pub(crate) tree: Arc<PatchedTree>,
 }
 
-pub struct CallbackContext<'layouter, 'key_map> {
+pub struct CallbackContext<'a> {
     pub(crate) tree: Arc<PatchedTree>,
-    pub key_map: &'key_map KeyMap,
-    pub(crate) layout: &'layouter Layouter,
+    pub key_map: &'a KeyMap,
+    pub(crate) layout: &'a Layouter,
+    pub(crate) key_to_fragment: &'a HashMap<Key, Rc<RefCell<EvaluatedFragment>>>,
 }
 
 // thread access
@@ -265,7 +266,7 @@ impl PatchedTree {
     }
 }
 
-pub type AfterFrameCallback = Box<dyn for<'a, 'b> Fn(&'a CallbackContext<'a, 'b>)>;
+pub type AfterFrameCallback = Box<dyn for<'a> Fn(&'a CallbackContext<'a>)>;
 
 #[derive(Clone, Debug, Default)]
 pub struct WidgetLocalContext {

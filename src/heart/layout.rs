@@ -5,7 +5,7 @@
 
 use crate::heart::*;
 
-use rutter_layout::{BoxConstraints, Layout, Offset};
+use rutter_layout::{BoxConstraints, Idx, Layout, Offset};
 
 use derivative::Derivative;
 use std::ops::Deref;
@@ -23,10 +23,11 @@ pub struct PositionedRenderObject<'a> {
 // A tree of layout Nodes that can be manipulated.
 // This is the API with which the Evaluator commands the Layouter
 pub trait LayoutTree {
-    fn set_node(&mut self, key: &Key, layout: Box<dyn Layout>, render_object: Option<RenderObject>);
-    fn remove_node(&mut self, key: &Key);
-    fn set_children(&mut self, parent: &Key, children: &[Key]);
-    fn get_positioned(&self, key: &Key) -> Option<(Rect, Option<&RenderObject>)>;
+    fn add_node(&mut self, layout: Box<dyn Layout>, render_object: Option<RenderObject>) -> Idx;
+    fn set_node(&mut self, key: Idx, layout: Box<dyn Layout>, render_object: Option<RenderObject>);
+    fn remove_node(&mut self, key: Idx);
+    fn set_children(&mut self, parent: Idx, children: &[Idx]);
+    fn get_positioned(&self, key: Idx) -> (Rect, Option<&RenderObject>);
 }
 
 #[derive(Debug)]
@@ -48,73 +49,77 @@ impl<T: ?Sized, A> Deref for BoxWithAdditional<T, A> {
 #[derive(Debug, Derivative)]
 #[derivative(Default(new = "true"))]
 pub struct Layouter {
-    layouter: rutter_layout::Layouter<
-        Key,
-        BoxWithAdditional<dyn Layout, Option<RenderObject>>,
-        ahash::RandomState,
-    >,
+    layouter: rutter_layout::Layouter<BoxWithAdditional<dyn Layout, Option<RenderObject>>>,
     #[derivative(Default(value = "RenderObject::DebugRect"))]
     debug_render_object: RenderObject,
 }
 
 impl Layouter {
-    pub fn do_layout(&mut self, size: Vec2) {
-        self.layouter.do_layout(
-            BoxConstraints::tight_for(size.into()),
-            Offset::zero(),
-            Default::default(),
-        );
+    pub fn do_layout(&mut self, top: Idx, size: Vec2) {
+        self.layouter.do_layout(BoxConstraints::tight_for(size.into()), Offset::zero(), top);
     }
 
     #[cfg(feature = "debug_bounds")]
-    pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
-        let real = self.layouter.iter_with_obj(&Key::default()).filter_map(move |layout_item| {
-            layout_item.obj.additional.as_ref().map(|render_object| PositionedRenderObject {
-                rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                z_index: layout_item.z_index,
-                render_object,
+    pub fn iter_layouted(&self, top: Idx) -> impl Iterator<Item = (Idx, PositionedRenderObject)> {
+        let real = self.layouter.iter(top).filter_map(move |layout_item| {
+            layout_item.obj.additional.as_ref().map(|render_object| {
+                (
+                    layout_item.idx,
+                    PositionedRenderObject {
+                        rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                        z_index: layout_item.z_index,
+                        render_object,
+                    },
+                )
             })
         });
-        let debug_rects =
-            self.layouter.iter(&Key::default()).map(|layout_item| PositionedRenderObject {
-                rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                z_index: 0,
-                render_object: &RenderObject::DebugRect,
-            });
+        let debug_rects = self.layouter.iter(Idx).map(|layout_item| {
+            (
+                Idx,
+                PositionedRenderObject {
+                    rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                    z_index: 0,
+                    render_object: &RenderObject::DebugRect,
+                },
+            )
+        });
         real.chain(debug_rects)
     }
 
     #[cfg(not(feature = "debug_bounds"))]
-    pub fn iter_layouted(&self) -> impl Iterator<Item = PositionedRenderObject> {
-        self.layouter.iter_with_obj(&Default::default()).filter_map(move |layout_item| {
-            layout_item.obj.additional.as_ref().map(|render_object| PositionedRenderObject {
-                rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                z_index: layout_item.z_index,
-                render_object,
+    pub fn iter_layouted(&self, top: Idx) -> impl Iterator<Item = (Idx, PositionedRenderObject)> {
+        self.layouter.iter(top).filter_map(move |layout_item| {
+            layout_item.obj.additional.as_ref().map(|render_object| {
+                (
+                    layout_item.idx,
+                    PositionedRenderObject {
+                        rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                        z_index: layout_item.z_index,
+                        render_object,
+                    },
+                )
             })
         })
     }
 }
 
 impl LayoutTree for Layouter {
-    fn set_node(
-        &mut self,
-        key: &Key,
-        layout: Box<dyn Layout>,
-        render_object: Option<RenderObject>,
-    ) {
-        self.layouter.set_node(key, BoxWithAdditional::new(layout, render_object));
+    fn add_node(&mut self, layout: Box<dyn Layout>, render_object: Option<RenderObject>) -> Idx {
+        self.layouter.add_node(BoxWithAdditional::new(layout, render_object))
     }
 
-    fn remove_node(&mut self, key: &Key) { self.layouter.remove(key); }
-
-    fn set_children<'a>(&mut self, parent: &Key, children: &[Key]) {
-        self.layouter.set_children(parent, children.iter())
+    fn set_node(&mut self, idx: Idx, layout: Box<dyn Layout>, render_object: Option<RenderObject>) {
+        self.layouter.set_node(idx, BoxWithAdditional::new(layout, render_object));
     }
 
-    fn get_positioned(&self, key: &Key) -> Option<(Rect, Option<&RenderObject>)> {
-        self.layouter.get_layout(key).map(|(offset, size, obj)| {
-            (Rect { pos: offset.into(), size: size.into() }, obj.additional.as_ref())
-        })
+    fn remove_node(&mut self, idx: Idx) { self.layouter.remove(idx); }
+
+    fn set_children<'a>(&mut self, parent: Idx, children: &[Idx]) {
+        self.layouter.set_children(parent, children.into_iter().cloned())
+    }
+
+    fn get_positioned(&self, idx: Idx) -> (Rect, Option<&RenderObject>) {
+        let (offset, size, obj) = self.layouter.get_layout(idx);
+        (Rect { pos: offset.into(), size: size.into() }, obj.additional.as_ref())
     }
 }
