@@ -1,21 +1,16 @@
 use crate::{Key, WidgetContext};
 use derivative::Derivative;
 use std::{any::Any, marker::PhantomData};
+pub use freelist::Idx;
 
 pub trait ContextArgs {
-    fn listen_args(&self, key: &Key) -> &Vec<Box<dyn Any>>;
+    fn listen_args(&self, key: &Idx) -> &Vec<Box<dyn Any>>;
 }
 
 
 impl<'a> ContextArgs for WidgetContext<'a> {
-    fn listen_args(&self, key: &Key) -> &Vec<Box<dyn Any>> {
-        self.args_tree.get(key).unwrap_or_else(|| {
-            panic!(
-                "args key not present; this is likely an internal narui bug :(, {:?}, {}",
-                &self.key_map.key_debug(*key),
-                self.args_tree.debug_print(self.key_map)
-            )
-        })
+    fn listen_args(&self, key: &Idx) -> &Vec<Box<dyn Any>> {
+        self.args_tree.get_unconditional(*key)
     }
 }
 
@@ -44,7 +39,7 @@ impl<T> ArgRef<T> {
 #[macro_export]
 macro_rules! shout_args {
     ($context:expr, $key:expr, [$($values:ident,)*]) => {{
-        let arg_refs = ($key,
+        let mut arg_refs = (narui::args::Idx::new(1).unwrap(),
             $({
                 let arg_ref = narui::args::ArgRef::new();
                 #[allow(unused)]
@@ -54,9 +49,10 @@ macro_rules! shout_args {
             }),*
         );
 
-        match $context.args_tree.get(&$key) {
+        let idx = match $context.args_tree.get_idx($key) {
             None => $context.args_tree.set($key, vec![$(Box::new($values),)*]),
-            Some(old_values) => {
+            Some(old_idx) => {
+                let old_values = $context.args_tree.get_unconditional(old_idx);
                 let mut changed = false;
                 let mut idx = 0;
                 #[allow(unused)]
@@ -76,10 +72,13 @@ macro_rules! shout_args {
                     )*
                 }
                 if changed {
-                    $context.args_tree.set($key, vec![$(Box::new($values),)*]);
+                    $context.args_tree.set_unconditional($key, old_idx, vec![$(Box::new($values),)*]);
                 }
+                old_idx
             }
-        }
+        };
+
+        arg_refs.0 = idx;
 
         arg_refs
     }};

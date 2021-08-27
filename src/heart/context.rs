@@ -5,21 +5,45 @@ use hashbrown::{HashMap, HashSet};
 
 use crate::heart::owning_ref::OwningRef;
 use std::{any::Any, cell::RefCell, fmt::Debug, ops::Deref, rc::Rc, sync::Arc};
+use rutter_layout::Idx;
+use freelist::FreeList;
 
 #[derive(Debug, Default)]
 pub struct ArgsTree {
-    //    data: VecWithHoles<>
-    map: HashMap<Key, Vec<Box<dyn Any>>, ahash::RandomState>,
+    data: FreeList<Vec<Box<dyn Any>>>,
+    map: HashMap<Key, Idx>,
     dirty: HashSet<Key, ahash::RandomState>,
 }
 
 impl ArgsTree {
-    pub fn set(&mut self, key: Key, values: Vec<Box<dyn Any>>) {
+    pub fn set(&mut self, key: Key, values: Vec<Box<dyn Any>>) -> Idx {
         self.dirty.insert(key);
-        self.map.insert(key, values);
+        match self.map.get(&key) {
+            Some(idx) => {
+                self.data[*idx] = values;
+                *idx
+            },
+            None => {
+                let idx = self.data.add(values);
+                self.map.insert(key, idx);
+                idx
+            }
+        }
     }
 
-    pub fn get(&self, key: &Key) -> Option<&Vec<Box<dyn Any>>> { self.map.get(key) }
+    pub fn set_unconditional(&mut self, key: Key, idx: Idx, values: Vec<Box<dyn Any>>) -> Idx {
+        self.dirty.insert(key);
+        self.data[idx] = values;
+        idx
+    }
+
+    pub fn get_idx(&self, key: Key) -> Option<Idx> {
+        self.map.get(&key).cloned()
+    }
+
+    pub fn get_unconditional(&self, idx: Idx) -> &Vec<Box<dyn Any>> {
+        &self.data[idx]
+    }
 
     pub fn remove(&mut self, key_map: &mut KeyMap, root: Key) {
         log::trace!("removing {:?}", key_map.key_debug(root));

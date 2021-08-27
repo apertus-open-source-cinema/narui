@@ -870,6 +870,7 @@ dependencies = [
  "dashmap",
  "derivative",
  "env_logger",
+ "freelist",
  "glyph_brush",
  "hashbrown",
  "jemallocator",
