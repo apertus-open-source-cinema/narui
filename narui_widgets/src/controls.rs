@@ -32,10 +32,14 @@ pub fn button(
     };
 
     rsx! {
-        <stack fit=StackFit::Loose size_using_first=true>
+        <stack fit=StackFit::Loose>
+            <positioned>
+                <rect fill=Some(color) stroke=Some((stroke_color, 1.0)) border_radius=border_radius />
+            </positioned>
             <padding><sized_box constraint=BoxConstraints::min_width(100.0)><align factor_width=Some(1.0) factor_height=Some(1.0)>{children}</align></sized_box></padding>
-            <rect fill=Some(color) stroke=Some((stroke_color, 1.0)) border_radius=border_radius />
-            <input on_click=callback />
+            <positioned>
+                <input on_click=callback />
+            </positioned>
         </stack>
     }
 }

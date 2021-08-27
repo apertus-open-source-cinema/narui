@@ -59,6 +59,7 @@ impl EvaluatorInner {
 
         let touched_keys = self.tree.update_tree(key_map);
         for key in touched_keys.into_iter() {
+            // println!("touched key ({:?}, {})", key_map.key_debug(key.0), key.1);
             for frag in self.deps_map.get(&key).into_iter().flat_map(|v| v.values()) {
                 to_update.entry(frag.borrow().key).or_insert_with(|| frag.clone());
             }
@@ -71,6 +72,7 @@ impl EvaluatorInner {
         loop {
             let touched_args = args_tree.dirty();
             for key in touched_args {
+                // println!("touched arg {:?}", key_map.key_debug(key));
                 if !to_update.contains_key(&key) {
                     if let Some(frag) = self.key_to_fragment.get(&key) {
                         to_update.insert(key, frag.clone());

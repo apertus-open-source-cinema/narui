@@ -17,7 +17,7 @@ pub struct TextLayout {
 }
 
 impl rutter_layout::Layout for TextLayout {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         assert_eq!(children.len(), 0);
         let fonts = &[FONT.clone()];
         let sfont = fonts[0].as_scaled(self.size);
@@ -38,8 +38,13 @@ impl rutter_layout::Layout for TextLayout {
             calculated_height = calculated_height.max(glyph.glyph.position.y);
         }
 
-        constraint
-            .constrain(rutter_layout::Size { width: calculated_width, height: calculated_height })
+        (
+            constraint.constrain(rutter_layout::Size {
+                width: calculated_width,
+                height: calculated_height,
+            }),
+            1,
+        )
     }
 }
 

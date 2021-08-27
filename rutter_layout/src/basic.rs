@@ -1,4 +1,12 @@
-use crate::{BoxConstraints, Layout, LayoutableChildren, Offset, Size, TraitComparable};
+use crate::{
+    AbsolutePosition,
+    BoxConstraints,
+    Layout,
+    LayoutableChildren,
+    Offset,
+    Size,
+    TraitComparable,
+};
 use derivative::Derivative;
 use std::{
     any::Any,
@@ -9,9 +17,9 @@ use std::{
 pub struct Maximal;
 
 impl Layout for Maximal {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         assert_eq!(children.len(), 0);
-        constraint.maximal_bounded()
+        (constraint.maximal_bounded(), 1)
     }
 }
 
@@ -19,16 +27,17 @@ impl Layout for Maximal {
 pub struct Transparent;
 
 impl Layout for Transparent {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         if children.len() > 1 {
             panic!("Transparent Layout can have zero or one child but has {}", children.len())
         }
         if let Some(child) = children.into_iter().last() {
             let size = child.layout(constraint);
             child.set_pos(Offset::zero());
+            child.set_z_index_offset(0);
             size
         } else {
-            constraint.constrain(Size::zero())
+            (constraint.constrain(Size::zero()), 1)
         }
     }
 
@@ -59,14 +68,15 @@ impl SizedBox {
 }
 
 impl Layout for SizedBox {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         assert!(children.len() <= 1);
         if let Some(child) = children.into_iter().last() {
             let size = child.layout(self.constraint.enforce(constraint));
             child.set_pos(Offset::zero());
+            child.set_z_index_offset(0);
             size
         } else {
-            self.constraint.enforce(constraint).constrain(Size::zero())
+            (self.constraint.enforce(constraint).constrain(Size::zero()), 1)
         }
     }
 }
@@ -108,15 +118,16 @@ pub struct SingleChildLayouter<P, C, S, E = Option<Size>> {
 impl<P: Positioner, C: Constrainer, S: Sizer, E: EmptySizer> Layout
     for SingleChildLayouter<P, C, S, E>
 {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         assert!(children.len() <= 1);
         if let Some(child) = children.into_iter().last() {
-            let child_size = child.layout(self.constrainer.constrain(constraint));
+            let (child_size, num_z_index) = child.layout(self.constrainer.constrain(constraint));
             let our_size = constraint.constrain(self.sizer.size(constraint, child_size));
             child.set_pos(self.positioner.position(our_size, child_size));
-            our_size
+            child.set_z_index_offset(0);
+            (our_size, num_z_index)
         } else {
-            constraint.constrain(self.empty_sizer.size(constraint))
+            (constraint.constrain(self.empty_sizer.size(constraint)), 1)
         }
     }
 }
@@ -216,72 +227,6 @@ pub enum Dimension {
 
 impl Default for Dimension {
     fn default() -> Self { Self::Paxel(0.0) }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct AbsolutePosition {
-    pub x: Dimension,
-    pub y: Dimension,
-}
-
-impl AbsolutePosition {
-    pub fn zero() -> Self { Self { x: Dimension::Paxel(0.0), y: Dimension::Paxel(0.0) } }
-
-    pub fn from_offset(offset: Offset) -> Self {
-        Self { x: Dimension::Paxel(offset.x), y: Dimension::Paxel(offset.y) }
-    }
-}
-
-impl Positioner for AbsolutePosition {
-    fn position(&self, outer_size: Size, _inner_size: Size) -> Offset {
-        let x = match self.x {
-            Dimension::Paxel(x) => x,
-            Dimension::Fraction(p) => outer_size.width * p,
-        };
-
-        let y = match self.y {
-            Dimension::Paxel(y) => y,
-            Dimension::Fraction(p) => outer_size.height * p,
-        };
-
-        Offset { x, y }
-    }
-}
-
-pub type Positioned =
-    SingleChildLayouter<AbsolutePosition, LoosenConstrainer, BoundedFractionalMaximalSizer>;
-
-impl Positioned {
-    pub fn new(position: Offset) -> Self {
-        SingleChildLayouter {
-            positioner: AbsolutePosition::from_offset(position),
-            constrainer: LoosenConstrainer,
-            sizer: BoundedFractionalMaximalSizer::not_fractional(),
-            empty_sizer: None,
-        }
-    }
-
-    pub fn from(position: AbsolutePosition) -> Self {
-        SingleChildLayouter {
-            positioner: position,
-            constrainer: LoosenConstrainer,
-            sizer: BoundedFractionalMaximalSizer::not_fractional(),
-            empty_sizer: None,
-        }
-    }
-
-    pub fn fractional(
-        position: AbsolutePosition,
-        factor_width: Option<f32>,
-        factor_height: Option<f32>,
-    ) -> Self {
-        SingleChildLayouter {
-            positioner: position,
-            constrainer: LoosenConstrainer,
-            sizer: BoundedFractionalMaximalSizer::new(factor_width, factor_height),
-            empty_sizer: None,
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -451,66 +396,6 @@ impl AspectRatioBox {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum StackFit {
-    Tight,
-    Loose,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Derivative)]
-#[derivative(Default(new = "true"))]
-pub struct Stack {
-    #[derivative(Default(value = "StackFit::Loose"))]
-    pub fit: StackFit,
-    #[derivative(Default(value = "Alignment::center()"))]
-    pub alignment: Alignment,
-    pub size_using_first: bool,
-}
-
-impl Stack {
-    pub fn from(fit: StackFit, alignment: Alignment, size_using_first: bool) -> Self {
-        Self { fit, alignment, size_using_first }
-    }
-}
-
-impl Layout for Stack {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
-        let mut max_size = Size::zero();
-        let mut first_size = None;
-
-        for child in &children {
-            let constraint = if self.size_using_first {
-                if let Some(first_size) = first_size {
-                    BoxConstraints::tight_for(first_size)
-                } else {
-                    constraint
-                }
-            } else {
-                constraint
-            };
-
-            let size = child.layout(constraint.loosen());
-            max_size = max_size.max(size);
-
-            if first_size.is_none() && self.size_using_first {
-                first_size = Some(size)
-            }
-        }
-
-        let our_size = if self.size_using_first {
-            constraint.constrain(max_size)
-        } else {
-            constraint.maximal_bounded_or(max_size)
-        };
-
-        for child in &children {
-            child.set_pos(self.alignment.position(our_size, child.size()));
-        }
-
-        our_size
-    }
-}
-
 pub struct ClosureLayout {
     pub closure: Box<dyn Fn(BoxConstraints) -> Size>,
 }
@@ -530,8 +415,8 @@ impl TraitComparable for ClosureLayout {
 }
 
 impl Layout for ClosureLayout {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         assert_eq!(children.len(), 0);
-        (self.closure)(constraint)
+        ((self.closure)(constraint), 1)
     }
 }

@@ -20,7 +20,7 @@ pub struct Column {
 }
 
 impl Layout for Column {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         let orig_constraint = constraint;
         let constraint = constraint.loosen_width();
 
@@ -29,6 +29,7 @@ impl Layout for Column {
         let mut bounded_height = 0.0;
         let mut total_flex = 0.0;
         let mut any_tight = false;
+        let mut max_num_z_index = 0;
 
         for child in children.into_iter() {
             match Flexible::get(&child) {
@@ -37,11 +38,13 @@ impl Layout for Column {
                     any_tight = any_tight || matches!(fit, FlexFit::Tight);
                 }
                 None => {
-                    let size = child.layout(non_flex_constraint);
+                    let (size, child_z_index) = child.layout(non_flex_constraint);
                     max_width = max_width.max(size.width);
                     bounded_height += size.height;
+                    max_num_z_index = max_num_z_index.max(child_z_index);
                 }
             }
+            child.set_z_index_offset(0);
         }
 
         assert!(
@@ -72,9 +75,10 @@ impl Layout for Column {
                     FlexFit::Loose => constraint.with_loose_height(flex_space),
                 };
 
-                let size = child.layout(constraint);
+                let (size, child_z_index) = child.layout(constraint);
                 actual_flex_height += size.height;
                 max_width = max_width.max(size.width);
+                max_num_z_index = max_num_z_index.max(child_z_index);
             }
         }
 
@@ -96,6 +100,9 @@ impl Layout for Column {
             current_height += space_between + size.height;
         }
 
-        constraint.constrain(Size { height: total_height + total_spacing, width: max_width })
+        (
+            constraint.constrain(Size { height: total_height + total_spacing, width: max_width }),
+            max_num_z_index,
+        )
     }
 }

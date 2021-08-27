@@ -20,7 +20,7 @@ pub struct Row {
 }
 
 impl Layout for Row {
-    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> Size {
+    fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         let orig_constraint = constraint;
         let constraint = constraint.loosen_height();
 
@@ -29,6 +29,7 @@ impl Layout for Row {
         let mut bounded_width = 0.0;
         let mut total_flex = 0.0;
         let mut any_tight = false;
+        let mut max_num_z_index = 0;
 
         for child in children.into_iter() {
             match Flexible::get(&child) {
@@ -37,11 +38,13 @@ impl Layout for Row {
                     any_tight = any_tight || matches!(fit, FlexFit::Tight);
                 }
                 None => {
-                    let size = child.layout(non_flex_constraint);
+                    let (size, child_z_index) = child.layout(non_flex_constraint);
                     max_height = max_height.max(size.height);
                     bounded_width += size.width;
+                    max_num_z_index = max_num_z_index.max(child_z_index);
                 }
             }
+            child.set_z_index_offset(0);
         }
 
         assert!(
@@ -72,9 +75,10 @@ impl Layout for Row {
                     FlexFit::Loose => constraint.with_loose_width(flex_space),
                 };
 
-                let size = child.layout(constraint);
+                let (size, child_z_index) = child.layout(constraint);
                 actual_flex_width += size.width;
                 max_height = max_height.max(size.height);
+                max_num_z_index = max_num_z_index.max(child_z_index);
             }
         }
 
@@ -96,6 +100,9 @@ impl Layout for Row {
             current_width += space_between + size.width;
         }
 
-        constraint.constrain(Size { height: max_height, width: total_width + total_spacing })
+        (
+            constraint.constrain(Size { height: max_height, width: total_width + total_spacing }),
+            max_num_z_index,
+        )
     }
 }
