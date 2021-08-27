@@ -1,7 +1,10 @@
 use std::{marker::PhantomData, ops::Deref};
 
 pub trait ListenableCreate {
-    fn listenable_with<T: Send + Sync + 'static>(&mut self, gen: impl FnOnce() -> T) -> Listenable<T>;
+    fn listenable_with<T: Send + Sync + 'static>(
+        &mut self,
+        gen: impl FnOnce() -> T,
+    ) -> Listenable<T>;
     fn listenable<T: Send + Sync + 'static>(&mut self, initial: T) -> Listenable<T>;
 }
 
@@ -26,7 +29,10 @@ pub trait ListenableSpy {
 }
 
 impl<'a> ListenableCreate for WidgetContext<'a> {
-    fn listenable_with<T: Send + Sync + 'static>(&mut self, gen: impl FnOnce() -> T) -> Listenable<T> {
+    fn listenable_with<T: Send + Sync + 'static>(
+        &mut self,
+        gen: impl FnOnce() -> T,
+    ) -> Listenable<T> {
         let key = self.key_for_hook();
         let key = self.tree.initialize_with(key, || Box::new(gen()));
         Listenable { key, phantom_data: Default::default() }
@@ -93,9 +99,7 @@ impl ListenableSpy for PatchedTree {
     }
 
     fn spy_ref<T: Send + Sync>(&self, listenable: Listenable<T>) -> ListenableGuard<T> {
-        ListenableGuard::new(
-            self.get_patched(listenable.key),
-        )
+        ListenableGuard::new(self.get_patched(listenable.key))
     }
 }
 
@@ -142,14 +146,19 @@ impl<'a> ListenableListen for WidgetContext<'a> {
         // TODO(robin): why was this previously not marked as used?
         self.widget_local.mark_used(listenable.key.0);
 
-        ListenableGuard::new(
-            self.tree
-                .get_unpatched(listenable.key)
-        )
+        ListenableGuard::new(self.tree.get_unpatched(listenable.key))
     }
 }
 
-use crate::{CallbackContext, HookKey, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext, HookRef};
+use crate::{
+    CallbackContext,
+    HookKey,
+    HookRef,
+    PatchTreeEntry,
+    PatchedTree,
+    ThreadContext,
+    WidgetContext,
+};
 
 
 pub struct Listenable<T> {

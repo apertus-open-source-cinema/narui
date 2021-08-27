@@ -1,4 +1,4 @@
-use crate::{hooks::*, HookKey, ListenableGuard, PatchedTree, WidgetContext, HookRef};
+use crate::{hooks::*, HookKey, HookRef, ListenableGuard, PatchedTree, WidgetContext};
 use std::{marker::PhantomData, sync::Arc};
 
 #[derive(Debug, Clone)]
@@ -9,10 +9,7 @@ pub struct EffectHandle<T> {
 }
 impl<T> EffectHandle<T> {
     pub fn read(&self) -> ListenableGuard<T> {
-        ListenableGuard {
-            entry: self.tree.get_unpatched(self.key),
-            phantom: Default::default(),
-        }
+        ListenableGuard { entry: self.tree.get_unpatched(self.key), phantom: Default::default() }
     }
 }
 
@@ -31,16 +28,18 @@ impl<'a> ContextEffect for WidgetContext<'a> {
         deps: impl PartialEq + Send + Sync + 'static,
     ) -> EffectHandle<T> {
         let deps_listenable = self.listenable(None);
-        let handle_listenable = self.listenable_with(|| {
-            callback()
-        });
+        let handle_listenable = self.listenable_with(|| callback());
         let deps = Some(deps);
         if *self.listen_ref(deps_listenable) != deps {
             self.tree.set_unconditional(deps_listenable.key.1, Box::new(deps));
             let handle = callback();
             self.tree.set_unconditional(handle_listenable.key.1, Box::new(handle))
         }
-        EffectHandle { key: handle_listenable.key, tree: self.tree.clone(), phantom: Default::default() }
+        EffectHandle {
+            key: handle_listenable.key,
+            tree: self.tree.clone(),
+            phantom: Default::default(),
+        }
     }
 }
 
