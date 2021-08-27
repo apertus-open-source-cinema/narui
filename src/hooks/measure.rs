@@ -18,7 +18,7 @@ pub trait ContextMeasure {
     fn measure_size(&self, key: Key) -> Result<Vec2, MeasureError>;
     fn measure_offset(&self, key1: Key, key2: Key) -> Result<Vec2, MeasureError>;
 }
-impl ContextMeasure for CallbackContext<'_, '_> {
+impl ContextMeasure for CallbackContext<'_> {
     fn measure_size(&self, key: Key) -> Result<Vec2, MeasureError> {
         let rect = get_layout(self, key)?;
         Ok(rect.size)
@@ -33,5 +33,9 @@ impl ContextMeasure for CallbackContext<'_, '_> {
 
 fn get_layout(context: &CallbackContext, key: Key) -> Result<Rect, MeasureError> {
     let layout = context.layout;
-    layout.get_positioned(&key).map(|v| v.0).ok_or(KeyNotFound)
+    context
+        .key_to_fragment
+        .get(&key)
+        .map(|frag| layout.get_positioned(frag.borrow().idx).0)
+        .ok_or(KeyNotFound)
 }

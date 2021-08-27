@@ -12,5 +12,3 @@ pub use flex::*;
 
 pub mod stack;
 pub use stack::*;
-
-pub(crate) mod util;

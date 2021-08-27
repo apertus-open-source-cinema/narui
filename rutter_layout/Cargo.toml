@@ -7,3 +7,4 @@ edition = "2018"
 hashbrown = "*"
 ahash = "*"
 derivative = "2.2.0"
+freelist = { path = "../freelist" }

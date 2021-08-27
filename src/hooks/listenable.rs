@@ -78,7 +78,7 @@ impl ListenableShout for ThreadContext {
     }
 }
 
-impl ListenableShout for CallbackContext<'_, '_> {
+impl ListenableShout for CallbackContext<'_> {
     fn shout<T: Send + Sync + 'static + PartialEq>(&self, listenable: Listenable<T>, new_value: T) {
         self.tree.shout(listenable, new_value);
     }
@@ -111,7 +111,7 @@ impl ListenableSpy for PatchedTree {
     }
 }
 
-impl<'a, 'b> ListenableSpy for CallbackContext<'a, 'b> {
+impl ListenableSpy for CallbackContext<'_> {
     fn spy<T: Send + Sync + 'static>(&self, listenable: Listenable<T>) -> T
     where
         T: Clone,

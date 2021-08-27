@@ -16,6 +16,7 @@ use crate::{
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
+use rutter_layout::Idx;
 use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
 // EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally
@@ -29,6 +30,7 @@ pub struct EvaluatedFragment {
     pub gen: Rc<dyn Fn(&mut WidgetContext) -> FragmentInner>,
 
     // this field is information that is gathered by the delta evaluator
+    pub idx: rutter_layout::Idx,
     pub deps: HashSet<HookKey, ahash::RandomState>,
 
     pub children: Vec<Rc<RefCell<EvaluatedFragment>>>,
@@ -108,28 +110,29 @@ impl EvaluatorInner {
 
         let (layout, render_object, children) = evaluated.unpack();
 
-        let (children_keys, children): (Vec<_>, Vec<_>) = children
+        let (children_indices, children): (Vec<_>, Vec<_>) = children
             .map(|fragment| {
                 let evaluated = self.evaluate_unconditional(fragment, layout_tree, &mut context);
-                let key = evaluated.borrow().key;
+                let key = evaluated.borrow().idx;
                 (key, evaluated)
             })
             .unzip();
 
+        let idx = layout_tree.add_node(layout, render_object);
+        layout_tree.set_children(idx, &children_indices[..]);
+
+        Self::check_unique_keys_children(
+            context.key_map.key_debug(fragment.key),
+            children.iter().map(|c| *&c.borrow().key),
+        );
+
         let to_return = Rc::new(RefCell::new(EvaluatedFragment {
+            idx,
             key: fragment.key,
             gen: fragment.gen,
             deps: deps.clone(),
             children,
         }));
-
-        Self::check_unique_keys_children(
-            context.key_map.key_debug(fragment.key),
-            children_keys.iter(),
-        );
-
-        layout_tree.set_node(&fragment.key, layout, render_object);
-        layout_tree.set_children(&fragment.key, &children_keys[..]);
 
         for key in deps {
             self.deps_map.entry(key).or_default().insert(to_return.borrow().key, to_return.clone());
@@ -186,10 +189,9 @@ impl EvaluatorInner {
         frag.deps = std::mem::take(new_deps);
 
 
+        let mut children_indices = vec![];
         let mut children_keys = vec![];
         for child in children {
-            children_keys.push(child.key);
-
             let evaluated = match old_children
                 .iter()
                 .position(|frag| frag.borrow().key == child.key)
@@ -199,12 +201,17 @@ impl EvaluatorInner {
                 None => self.evaluate_unconditional(child, layout_tree, &mut context),
             };
 
+            children_indices.push(evaluated.borrow().idx);
+            children_keys.push(evaluated.borrow().key);
             frag.children.push(evaluated);
         }
 
 
-        Self::check_unique_keys_children(context.key_map.key_debug(frag.key), children_keys.iter());
-        layout_tree.set_node(&frag.key, layout, render_object);
+        Self::check_unique_keys_children(
+            context.key_map.key_debug(frag.key),
+            children_keys.iter().cloned(),
+        );
+        layout_tree.set_node(frag.idx, layout, render_object);
 
 
         log::trace!(
@@ -214,8 +221,8 @@ impl EvaluatorInner {
         );
         // if they were both zero nothing changed and we can avoid some unnecessary key
         // lookups
-        if (num_old_children != 0) || (!children_keys.is_empty()) {
-            layout_tree.set_children(&frag.key, &children_keys);
+        if (num_old_children != 0) || (!children_indices.is_empty()) {
+            layout_tree.set_children(frag.idx, &children_indices[..]);
         }
 
         for child in old_children {
@@ -241,23 +248,23 @@ impl EvaluatorInner {
         self.key_to_fragment.remove(&frag.key);
         args_tree.remove(key_map, frag.key);
         log::trace!("removing layout_node {:?}", key_map.key_debug(frag.key));
-        layout_tree.remove_node(&frag.key);
+        layout_tree.remove_node(frag.idx);
         key_map.remove(&frag.key);
     }
 
-    fn check_unique_keys_children<'k>(
+    fn check_unique_keys_children(
         parent_debug: impl Debug,
-        children_keys: impl Iterator<Item = &'k Key>,
+        children_keys: impl Iterator<Item = Key>,
     ) {
         let mut keys = HashSet::new();
         for key in children_keys {
-            if keys.contains(key) {
+            if keys.contains(&key) {
                 panic!(
                     "elements need to have unique keys but children of {:?} do not. consider passing an explicit key.",
                     parent_debug,
                 );
             } else {
-                keys.insert(*key);
+                keys.insert(key);
             }
         }
     }
@@ -265,18 +272,21 @@ impl EvaluatorInner {
 
 // The evaluator outputs nothing but rather communicates with the layouter with
 // the LayoutTree trait.
-#[derive(Default)]
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct Evaluator {
     pub(crate) key_map: KeyMap,
     pub(crate) after_frame_callbacks: Vec<AfterFrameCallback>,
     args_tree: ArgsTree,
     inner: EvaluatorInner,
+    #[derivative(Default(value = "std::num::NonZeroUsize::new(12312803).unwrap()"))]
+    pub(crate) top_node: Idx,
 }
 
 impl Evaluator {
     pub fn new(top_node: Fragment, layout_tree: &mut Layouter) -> Self {
         let mut evaluator = Evaluator::default();
-        let _root = evaluator.inner.evaluate_unconditional(
+        let root = evaluator.inner.evaluate_unconditional(
             top_node,
             layout_tree,
             &mut WidgetContext::root(
@@ -287,6 +297,7 @@ impl Evaluator {
                 &mut evaluator.key_map,
             ),
         );
+        evaluator.top_node = root.borrow().idx;
         let _ = evaluator.inner.tree.update_tree(&mut evaluator.key_map);
 
         evaluator
@@ -301,10 +312,12 @@ impl Evaluator {
         )
     }
 
-    pub fn callback_context<'layout, 'key_map>(
-        &'key_map self,
-        layout: &'layout Layouter,
-    ) -> CallbackContext<'layout, 'key_map> {
-        CallbackContext { tree: self.inner.tree.clone(), layout, key_map: &self.key_map }
+    pub fn callback_context<'a>(&'a self, layout: &'a Layouter) -> CallbackContext<'a> {
+        CallbackContext {
+            tree: self.inner.tree.clone(),
+            layout,
+            key_map: &self.key_map,
+            key_to_fragment: &self.inner.key_to_fragment,
+        }
     }
 }
