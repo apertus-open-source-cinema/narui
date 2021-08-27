@@ -69,10 +69,10 @@ pub struct Vertex {
 vulkano::impl_vertex!(Vertex, position, color);
 
 #[derive(Default)]
-pub struct LyonRendererState(VertexBuffers<Vertex, u16>);
+pub struct LyonRendererState(VertexBuffers<Vertex, u32>);
 
 pub struct ColoredBuffersBuilder<'a> {
-    vertex_buffers: &'a mut VertexBuffers<Vertex, u16>,
+    vertex_buffers: &'a mut VertexBuffers<Vertex, u32>,
     pos: Vec2,
     z_index: f32,
 }
@@ -99,7 +99,7 @@ impl<'a> ColoredBuffersBuilder<'a> {
     pub fn with_color(
         &mut self,
         color: Color,
-    ) -> BuffersBuilder<Vertex, u16, PositionedColoredConstructor> {
+    ) -> BuffersBuilder<Vertex, u32, PositionedColoredConstructor> {
         BuffersBuilder::new(
             &mut self.vertex_buffers,
             PositionedColoredConstructor(self.pos, color.into_raw::<[f32; 4]>(), self.z_index),
@@ -198,7 +198,7 @@ impl LyonRenderer {
         )
         .unwrap();
 
-        let index_buffer = CpuAccessibleBuffer::<[u16]>::from_iter(
+        let index_buffer = CpuAccessibleBuffer::<[u32]>::from_iter(
             self.device.clone(),
             BufferUsage::all(),
             false,
