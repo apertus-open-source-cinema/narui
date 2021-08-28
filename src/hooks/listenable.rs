@@ -1,3 +1,4 @@
+use crate::all_eq;
 use std::{marker::PhantomData, ops::Deref};
 
 pub trait ListenableCreate {
@@ -47,7 +48,13 @@ impl<'a> ListenableCreate for WidgetContext<'a> {
 
 impl ListenableShout for PatchedTree {
     fn shout<T: Send + Sync + 'static + PartialEq>(&self, listenable: Listenable<T>, new_value: T) {
-        self.set(listenable.key, Box::new(new_value));
+        let old = self.get_unpatched(listenable.key);
+        let old = (&**old).downcast_ref::<T>().expect(
+            "old value of arg has wrong type; this is likely an internal narui bug :(",
+        );
+        if !crate::all_eq!(old, &new_value) {
+            self.set(listenable.key, Box::new(new_value));
+        }
     }
 
     fn shout_non_signalling<T: Send + Sync + 'static>(
