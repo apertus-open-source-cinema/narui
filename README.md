@@ -2,9 +2,10 @@
 
 A react-inspired UI library for building multimedia desktop apps with rust and vulkan.
 
-* Declarative UI with Ergonomics similar to React with hooks
+* declarative UI with Ergonomics similar to React with hooks
 * JSX-like syntax for composing widgets
 * clean, readable & familiar looking application code
+* flutter-style box layout algorithm
 
 ![narui node graph demo gif](./node_graph_demo.gif)
 
@@ -21,12 +22,11 @@ Make sure to also check out [the examples](examples/) that cover some more advan
 
 ```rust
 #[widget]
-pub fn square(context: Context) -> Fragment {
+pub fn square(context: &mut WidgetContext) -> Fragment {
     rsx! {
-        <rect 
-            fill_color=Some(color!(#ffffff)) 
-            style={STYLE.width(Points(20.)).height(Points(20.))} 
-        />
+        <sized_box constraint=BoxConstraints::tight(10.0, 10.0)>
+            <rect fill=Some(color!(#ffffff)) />
+        </sized>
     }
 }
 ```
@@ -51,14 +51,17 @@ fn main() {
 
 ```rust
 #[widget(color = color!(#00aaaa))]  // we assign a default value to the color attribute which is used when color is unspecified
-pub fn colored_container(children: Vec<Fragment>, color: Color context: Context) -> Fragment {
+pub fn colored_container(children: Vec<Fragment>, color: Color, context: &mut WidgetContext) -> Fragment {
     rsx! {
-        <rect 
-            fill_color=Some(color) 
-            style={STYLE.padding(Points(20.))} 
-        >
-            {children}
-        </rect>
+        <stack>
+            <positioned>  // positioned is not taken into account for the size calculation of the stack
+                <rect fill=Some(color) />
+            </positioned>
+
+            <padding padding=EdgeInsets::all(10.0)>
+                <column>{children}</column>
+            </padding>
+        </stack>
     }
 }
 ```
@@ -69,11 +72,11 @@ rsx! {
     <colored_container>
         <text>{"Hello, world"}</text>
         <square />
-    </rect>
+    </colored_container>
 }
 ```
 
-If we programatically generate multiple widgets (for example to display a list), we have to manually specify a `key` so that each widget can be uniquely identified:
+If we programmatically generate multiple widgets (for example to display a list), we have to manually specify a `key` so that each widget can be uniquely identified:
 ```rust
 rsx! {
     <colored_container>
@@ -101,10 +104,10 @@ Hooks work similiar to react hooks. The most simple hook is the `context.listena
 
 ```rust
 #[widget(initial_value = 1)]
-pub fn counter(initial_value: i32, context: Context) -> Fragment {
+pub fn counter(initial_value: i32, context: &mut WidgetContext) -> Fragment {
     let count = context.listenable(initial_value);
-    let on_click = move |context: Context| {
-        context.shout(count, context.listen(count) + 1)
+    let on_click = move |context: &CallbackContext| {
+        context.shout(count, context.spy(count) + 1)
     };
 
     rsx! {
