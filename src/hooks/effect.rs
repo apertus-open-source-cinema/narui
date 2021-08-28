@@ -1,4 +1,4 @@
-use crate::{hooks::*, HookKey, HookRef, ListenableGuard, PatchedTree, WidgetContext};
+use crate::{hooks::*, HookRef, ListenableGuard, PatchedTree, WidgetContext};
 use std::{marker::PhantomData, sync::Arc};
 
 #[derive(Debug, Clone)]

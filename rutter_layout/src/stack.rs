@@ -124,7 +124,7 @@ impl Layout for Stack {
         };
 
         for child in &children {
-            if let None = Positioned::get(&child) {
+            if Positioned::get(&child).is_none() {
                 let (size, num_z_index) = child.layout(non_positioned_constraint);
                 max_size = max_size.max(size);
                 child.set_z_index_offset(num_z_index);

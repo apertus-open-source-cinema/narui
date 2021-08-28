@@ -1,4 +1,4 @@
-use crate::{Key, WidgetContext};
+use crate::WidgetContext;
 use derivative::Derivative;
 pub use freelist::Idx;
 use std::{any::Any, marker::PhantomData};

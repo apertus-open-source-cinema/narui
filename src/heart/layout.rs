@@ -114,8 +114,8 @@ impl LayoutTree for Layouter {
 
     fn remove_node(&mut self, idx: Idx) { self.layouter.remove(idx); }
 
-    fn set_children<'a>(&mut self, parent: Idx, children: &[Idx]) {
-        self.layouter.set_children(parent, children.into_iter().cloned())
+    fn set_children(&mut self, parent: Idx, children: &[Idx]) {
+        self.layouter.set_children(parent, children.iter().cloned())
     }
 
     fn get_positioned(&self, idx: Idx) -> (Rect, Option<&RenderObject>) {

@@ -1,7 +1,7 @@
 use std::{
     mem::{ManuallyDrop, MaybeUninit},
     num::NonZeroUsize,
-    ops::{Deref, DerefMut, Index, IndexMut},
+    ops::{Deref, Index, IndexMut},
 };
 
 pub type Idx = NonZeroUsize;
@@ -42,9 +42,11 @@ impl<T> FreeList<T> {
         let mut data = vec![];
 
         // push a dummy thing to idx zero so we can use NonZeroUsize
+        #[allow(clippy::uninit_assumed_init)]
         data.push(Slot { data: unsafe { MaybeUninit::uninit().assume_init() }, next_free: None });
 
         // push a empty slot to use as first entry
+        #[allow(clippy::uninit_assumed_init)]
         data.push(Slot { data: unsafe { MaybeUninit::uninit().assume_init() }, next_free: None });
 
         let next_free = Some(unsafe { Idx::new_unchecked(1) });

@@ -123,7 +123,7 @@ impl EvaluatorInner {
 
         Self::check_unique_keys_children(
             context.key_map.key_debug(fragment.key),
-            children.iter().map(|c| *&c.borrow().key),
+            children.iter().map(|c| c.borrow().key),
         );
 
         let to_return = Rc::new(RefCell::new(EvaluatedFragment {

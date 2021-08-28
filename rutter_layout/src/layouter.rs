@@ -150,7 +150,7 @@ impl<T: Deref<Target = dyn Layout> + std::fmt::Debug> Layouter<T> {
         }
     }
 
-    pub fn set_children<'a>(&mut self, parent_idx: Idx, mut children: impl Iterator<Item = Idx>) {
+    pub fn set_children(&mut self, parent_idx: Idx, mut children: impl Iterator<Item = Idx>) {
         let mut len = 0;
         let mut any_child_dirty = false;
 

@@ -1,4 +1,4 @@
-use crate::{ContextEffect, EffectHandle, HookKey, ThreadContext, WidgetContext};
+use crate::{ContextEffect, EffectHandle, ThreadContext, WidgetContext};
 use std::{
     sync::{
         mpsc::{sync_channel, Receiver, SyncSender},

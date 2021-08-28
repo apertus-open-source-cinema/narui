@@ -161,15 +161,7 @@ impl<'a> ListenableListen for WidgetContext<'a> {
     }
 }
 
-use crate::{
-    CallbackContext,
-    HookKey,
-    HookRef,
-    PatchTreeEntry,
-    PatchedTree,
-    ThreadContext,
-    WidgetContext,
-};
+use crate::{CallbackContext, HookRef, PatchTreeEntry, PatchedTree, ThreadContext, WidgetContext};
 
 
 pub struct Listenable<T> {

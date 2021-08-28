@@ -7,7 +7,7 @@ use crate::{
     Size,
     TraitComparable,
 };
-use derivative::Derivative;
+
 use std::{
     any::Any,
     fmt::{Debug, Formatter},
