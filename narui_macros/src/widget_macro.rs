@@ -1,3 +1,4 @@
+use crate::narui_crate;
 use bind_match::bind_match;
 use core::result::{Result, Result::Ok};
 use proc_macro2::{Ident, LineColumn, Literal, Span};
@@ -59,6 +60,8 @@ pub fn widget(
     let macro_ident = Ident::new(&format!("__{}_constructor_", function_ident), Span::call_site());
     let macro_ident_pub =
         Ident::new(&format!("__{}_constructor", function_ident), Span::call_site());
+
+    let narui = narui_crate();
 
     let arg_types = get_arg_types(&function);
     let match_arms: Vec<_> = {
@@ -186,7 +189,7 @@ pub fn widget(
                 (@parse_args [#($#arg_names:ident,)*] ) => { };
 
                 (@construct listenable=$listenables:ident, context=$context:expr) => {{
-                    use narui::args::ContextArgs;
+                    use #narui::args::ContextArgs;
 
                     #transformer
 
@@ -219,12 +222,12 @@ pub fn widget(
         quote! {
             pub static WIDGET_ID: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
 
-            #[narui::internal::ctor]
+            #[#narui::internal::ctor]
             fn _init_widget() {
-                let mut lock = narui::internal::WIDGET_INFO.write();
+                let mut lock = #narui::internal::WIDGET_INFO.write();
                 let id = lock.len();
                 WIDGET_ID.store(id as u16, std::sync::atomic::Ordering::SeqCst);
-                lock.push(narui::internal::WidgetDebugInfo {
+                lock.push(#narui::internal::WidgetDebugInfo {
                     name: stringify!(#mod_ident).to_string(),
                     loc: #source_loc.to_string(),
                     arg_names: vec![#(stringify!(#arg_names).to_string(),)*],

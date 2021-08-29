@@ -1,6 +1,8 @@
 mod rsx_macro;
 mod widget_macro;
 
+use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
 
 #[proc_macro]
@@ -59,6 +61,18 @@ pub fn color(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         }
         _ => {
             unimplemented!()
+        }
+    }
+}
+
+fn narui_crate() -> TokenStream {
+    let found_crate = crate_name("narui").expect("narui is present in `Cargo.toml`");
+
+    match found_crate {
+        FoundCrate::Itself => quote!(crate),
+        FoundCrate::Name(name) => {
+            let ident = Ident::new(&name, Span::call_site());
+            quote!( #ident )
         }
     }
 }
