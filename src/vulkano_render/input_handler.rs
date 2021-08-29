@@ -1,5 +1,5 @@
 use crate::heart::{RenderObject::Input, *};
-use hashbrown::{HashMap};
+use hashbrown::HashMap;
 
 use rutter_layout::Idx;
 use winit::event::{ElementState, MouseButton, WindowEvent};

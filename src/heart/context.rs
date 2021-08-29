@@ -264,9 +264,7 @@ impl PatchedTree {
         PatchTreeEntry::new(None, Some(RwLockReadGuard::map(self.data.read(), |v| &v[idx.1])))
     }
 
-    pub fn remove_patch(&self, idx: HookRef) {
-        self.patch.remove(&idx.1);
-    }
+    pub fn remove_patch(&self, idx: HookRef) { self.patch.remove(&idx.1); }
 
     pub fn initialize(&self, key: HookKey, value: TreeItem) -> HookRef {
         (

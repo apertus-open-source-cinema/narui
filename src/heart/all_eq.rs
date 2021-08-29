@@ -16,12 +16,10 @@ impl<T> AllEqViaPtrEquality for AllEqDispatcher<&T> {
 
 #[macro_export]
 macro_rules! all_eq_ {
-    ($a:expr, $b:expr) => {
-        {
-            use $crate::heart::*;
-            (&&AllEqDispatcher($a)).all_eq(&&AllEqDispatcher($b))
-        }
-    };
+    ($a:expr, $b:expr) => {{
+        use $crate::heart::*;
+        (&&AllEqDispatcher($a)).all_eq(&&AllEqDispatcher($b))
+    }};
 }
 pub use all_eq_ as all_eq;
 

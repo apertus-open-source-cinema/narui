@@ -11,7 +11,7 @@ use lyon::{
     },
     tessellation::{FillVertexConstructor, StrokeOptions, StrokeTessellator, StrokeVertex},
 };
-use palette::{Pixel};
+use palette::Pixel;
 use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},

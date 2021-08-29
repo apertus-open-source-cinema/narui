@@ -37,7 +37,15 @@ pub fn drag_detector(
             context.shout(click_start_position, position);
             context.shout(click_started, false);
         } else if context.spy(clicked) {
-            on_drag(context, position - if relative { context.spy(click_start_position) } else { (context.measure_size(key).unwrap() / 2.) })
+            on_drag(
+                context,
+                position
+                    - if relative {
+                        context.spy(click_start_position)
+                    } else {
+                        (context.measure_size(key).unwrap() / 2.)
+                    },
+            )
         }
     };
 
