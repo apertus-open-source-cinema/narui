@@ -108,7 +108,7 @@ impl EvaluatorInner {
         let evaluated: FragmentInner = (fragment.gen)(&mut context);
         let deps = std::mem::take(&mut context.widget_local.used);
 
-        let (layout, render_object, children) = evaluated.unpack();
+        let (layout, render_object, children, is_clipper) = evaluated.unpack();
 
         let (children_indices, children): (Vec<_>, Vec<_>) = children
             .map(|fragment| {
@@ -118,7 +118,7 @@ impl EvaluatorInner {
             })
             .unzip();
 
-        let idx = layout_tree.add_node(layout, render_object);
+        let idx = layout_tree.add_node(layout, render_object, is_clipper);
         layout_tree.set_children(idx, &children_indices[..]);
 
         Self::check_unique_keys_children(
@@ -173,7 +173,7 @@ impl EvaluatorInner {
         );
 
         let evaluated: FragmentInner = (frag.gen)(&mut context);
-        let (layout, render_object, children) = evaluated.unpack();
+        let (layout, render_object, children, is_clipper) = evaluated.unpack();
 
         let mut old_children = std::mem::take(&mut frag.children);
         let num_old_children = old_children.len();
@@ -211,7 +211,7 @@ impl EvaluatorInner {
             context.key_map.key_debug(frag.key),
             children_keys.iter().cloned(),
         );
-        layout_tree.set_node(frag.idx, layout, render_object);
+        layout_tree.set_node(frag.idx, layout, render_object, is_clipper);
 
 
         log::trace!(

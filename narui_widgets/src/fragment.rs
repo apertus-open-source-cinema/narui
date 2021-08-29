@@ -3,5 +3,5 @@ use rutter_layout::Transparent;
 
 #[widget]
 pub fn fragment(children: Vec<Fragment>, context: &mut WidgetContext) -> FragmentInner {
-    FragmentInner::Node { children, layout: Box::new(Transparent) }
+    FragmentInner::Node { children, layout: Box::new(Transparent), is_clipper: false }
 }

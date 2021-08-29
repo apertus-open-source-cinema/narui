@@ -40,74 +40,79 @@ pub trait Layout: std::fmt::Debug + TraitComparable {
     }
 }
 
+#[derive(Debug)]
 pub struct LayoutItem<'a, T> {
     pub size: Size,
     pub pos: Offset,
     pub idx: Idx,
-    pub z_index: u32,
+    pub z_index_offset: u32,
     pub obj: &'a T,
 }
 
 impl<'a, T> LayoutItem<'a, T> {
-    fn new(layouter: &'a Layouter<T>, idx: Idx, z_index: u32) -> Self {
+    fn new(layouter: &'a Layouter<T>, idx: Idx) -> Self {
         let node = &layouter.nodes[idx];
 
         Self {
             size: node.size.get().unwrap(),
             pos: node.abs_pos.get().unwrap(),
             obj: &node.obj,
-            z_index,
+            z_index_offset: node.z_index_offset.get().unwrap(),
             idx,
         }
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum LayoutIterDirection {
+    Down,
+    Up,
+    Right,
+}
+
+#[derive(Debug)]
+pub struct LayoutIterItem {
+    pub idx: Idx,
+    pub direction_that_led_here: LayoutIterDirection,
+}
+
 struct LayoutIter<'a, T> {
     layouter: &'a Layouter<T>,
     next_pos: Option<Idx>,
-    parent_z_index: u32,
+    direction_that_led_here: LayoutIterDirection,
 }
-
 impl<'a, T: Debug> LayoutIter<'a, T> {
     fn new(layouter: &'a Layouter<T>, top: Idx) -> Self {
-        let mut bottom_left = top;
-        let mut parent_z_index = 0;
-        while let Some(child) = layouter.nodes[bottom_left].child {
-            parent_z_index += layouter.nodes[bottom_left].z_index_offset.get().unwrap();
-            bottom_left = child;
-        }
-        Self { layouter, next_pos: Some(bottom_left), parent_z_index }
+        Self { layouter, next_pos: Some(top), direction_that_led_here: LayoutIterDirection::Down }
     }
 }
 
 impl<'a, T: std::fmt::Debug> Iterator for LayoutIter<'a, T> {
-    type Item = (Idx, u32);
+    type Item = LayoutIterItem;
 
     fn next(&mut self) -> Option<Self::Item> {
+        use LayoutIterDirection::*;
+
+        let direction_that_led_here = self.direction_that_led_here;
         if let Some(current_pos) = self.next_pos {
-            let current = &self.layouter.nodes[current_pos];
-            let z_index = self.parent_z_index + current.z_index_offset.get().unwrap();
-            match current.next_sibling {
-                Some(idx) => {
-                    let mut next = idx;
+            let current_node = &self.layouter.nodes[current_pos];
 
-                    while let Some(child) = self.layouter.nodes[next].child {
-                        self.parent_z_index +=
-                            self.layouter.nodes[next].z_index_offset.get().unwrap();
-                        next = child;
-                    }
-
-                    self.next_pos = Some(next);
+            match (self.direction_that_led_here, current_node.child, current_node.next_sibling) {
+                (Down | Right, Some(child), _) => {
+                    self.next_pos = Some(child);
+                    self.direction_that_led_here = LayoutIterDirection::Down;
                 }
-                None => {
-                    self.next_pos = current.parent;
-                    if let Some(idx) = current.parent {
-                        self.parent_z_index -=
-                            &self.layouter.nodes[idx].z_index_offset.get().unwrap();
-                    }
+                (_, _, Some(sibling)) => {
+                    self.next_pos = Some(sibling);
+                    self.direction_that_led_here = LayoutIterDirection::Right;
+                }
+                (_, _, None) => {
+                    self.next_pos = current_node.parent;
+                    self.direction_that_led_here = LayoutIterDirection::Up;
                 }
             }
-            Some((current_pos, z_index))
+
+            Some(LayoutIterItem { idx: current_pos, direction_that_led_here })
         } else {
             None
         }
@@ -205,8 +210,9 @@ impl<T: Deref<Target = dyn Layout> + std::fmt::Debug> Layouter<T> {
         self.propagate_abs_pos(idx, root_pos, true);
     }
 
-    pub fn iter(&self, idx: Idx) -> impl Iterator<Item = LayoutItem<T>> {
-        LayoutIter::new(self, idx).map(move |(idx, z_index)| LayoutItem::new(self, idx, z_index))
+    pub fn iter(&self, idx: Idx) -> impl Iterator<Item = (LayoutItem<T>, LayoutIterDirection)> {
+        LayoutIter::new(self, idx)
+            .map(move |x| (LayoutItem::new(self, x.idx), x.direction_that_led_here))
     }
 
     fn propagate_abs_pos(&self, root: Idx, offset: Offset, dirty: bool) {

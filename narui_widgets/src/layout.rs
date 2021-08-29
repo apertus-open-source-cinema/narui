@@ -20,7 +20,7 @@ pub fn stack(
     alignment: Alignment,
     context: &mut WidgetContext,
 ) -> FragmentInner {
-    FragmentInner::Node { children, layout: Box::new(Stack { fit, alignment }) }
+    FragmentInner::Node { children, layout: Box::new(Stack { fit, alignment }), is_clipper: false }
 }
 
 #[widget(cross_axis_alignment = CrossAxisAlignment::Center, main_axis_alignment = MainAxisAlignment::Center, main_axis_size = MainAxisSize::Max)]
@@ -34,6 +34,7 @@ pub fn column(
     FragmentInner::Node {
         children,
         layout: Box::new(Column { cross_axis_alignment, main_axis_alignment, main_axis_size }),
+        is_clipper: false,
     }
 }
 
@@ -48,6 +49,7 @@ pub fn row(
     FragmentInner::Node {
         children,
         layout: Box::new(Row { cross_axis_alignment, main_axis_alignment, main_axis_size }),
+        is_clipper: false,
     }
 }
 
@@ -61,7 +63,11 @@ pub fn flexible(
 ) -> FragmentInner {
     assert_eq!(children.len(), 1);
 
-    FragmentInner::Node { children, layout: Box::new(Flexible { flex: Flex { flex, fit } }) }
+    FragmentInner::Node {
+        children,
+        layout: Box::new(Flexible { flex: Flex { flex, fit } }),
+        is_clipper: false,
+    }
 }
 
 #[widget(padding = EdgeInsets::all(10.0))]
@@ -73,7 +79,7 @@ pub fn padding(
 ) -> FragmentInner {
     assert_eq!(children.len(), 1);
 
-    FragmentInner::Node { children, layout: Box::new(Padding::new(padding)) }
+    FragmentInner::Node { children, layout: Box::new(Padding::new(padding)), is_clipper: false }
 }
 
 #[widget(alignment = Alignment::center(), factor_width = Default::default(), factor_height = Default::default())]
@@ -90,6 +96,7 @@ pub fn align(
     FragmentInner::Node {
         children,
         layout: Box::new(Align::fractional(alignment, factor_width, factor_height)),
+        is_clipper: false,
     }
 }
 
@@ -102,7 +109,11 @@ pub fn sized_box(
 ) -> FragmentInner {
     assert_eq!(children.len(), 1);
 
-    FragmentInner::Node { children, layout: Box::new(SizedBox::constrained(constraint)) }
+    FragmentInner::Node {
+        children,
+        layout: Box::new(SizedBox::constrained(constraint)),
+        is_clipper: false,
+    }
 }
 
 
@@ -112,5 +123,5 @@ pub fn positioned(
     pos: AbsolutePosition,
     context: &mut WidgetContext,
 ) -> FragmentInner {
-    FragmentInner::Node { children, layout: Box::new(Positioned::new(pos)) }
+    FragmentInner::Node { children, layout: Box::new(Positioned::new(pos)), is_clipper: false }
 }

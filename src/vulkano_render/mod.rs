@@ -7,7 +7,6 @@ pub mod util;
 pub use util::VulkanContext;
 
 use crate::{heart::*, raw_render::RawRenderer, theme, util::FPSReporter};
-use hashbrown::HashSet;
 use input_handler::InputHandler;
 use lyon_render::LyonRenderer;
 use palette::Pixel;
@@ -143,7 +142,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
     let mut recreate_swapchain = false;
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
     let mut has_update = true;
-    let mut input_render_objects: HashSet<Idx, ahash::RandomState> = HashSet::default();
+    let mut input_render_objects: Vec<(Idx, Option<Rect>)> = Vec::new();
 
     event_loop.run_return(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 70));
@@ -202,7 +201,7 @@ pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
                         ..
                     } = &obj
                     {
-                        input_render_objects.insert(idx);
+                        input_render_objects.push((idx, obj.clipping_rect));
                     }
                 }
                 lyon_renderer.finish(lyon_state, &mut builder, &dynamic_state, &dimensions);

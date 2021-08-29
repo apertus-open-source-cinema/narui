@@ -1,5 +1,5 @@
 use crate::heart::{RenderObject::Input, *};
-use hashbrown::{HashMap, HashSet};
+use hashbrown::{HashMap};
 
 use rutter_layout::Idx;
 use winit::event::{ElementState, MouseButton, WindowEvent};
@@ -50,7 +50,7 @@ impl InputHandler {
     }
     pub fn handle_input(
         &mut self,
-        input_render_object: &HashSet<Idx, ahash::RandomState>,
+        input_render_object: &Vec<(Idx, Option<Rect>)>,
         layouter: &Layouter,
         context: CallbackContext,
     ) -> bool {
@@ -59,8 +59,13 @@ impl InputHandler {
         }
 
         let mut updated = false;
-        for key in input_render_object {
+        for (key, clipping_rect) in input_render_object {
             let (rect, obj) = layouter.get_positioned(*key);
+            let rect = if let Some(clipping_rect) = clipping_rect {
+                rect.clip(*clipping_rect)
+            } else {
+                rect
+            };
             if let Some(Input { key, on_hover, on_move, on_click }) = obj {
                 let input_state = self.input_states.entry(*key).or_insert(Default::default());
                 if self.cursor_moved {

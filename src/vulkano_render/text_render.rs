@@ -11,8 +11,12 @@ use glyph_brush::{
 };
 
 use lazy_static::lazy_static;
+use ordered_float::OrderedFloat;
 use palette::Pixel;
-use std::sync::Arc;
+use std::{
+    hash::{Hash, Hasher},
+    sync::Arc,
+};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
@@ -127,11 +131,35 @@ struct InstanceData {
 }
 vulkano::impl_vertex!(InstanceData, pos_min, pos_max, tex_min, tex_max, color, z_index);
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+struct Extra {
+    pub color: [f32; 4],
+    pub z: f32,
+    pub clipping_rect: Rect,
+}
+impl Hash for Extra {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        [
+            OrderedFloat::from(self.color[0]),
+            OrderedFloat::from(self.color[1]),
+            OrderedFloat::from(self.color[2]),
+            OrderedFloat::from(self.color[3]),
+            OrderedFloat::from(self.z),
+            OrderedFloat::from(self.clipping_rect.pos.x),
+            OrderedFloat::from(self.clipping_rect.pos.y),
+            OrderedFloat::from(self.clipping_rect.size.x),
+            OrderedFloat::from(self.clipping_rect.size.y),
+        ]
+        .hash(state)
+    }
+}
+
 pub struct TextRenderer {
     device: Arc<Device>,
     queue: Arc<Queue>,
     pipeline: std::sync::Arc<GraphicsPipeline<BuffersDefinition>>,
-    glyph_brush: GlyphBrush<InstanceData>,
+    glyph_brush: GlyphBrush<InstanceData, Extra>,
     quad_vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     instance_data_buffer: Arc<CpuAccessibleBuffer<[InstanceData]>>,
     sampler: Arc<Sampler>,
@@ -238,17 +266,27 @@ impl TextRenderer {
         }
     }
     pub fn render<'a>(&mut self, render_object: &PositionedRenderObject<'a>) {
+        let clipping_rect = if let Some(clipping_rect) = render_object.clipping_rect {
+            render_object.rect.clip(clipping_rect)
+        } else {
+            render_object.rect
+        };
+
         if let RenderObject::Text { text, size, color } = &render_object.render_object {
             self.glyph_brush.queue(
-                Section::default()
-                    .add_text(
-                        Text::new(&*text)
-                            .with_z(1.0 - render_object.z_index as f32 / 65535.0)
-                            .with_color(color.into_linear().into_raw::<[f32; 4]>())
-                            .with_scale(PxScale::from(*size)),
-                    )
+                Section::new()
+                    .add_text(Text {
+                        text: &*text,
+                        scale: PxScale::from(*size),
+                        font_id: Default::default(),
+                        extra: Extra {
+                            color: color.into_linear().into_raw::<[f32; 4]>(),
+                            z: 1.0 - render_object.z_index as f32 / 65535.0,
+                            clipping_rect,
+                        },
+                    })
                     .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
-                    .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size + 1.)), // we seem to have some numerical instability issues here
+                    .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size)),
             );
         }
     }
@@ -273,16 +311,32 @@ impl TextRenderer {
                 }
                 texture_upload = true;
             },
-            |vertex_data| InstanceData {
-                pos_min: [vertex_data.pixel_coords.min.x, vertex_data.pixel_coords.min.y],
-                pos_max: [vertex_data.pixel_coords.max.x, vertex_data.pixel_coords.max.y],
-                tex_min: [vertex_data.tex_coords.min.x, vertex_data.tex_coords.min.y],
-                tex_max: [vertex_data.tex_coords.max.x, vertex_data.tex_coords.max.y],
-                color: vertex_data.extra.color,
-                z_index: vertex_data.extra.z,
+            |vertex_data| {
+                let clipping_rect = vertex_data.extra.clipping_rect;
+                let original_rect = Rect::from_corners(
+                    vertex_data.pixel_coords.min.into(),
+                    vertex_data.pixel_coords.max.into(),
+                );
+                let clipped = original_rect.clip(clipping_rect);
+
+                let original_tex_rect = Rect::from_corners(
+                    vertex_data.tex_coords.min.into(),
+                    vertex_data.tex_coords.max.into(),
+                );
+                let clipped_tex_size = (clipped.size / original_rect.size) * original_tex_rect.size;
+                let clipped_tex_rect = Rect { pos: original_tex_rect.pos, size: clipped_tex_size };
+
+                InstanceData {
+                    pos_min: clipped.near_corner().into(),
+                    pos_max: clipped.far_corner().into(),
+                    tex_min: clipped_tex_rect.near_corner().into(),
+                    tex_max: clipped_tex_rect.far_corner().into(),
+                    color: vertex_data.extra.color,
+                    z_index: vertex_data.extra.z,
+                }
             },
         ) {
-            Ok(BrushAction::Draw(vertices)) => {
+            Ok(BrushAction::Draw(instances)) => {
                 /* //draw texture:
                 vertices.push(InstanceData {
                     pos_min: [100., 100.],
@@ -297,7 +351,7 @@ impl TextRenderer {
                     self.device.clone(),
                     BufferUsage::all(),
                     false,
-                    vertices.into_iter(),
+                    instances.into_iter(),
                 )
                 .unwrap();
             }

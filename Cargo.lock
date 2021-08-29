@@ -880,6 +880,7 @@ dependencies = [
  "narui_macros",
  "narui_widgets",
  "notosans",
+ "ordered-float",
  "palette",
  "parking_lot",
  "rutter_layout",

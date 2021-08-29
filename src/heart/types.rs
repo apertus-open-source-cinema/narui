@@ -1,3 +1,4 @@
+use glyph_brush::ab_glyph;
 use std::ops::{Add, Div, Mul, Sub};
 use winit::dpi::PhysicalPosition;
 
@@ -12,6 +13,12 @@ pub struct Vec2 {
 impl Vec2 {
     pub fn zero() -> Self { Vec2 { x: 0.0, y: 0.0 } }
     pub fn new(x: f32, y: f32) -> Self { Vec2 { x, y } }
+    pub fn min(&self, other: Vec2) -> Self {
+        Vec2 { x: self.x.min(other.x), y: self.y.min(other.y) }
+    }
+    pub fn max(&self, other: Vec2) -> Self {
+        Vec2 { x: self.x.max(other.x), y: self.y.max(other.y) }
+    }
 }
 impl Add for Vec2 {
     type Output = Vec2;
@@ -92,7 +99,6 @@ impl_convert_tuple_arr2!(u32);
 impl_convert_tuple_arr2!(u64);
 
 implement_convert!(rutter_layout::Offset, v, v.x, v.y, rutter_layout::Offset { x: v.x, y: v.y });
-
 implement_convert!(
     rutter_layout::Size,
     v,
@@ -110,6 +116,7 @@ implement_convert!(
 );
 
 implement_convert!(lyon::math::Point, v, v.x, v.y, lyon::math::point(v.x, v.y));
+implement_convert!(ab_glyph::Point, v, v.x, v.y, ab_glyph::Point { x: v.x, y: v.y });
 
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -121,8 +128,25 @@ impl Rect {
     pub fn contains(self, point: Vec2) -> bool {
         point.x >= self.pos.x
             && point.y >= self.pos.y
-            && point.x <= self.bottom_right().x
-            && point.y <= self.bottom_right().y
+            && point.x <= self.far_corner().x
+            && point.y <= self.far_corner().y
     }
-    pub fn bottom_right(&self) -> Vec2 { self.pos + self.size }
+    pub fn from_corners(top_left: Vec2, bottom_right: Vec2) -> Self {
+        let maybe_negative_size = bottom_right - top_left;
+        Rect { pos: top_left, size: maybe_negative_size.max(Vec2::new(0.0, 0.0)) }
+    }
+    pub fn near_corner(&self) -> Vec2 { self.pos }
+    pub fn far_corner(&self) -> Vec2 { self.pos + self.size }
+    pub fn clip(&self, clipper: Rect) -> Rect {
+        Rect::from_corners(
+            Vec2::new(
+                self.near_corner().x.max(clipper.near_corner().x),
+                self.near_corner().y.max(clipper.near_corner().y),
+            ),
+            Vec2::new(
+                self.far_corner().x.min(clipper.far_corner().x),
+                self.far_corner().y.min(clipper.far_corner().y),
+            ),
+        )
+    }
 }

@@ -168,6 +168,7 @@ pub fn widget(
                     FragmentInner::Node {
                         children: vec![ input ],
                         layout: Box::new(rutter_layout::Transparent),
+                        is_clipper: false,
                     }
                 }
             }

@@ -48,15 +48,19 @@ impl PartialEq for Fragment {
 #[derive(Debug)]
 pub enum FragmentInner {
     Leaf { render_object: RenderObject, layout: Box<dyn Layout> },
-    Node { children: Vec<Fragment>, layout: Box<dyn Layout> },
+    Node { children: Vec<Fragment>, layout: Box<dyn Layout>, is_clipper: bool },
 }
 impl FragmentInner {
-    pub fn unpack(self) -> (Box<dyn Layout>, Option<RenderObject>, impl Iterator<Item = Fragment>) {
+    pub fn unpack(
+        self,
+    ) -> (Box<dyn Layout>, Option<RenderObject>, impl Iterator<Item = Fragment>, bool) {
         match self {
             Self::Leaf { render_object, layout } => {
-                (layout, Some(render_object), vec![].into_iter())
+                (layout, Some(render_object), vec![].into_iter(), false)
             }
-            Self::Node { children, layout } => (layout, None, children.into_iter()),
+            Self::Node { children, layout, is_clipper } => {
+                (layout, None, children.into_iter(), is_clipper)
+            }
         }
     }
 }
