@@ -10,12 +10,13 @@ use std::sync::Arc;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 
-#[widget(on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}))]
+#[widget(on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}), relative = false)]
 pub fn drag_detector(
     on_drag: impl Fn(&CallbackContext, Vec2) + Clone + Sync + Send + 'static,
     on_start: impl Fn(&CallbackContext, Key) + Clone + Sync + Send + 'static,
     on_end: impl Fn(&CallbackContext, Key) + Clone + Sync + Send + 'static,
     children: Vec<Fragment>,
+    relative: bool,
     context: &mut WidgetContext,
 ) -> Fragment {
     let click_start_position = context.listenable(Vec2::zero());
@@ -36,7 +37,7 @@ pub fn drag_detector(
             context.shout(click_start_position, position);
             context.shout(click_started, false);
         } else if context.spy(clicked) {
-            on_drag(context, position - (context.measure_size(key).unwrap() / 2.))
+            on_drag(context, position - if relative { context.spy(click_start_position) } else { (context.measure_size(key).unwrap() / 2.) })
         }
     };
 
@@ -167,7 +168,7 @@ pub fn node(
                 </padding>
                 <column>
                     <padding padding=EdgeInsets::horizontal(10.0)>
-                        <drag_detector on_drag=on_drag>
+                        <drag_detector on_drag=on_drag relative=true>
                             <column main_axis_size=MainAxisSize::Min>
                                 <text>{name}</text>
                                 <hr color=stroke_color />
