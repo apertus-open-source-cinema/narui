@@ -48,11 +48,12 @@ impl<'a> ListenableCreate for WidgetContext<'a> {
 
 impl ListenableShout for PatchedTree {
     fn shout<T: Send + Sync + 'static + PartialEq>(&self, listenable: Listenable<T>, new_value: T) {
-        let old = self.get_patched(listenable.key);
-        let old = (&**old).downcast_ref::<T>().expect(
+        let old_entry = self.get_unpatched(listenable.key);
+        let old = (&**old_entry).downcast_ref::<T>().expect(
             "old value of arg has wrong type; this is likely an internal narui bug :(",
         );
         if !crate::all_eq!(old, &new_value) {
+            std::mem::drop(old_entry);
             self.set(listenable.key, Box::new(new_value));
         } else {
             // it is possible that there was a previous patch, but now we set this listenable to the original (unpatched) value again
