@@ -20,5 +20,5 @@ jobs:
           profile: minimal
           toolchain: nightly
 
-      - run: cargo build --all-targets
+      - run: cargo build --all-targets --workspace
       - run: cargo test
