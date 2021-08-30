@@ -160,7 +160,7 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
             }
             Event::MainEventsCleared => {
                 input_handler.handle_input(
-                    &input_render_objects,
+                    &input_render_objects[..],
                     &layouter,
                     evaluator.callback_context(&layouter),
                 );
@@ -188,9 +188,10 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                     .begin_render_pass(framebuffer, SubpassContents::Inline, clear_values)
                     .unwrap();
 
+                input_render_objects.clear();
+
                 layouter.do_layout(evaluator.top_node, dimensions.into());
 
-                input_render_objects.clear();
                 let mut lyon_state = lyon_renderer.begin();
                 for (idx, obj) in layouter.iter_layouted(evaluator.top_node) {
                     raw_render.render(&mut builder, &dynamic_state, &dimensions, &obj);

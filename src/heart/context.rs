@@ -1,7 +1,7 @@
 use crate::{EvaluatedFragment, Fragment, Key, KeyMap, Layouter, UnevaluatedFragment};
 use dashmap::DashMap;
 use derivative::Derivative;
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashMap;
 
 use crate::MaybeEvaluatedFragment::{Evaluated, Unevaluated};
 use freelist::FreeList;
@@ -72,6 +72,7 @@ impl MaybeEvaluatedFragment {
 pub struct FragmentInfo {
     pub fragment: Option<MaybeEvaluatedFragment>,
     pub args: Option<SmallVec<[Box<dyn Any>; 8]>>,
+    pub external_hook_count: u16,
 }
 
 #[derive(Debug, Default)]
@@ -81,8 +82,22 @@ pub struct FragmentStore {
 }
 
 impl FragmentStore {
+    pub fn next_external_hook_count(&mut self, idx: Fragment) -> u16 {
+        let count = self.data[idx.0].external_hook_count;
+        self.data[idx.0].external_hook_count += 1;
+        count
+    }
+
+    pub fn reset_external_hook_count(&mut self, idx: Fragment) {
+        self.data[idx.0].external_hook_count = 0;
+    }
+
     pub fn add_empty_fragment(&mut self) -> Fragment {
-        let idx = Fragment(self.data.add(FragmentInfo { fragment: None, args: None }));
+        let idx = Fragment(self.data.add(FragmentInfo {
+            fragment: None,
+            args: None,
+            external_hook_count: 0,
+        }));
         log::trace!("initialized a new fragment with idx {:?}", idx);
         idx
     }
@@ -129,20 +144,6 @@ impl FragmentStore {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct ExternalHookCount {
-    counts: HashMap<Key, u16>,
-}
-
-impl ExternalHookCount {
-    fn next(&mut self, key: Key) -> u16 {
-        let count = self.counts.entry(key).or_insert(0);
-        let idx = *count;
-        *count += 1;
-        idx
-    }
-}
-
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WidgetContext<'a> {
@@ -150,7 +151,6 @@ pub struct WidgetContext<'a> {
     #[derivative(Debug = "ignore")]
     pub tree: Arc<PatchedTree>,
     pub local_hook: bool,
-    pub external_hook_count: &'a mut ExternalHookCount,
     pub fragment_store: &'a mut FragmentStore,
     pub widget_loc: (usize, usize),
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
@@ -170,7 +170,8 @@ impl<'a> WidgetContext<'a> {
             );
             (self.widget_local.key, counter)
         } else {
-            let key = self.external_hook_count.next(self.widget_local.key) | 0b1000_0000_0000_0000;
+            let key = self.fragment_store.next_external_hook_count(self.widget_local.idx)
+                | 0b1000_0000_0000_0000;
             log::trace!(
                 "creating external hook: {:?}:{}",
                 self.key_map.key_debug(self.widget_local.key),
@@ -185,7 +186,6 @@ impl<'a> WidgetContext<'a> {
     pub fn root(
         top: Fragment,
         tree: Arc<PatchedTree>,
-        external_hook_count: &'a mut ExternalHookCount,
         fragment_store: &'a mut FragmentStore,
         after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
         key_map: &'a mut KeyMap,
@@ -197,14 +197,12 @@ impl<'a> WidgetContext<'a> {
             widget_local: WidgetLocalContext::for_key(Default::default(), top),
             widget_loc: (0, 0),
             key_map,
-            external_hook_count,
             local_hook: true,
         }
     }
 
     pub fn for_fragment(
         tree: Arc<PatchedTree>,
-        external_hook_count: &'a mut ExternalHookCount,
         fragment_store: &'a mut FragmentStore,
         key: Key,
         idx: Fragment,
@@ -218,7 +216,6 @@ impl<'a> WidgetContext<'a> {
             widget_local: WidgetLocalContext::for_key(key, idx),
             widget_loc: (0, 0),
             key_map,
-            external_hook_count,
             local_hook: true,
         }
     }
@@ -227,7 +224,6 @@ impl<'a> WidgetContext<'a> {
         WidgetContext {
             tree: self.tree.clone(),
             local_hook: true,
-            external_hook_count: &mut self.external_hook_count,
             fragment_store: self.fragment_store,
             widget_loc: (0, 0),
             after_frame_callbacks: self.after_frame_callbacks,

@@ -50,7 +50,7 @@ impl InputHandler {
     }
     pub fn handle_input(
         &mut self,
-        input_render_object: &Vec<(Idx, Option<Rect>)>,
+        input_render_object: &[(Idx, Option<Rect>)],
         layouter: &Layouter,
         context: CallbackContext,
     ) -> bool {

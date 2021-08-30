@@ -99,7 +99,7 @@ pub fn inverse_rect_leaf(
             };
             if let Some(fill) = fill {
                 let mut builder = Builder::new();
-                let m = 0.5522847498;
+                let m = 0.552_284_8;
                 let mut corner = |a: Vec2, b: Vec2, c: Vec2| {
                     builder.begin(a.into());
                     builder.line_to(point(b.x, b.y));

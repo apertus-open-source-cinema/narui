@@ -9,8 +9,11 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     let (beginning, inplace) = handle_rsx_node(parsed.remove(0));
 
     let transformed = quote! {{
+        context.local_hook = false;
         #beginning
-        #inplace
+        let ret = { #inplace };
+        context.local_hook = true;
+        ret
     }};
 
     // println!("rsx: \n{}\n\n", transformed);
@@ -91,6 +94,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
                 );
 
                 context.widget_local.key = old_key;
+                context.fragment_store.reset_external_hook_count(#idx_ident);
                 to_return
             };
         };

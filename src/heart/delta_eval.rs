@@ -4,19 +4,17 @@ use crate::{
     heart::{Key, LayoutTree, UnevaluatedFragment},
     AfterFrameCallback,
     CallbackContext,
-    ExternalHookCount,
     Fragment,
     FragmentChildren,
     FragmentInner,
     FragmentStore,
-    HookKey,
     KeyMap,
     Layouter,
     PatchedTree,
     WidgetContext,
 };
 use derivative::Derivative;
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashSet;
 
 use crate::MaybeEvaluatedFragment::{Evaluated, Unevaluated};
 use rutter_layout::Idx;
@@ -53,7 +51,6 @@ impl EvaluatorInner {
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
         key_map: &mut KeyMap,
     ) -> bool {
-        let mut external_hook_count = Default::default();
         let mut to_update: HashSet<Fragment, ahash::RandomState> = HashSet::default();
 
         let touched_keys = self.tree.update_tree(key_map);
@@ -69,14 +66,7 @@ impl EvaluatorInner {
         }
 
         for idx in to_update.drain() {
-            self.re_eval_fragment(
-                layout_tree,
-                fragment_store,
-                &mut external_hook_count,
-                after_frame_callbacks,
-                key_map,
-                idx,
-            )
+            self.re_eval_fragment(layout_tree, fragment_store, after_frame_callbacks, key_map, idx)
         }
 
         loop {
@@ -86,7 +76,6 @@ impl EvaluatorInner {
                 self.re_eval_fragment(
                     layout_tree,
                     fragment_store,
-                    &mut external_hook_count,
                     after_frame_callbacks,
                     key_map,
                     idx,
@@ -151,7 +140,6 @@ impl EvaluatorInner {
         &mut self,
         layout_tree: &mut Layouter,
         fragment_store: &mut FragmentStore,
-        external_hook_count: &mut ExternalHookCount,
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
         key_map: &mut KeyMap,
         frag_idx: Fragment,
@@ -170,7 +158,6 @@ impl EvaluatorInner {
                     layout_tree,
                     &mut WidgetContext::for_fragment(
                         self.tree.clone(),
-                        external_hook_count,
                         fragment_store,
                         key,
                         frag_idx,
@@ -184,10 +171,9 @@ impl EvaluatorInner {
                 let key = *key;
                 let gen = gen.clone();
 
-                let (mut widget_local, evaluated) = {
+                let evaluated = {
                     let mut context = WidgetContext::for_fragment(
                         self.tree.clone(),
-                        external_hook_count,
                         fragment_store,
                         key,
                         frag_idx,
@@ -196,8 +182,7 @@ impl EvaluatorInner {
                     );
 
                     let evaluated: FragmentInner = (gen)(&mut context);
-                    let WidgetContext { widget_local, .. } = context;
-                    (widget_local, evaluated)
+                    evaluated
                 };
                 let (layout, render_object, children, is_clipper) = evaluated.unpack();
 
@@ -216,7 +201,6 @@ impl EvaluatorInner {
                                 layout_tree,
                                 &mut WidgetContext::for_fragment(
                                     self.tree.clone(),
-                                    external_hook_count,
                                     fragment_store,
                                     key,
                                     *child,
@@ -328,7 +312,6 @@ impl Evaluator {
             &mut WidgetContext::root(
                 top_node,
                 evaluator.inner.tree.clone(),
-                &mut Default::default(),
                 &mut evaluator.fragment_store,
                 &mut evaluator.after_frame_callbacks,
                 &mut evaluator.key_map,

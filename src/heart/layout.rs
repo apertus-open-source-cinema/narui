@@ -86,7 +86,7 @@ impl Layouter {
         self.layouter.iter(top).filter_map(move |(layout_item, direction_that_led_here)| {
             let current_rect = Rect { pos: layout_item.pos.into(), size: layout_item.size.into() };
             let z_index;
-            let preliminary_clipper = last_clipper.or(clipper_stack.last().cloned());
+            let preliminary_clipper = last_clipper.or_else(|| clipper_stack.last().cloned());
             let clip_fn = |rect: Rect| {
                 if let Some(clipper) = preliminary_clipper {
                     rect.clip(clipper)

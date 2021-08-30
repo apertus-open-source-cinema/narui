@@ -32,7 +32,7 @@ the output of this stage is the visual output :). profit!
 
  */
 
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Fragment(pub(crate) Idx);
 pub type FragmentChildren = SmallVec<[Fragment; 8]>;
 

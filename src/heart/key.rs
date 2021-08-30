@@ -6,7 +6,7 @@ use std::{
 };
 
 type KeyInner = Idx;
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Hash, Eq, Debug)]
 pub struct Key(pub(crate) KeyInner);
 
 impl Default for Key {
