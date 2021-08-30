@@ -86,6 +86,14 @@ impl Layouter {
         self.layouter.iter(top).filter_map(move |(layout_item, direction_that_led_here)| {
             let current_rect = Rect { pos: layout_item.pos.into(), size: layout_item.size.into() };
             let z_index;
+            let preliminary_clipper = last_clipper.or(clipper_stack.last().cloned());
+            let clip_fn = |rect: Rect| {
+                if let Some(clipper) = preliminary_clipper {
+                    rect.clip(clipper)
+                } else {
+                    rect
+                }
+            };
             match direction_that_led_here {
                 Down => {
                     parent_z_index += last_z_index_offset;
@@ -95,13 +103,13 @@ impl Layouter {
                         if let Some(last_clipper) = last_clipper {
                             clipper_stack.push(last_clipper);
                         }
-                        last_clipper = Some(current_rect);
+                        last_clipper = Some(clip_fn(current_rect));
                     }
                 }
                 Right => {
                     z_index = parent_z_index + layout_item.z_index_offset;
                     if layout_item.obj.is_clipper {
-                        last_clipper = Some(current_rect);
+                        last_clipper = Some(clip_fn(current_rect));
                     }
                 }
                 Up => {
