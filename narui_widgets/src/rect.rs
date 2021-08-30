@@ -158,14 +158,20 @@ pub fn rect(
     children: Option<Fragment>,
     context: &mut WidgetContext,
 ) -> Fragment {
-    if do_clipping {
-        rsx! {
-            <stack>
-                <positioned>
-                    <rect_leaf border_radius=border_radius fill=fill stroke=stroke />
-                </positioned>
-                <sized constraint=constraint>{children.into()}</sized>
-            </stack>
+    if !do_clipping {
+        if let Some(frag) = children {
+            rsx! {
+                <stack>
+                    <positioned>
+                        <rect_leaf border_radius=border_radius fill=fill stroke=stroke />
+                    </positioned>
+                    <sized constraint=constraint>{frag.into()}</sized>
+                </stack>
+            }
+        } else {
+            rsx! {
+                <sized constraint=constraint><rect_leaf border_radius=border_radius fill=fill stroke=stroke /></sized>
+            }
         }
     } else {
         rsx! {

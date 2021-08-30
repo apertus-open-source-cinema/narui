@@ -48,7 +48,7 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
                     <flexible>
                         <padding padding=EdgeInsets::all(10.)>
                             <reveal_box reveal=context.listen(slider_value)>
-                                <rect fill=Some(color!(#007777)) border_radius=Fraction(1.)>
+                                <rect fill=Some(color!(#007777)) border_radius=Fraction(1.) do_clipping=true>
                                     <text size=100.>
                                         {"some really long text, that gets clipped..."}
                                     </text>

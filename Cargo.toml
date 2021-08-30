@@ -49,8 +49,7 @@ features = ["precommit-hook", "run-cargo-fmt", "run-cargo-check"]
 jemallocator = "0.3.2"
 
 [profile.release]
-lto = "fat"
-# debug = true
+debug = true
 
 
 [workspace]
