@@ -146,7 +146,7 @@ impl<'a> ListenableListen for WidgetContext<'a> {
     where
         T: Clone,
     {
-        self.widget_local.mark_used(listenable.key.0);
+        self.tree.set_dependent(listenable.key, self.widget_local.idx);
         self.tree
             .get_unpatched(listenable.key)
             .downcast_ref::<T>()
@@ -156,7 +156,7 @@ impl<'a> ListenableListen for WidgetContext<'a> {
 
     fn listen_ref<T: Send + Sync>(&mut self, listenable: Listenable<T>) -> ListenableGuard<T> {
         // TODO(robin): why was this previously not marked as used?
-        self.widget_local.mark_used(listenable.key.0);
+        self.tree.set_dependent(listenable.key, self.widget_local.idx);
 
         ListenableGuard::new(self.tree.get_unpatched(listenable.key))
     }

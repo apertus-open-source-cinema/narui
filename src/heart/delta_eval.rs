@@ -36,7 +36,6 @@ pub struct EvaluatedFragment {
     // this field is information that is gathered by the delta evaluator
     pub layout_idx: rutter_layout::Idx,
     pub store_idx: Fragment,
-    pub deps: HashSet<HookKey, ahash::RandomState>,
 
     pub children: FragmentChildren,
 }
@@ -44,7 +43,6 @@ pub struct EvaluatedFragment {
 #[derive(Default)]
 pub struct EvaluatorInner {
     pub(crate) tree: Arc<PatchedTree>,
-    deps_map: HashMap<HookKey, HashSet<Fragment, ahash::RandomState>, ahash::RandomState>,
 }
 
 impl EvaluatorInner {
@@ -61,8 +59,8 @@ impl EvaluatorInner {
         let touched_keys = self.tree.update_tree(key_map);
         for key in touched_keys.into_iter() {
             // println!("touched key ({:?}, {})", key_map.key_debug(key.0), key.1);
-            for frag in self.deps_map.get(&key).into_iter().flat_map(|v| v.iter()) {
-                to_update.insert(*frag);
+            for frag in self.tree.dependents(key) {
+                to_update.insert(frag);
             }
         }
 
@@ -111,14 +109,13 @@ impl EvaluatorInner {
             "unconditionally evaluating {:?}",
             context.key_map.key_debug(context.fragment_store.get(fragment_idx).key())
         );
-        let (layout_idx, deps, children) = {
+        let (layout_idx, children) = {
             let UnevaluatedFragment { key, gen } =
                 context.fragment_store.get(fragment_idx).assert_unevaluated();
             let key = *key;
             let gen = gen.clone();
             let mut context = context.with_key_widget(key, fragment_idx);
             let evaluated: FragmentInner = (gen.clone())(&mut context);
-            let deps = std::mem::take(&mut context.widget_local.used);
 
             let (layout, render_object, children, is_clipper) = evaluated.unpack();
             let layout_idx = layout_tree.add_node(layout, render_object, is_clipper);
@@ -133,7 +130,7 @@ impl EvaluatorInner {
                     .iter()
                     .map(|idx| context.fragment_store.get(*idx).assert_evaluated().layout_idx),
             );
-            (layout_idx, deps, children)
+            (layout_idx, children)
         };
 
         take_mut::take(context.fragment_store.get_mut(fragment_idx), |unevaluated| {
@@ -142,15 +139,10 @@ impl EvaluatorInner {
                 layout_idx,
                 key: frag.key,
                 gen: frag.gen,
-                deps: deps.clone(),
                 store_idx: fragment_idx,
                 children,
             })
         });
-
-        for key in deps {
-            self.deps_map.entry(key).or_default().insert(fragment_idx);
-        }
 
         fragment_idx
     }
@@ -256,15 +248,6 @@ impl EvaluatorInner {
                 let old_children = {
                     let frag = fragment_store.get_mut(frag_idx).assert_evaluated_mut();
 
-                    let new_deps = &mut widget_local.used;
-                    for to_remove in frag.deps.difference(new_deps) {
-                        self.deps_map.entry(*to_remove).or_default().remove(&frag.store_idx);
-                    }
-
-                    for to_insert in new_deps.difference(&frag.deps) {
-                        self.deps_map.entry(*to_insert).or_default().insert(frag_idx);
-                    }
-                    frag.deps = std::mem::take(new_deps);
                     frag.children = children;
 
                     layout_tree.set_node(frag.layout_idx, layout, render_object, is_clipper);
@@ -286,7 +269,6 @@ impl EvaluatorInner {
         fragment_store: &mut FragmentStore,
         frag: Fragment,
     ) {
-        let deps = std::mem::take(&mut fragment_store.get_mut(frag).assert_evaluated_mut().deps);
         let EvaluatedFragment { key, children, layout_idx, store_idx, .. } =
             fragment_store.get(frag).assert_evaluated();
         let key = *key;
@@ -294,9 +276,6 @@ impl EvaluatorInner {
         let store_idx = *store_idx;
         for child in children.clone() {
             self.remove_tree(key_map, layout_tree, fragment_store, child);
-        }
-        for to_remove in deps.iter() {
-            self.deps_map.entry(*to_remove).or_default().remove(&store_idx);
         }
         self.tree.remove_widget(&key);
 

@@ -645,6 +645,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "jemalloc-sys"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -893,6 +902,7 @@ dependencies = [
  "rutter_layout",
  "smallvec",
  "take_mut",
+ "tinyset",
  "vulkano",
  "vulkano-shaders",
  "vulkano-win",
@@ -1562,6 +1572,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tinyset"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb55cb9d7b901da75ec6f4a95537b28d295121c7b999224ebb4f34541625aff2"
+dependencies = [
+ "itertools",
+ "rand",
 ]
 
 [[package]]

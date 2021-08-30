@@ -8,7 +8,8 @@ use freelist::FreeList;
 use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
 use rutter_layout::Idx;
 use smallvec::SmallVec;
-use std::{any::Any, fmt::Debug, ops::Deref, sync::Arc};
+use std::{any::Any, fmt::Debug, num::NonZeroUsize, ops::Deref, sync::Arc};
+use tinyset::Set64;
 
 #[derive(Debug)]
 pub enum MaybeEvaluatedFragment {
@@ -270,6 +271,7 @@ pub struct CallbackContext<'a> {
 //   - get value
 //   - measure
 
+type Dependents = tinyset::Set64<usize>;
 pub type TreeItem = Box<dyn Any + Send + Sync>;
 
 #[derive(Debug)]
@@ -287,12 +289,12 @@ pub type HookRef = (HookKey, Idx);
 
 #[derive(Debug, Default)]
 pub struct PatchedTree {
-    data: RwLock<FreeList<TreeItem>>,
+    data: RwLock<FreeList<(Set64<usize>, TreeItem)>>,
     key_to_idx: RwLock<HashMap<Key, HashMap<u16, Idx>>>,
     patch: FxDashMap<Idx, Patch<TreeItem>>,
 }
 
-type DataRef<'a> = MappedRwLockReadGuard<'a, Box<dyn Any + Send + Sync>>;
+type DataRef<'a> = MappedRwLockReadGuard<'a, (Set64<usize>, TreeItem)>;
 type HashPatchRef<'a> = dashmap::mapref::one::Ref<'a, Idx, Patch<TreeItem>, ahash::RandomState>;
 
 pub struct PatchTreeEntry<'a> {
@@ -313,7 +315,7 @@ impl<'a> Deref for PatchTreeEntry<'a> {
         match &self.patched_entry {
             Some(p) => &p.value().value,
             None => match &self.unpatched_entry {
-                Some(v) => &*v,
+                Some(v) => &(*v).1,
                 None => unreachable!(),
             },
         }
@@ -343,7 +345,7 @@ impl PatchedTree {
                 .entry(key.0)
                 .or_default()
                 .entry(key.1)
-                .or_insert_with(|| self.data.write().add(value)),
+                .or_insert_with(|| self.data.write().add((Default::default(), value))),
         )
     }
 
@@ -356,7 +358,7 @@ impl PatchedTree {
                 .entry(key.0)
                 .or_default()
                 .entry(key.1)
-                .or_insert_with(|| self.data.write().add(gen())),
+                .or_insert_with(|| self.data.write().add((Default::default(), gen()))),
         )
     }
 
@@ -364,7 +366,7 @@ impl PatchedTree {
         self.patch.insert(idx.1, Patch { value, key: idx.0 });
     }
 
-    pub fn set_unconditional(&self, idx: Idx, value: TreeItem) { self.data.write()[idx] = value; }
+    pub fn set_unconditional(&self, idx: Idx, value: TreeItem) { self.data.write()[idx].1 = value; }
 
     pub fn remove_widget(&self, key: &Key) {
         if let Some(indices) = self.key_to_idx.write().remove(key) {
@@ -375,7 +377,7 @@ impl PatchedTree {
     }
 
     // apply the patch to the tree starting a new frame
-    pub fn update_tree<'a>(&'a self, _key_map: &mut KeyMap) -> impl Iterator<Item = HookKey> + 'a {
+    pub fn update_tree<'a>(&'a self, _key_map: &mut KeyMap) -> impl Iterator<Item = HookRef> + 'a {
         let mut keys = vec![];
         for kv in self.patch.iter() {
             keys.push(*kv.key());
@@ -385,8 +387,18 @@ impl PatchedTree {
             let (idx, Patch { value, key }) = self.patch.remove(&idx).unwrap();
             self.set_unconditional(idx, value);
 
-            key
+            (key, idx)
         })
+    }
+
+    pub fn set_dependent(&self, key: HookRef, frag: Fragment) {
+        self.data.write()[key.1].0.insert(frag.0.get());
+    }
+
+    pub fn dependents<'a>(&'a self, key: HookRef) -> impl Iterator<Item = Fragment> + 'a {
+        std::mem::take(&mut self.data.write()[key.1].0)
+            .into_iter()
+            .map(|v| Fragment(unsafe { NonZeroUsize::new_unchecked(v) }))
     }
 }
 
@@ -397,13 +409,8 @@ pub struct WidgetLocalContext {
     pub key: Key,
     pub idx: Fragment,
     pub hook_counter: u16,
-    pub used: HashSet<HookKey, ahash::RandomState>,
 }
 
 impl WidgetLocalContext {
-    pub fn mark_used(&mut self, key: HookKey) { self.used.insert(key); }
-
-    pub fn for_key(key: Key, idx: Fragment) -> Self {
-        Self { idx, key, hook_counter: 0, used: HashSet::new() }
-    }
+    pub fn for_key(key: Key, idx: Fragment) -> Self { Self { idx, key, hook_counter: 0 } }
 }

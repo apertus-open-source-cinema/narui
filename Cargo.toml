@@ -35,6 +35,7 @@ freelist = { path = "freelist" }
 ordered-float = "2.1.1"
 smallvec = "1.6.1"
 take_mut = "0.2.2"
+tinyset = "0.4.6"
 
 [dev-dependencies]
 narui_widgets = { path = "narui_widgets" }
