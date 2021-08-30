@@ -11,7 +11,7 @@ pub trait ContextArgs {
 
 impl<'a> ContextArgs for WidgetContext<'a> {
     fn listen_args(&self, key: &Fragment) -> &SmallVec<[Box<dyn Any>; 8]> {
-        self.fragment_store.get_args(*key).unwrap()
+        self.fragment_store.get_args(*key).as_ref().unwrap()
     }
 }
 

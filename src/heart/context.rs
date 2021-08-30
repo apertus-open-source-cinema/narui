@@ -115,8 +115,8 @@ impl FragmentStore {
         self.data.remove(idx.0);
     }
 
-    pub fn get_args(&self, idx: Fragment) -> Option<&SmallVec<[Box<dyn Any>; 8]>> {
-        self.data[idx.0].args.as_ref()
+    pub fn get_args(&self, idx: Fragment) -> &Option<SmallVec<[Box<dyn Any>; 8]>> {
+        &self.data[idx.0].args
     }
 
     pub fn set_args(&mut self, idx: Fragment, args: SmallVec<[Box<dyn Any>; 8]>) {
