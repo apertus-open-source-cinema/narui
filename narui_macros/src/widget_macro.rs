@@ -141,7 +141,7 @@ pub fn widget(
                     #(#initializers;)*
                     #mod_ident::#macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
 
-                    shout_args!($context, $idx, [#(#arg_names,)*])
+                    #narui::shout_args!($context, $idx, [#(#arg_names,)*])
                 }
             };
         }

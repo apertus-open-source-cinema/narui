@@ -18,7 +18,7 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
                 <column main_axis_alignment=MainAxisAlignment::SpaceEvenly key=x>
                     {(0..frame_count).map(|y| rsx! {
                         <sized_box constraint=BoxConstraints::tight(10.0, 10.0) key=y>
-                            <rect
+                            <rect_leaf
                                 fill=Some({
                                     let val = context.listen(frame_counter);
                                     Color::from_components((x as f32 / 50., y as f32 / 50., ((val as f32 / 10.0).sin() + 1.) / 2., 1.))

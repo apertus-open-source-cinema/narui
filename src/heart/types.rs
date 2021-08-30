@@ -19,6 +19,8 @@ impl Vec2 {
     pub fn max(&self, other: Vec2) -> Self {
         Vec2 { x: self.x.max(other.x), y: self.y.max(other.y) }
     }
+    pub fn with_x(&self, x: f32) -> Self { Self { x, ..*self } }
+    pub fn with_y(&self, y: f32) -> Self { Self { y, ..*self } }
 }
 impl Add for Vec2 {
     type Output = Vec2;

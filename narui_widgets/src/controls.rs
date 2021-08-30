@@ -4,9 +4,9 @@ use palette::Shade;
 
 #[widget(
     on_click = (| _context | {}),
-    border_radius = Paxel(10.),
-    color = crate::theme::BG,
-    stroke_color = crate::theme::FG,
+    border_radius = narui::Paxel(10.),
+    color = narui::theme::BG,
+    stroke_color = narui::theme::FG,
 )]
 pub fn button(
     on_click: impl for<'a> Fn(&'a CallbackContext) + Clone + 'static,
@@ -34,17 +34,21 @@ pub fn button(
     rsx! {
         <stack fit=StackFit::Loose>
             <positioned>
-                <rect fill=Some(color) stroke=Some((stroke_color, 1.0)) border_radius=border_radius />
+                <rect_leaf fill=Some(color) stroke=Some((stroke_color, 1.0)) border_radius=border_radius />
             </positioned>
-            <padding><sized_box constraint=BoxConstraints::min_width(100.0)><align factor_width=Some(1.0) factor_height=Some(1.0)>{children}</align></sized_box></padding>
+            <padding>
+                <sized_box constraint=BoxConstraints::min_width(100.0)>
+                    <align factor_width=Some(1.0) factor_height=Some(1.0)>{children}</align>
+                </sized_box>
+            </padding>
             <positioned>
-                <input on_click=callback />
+                <input_leaf on_click=callback />
             </positioned>
         </stack>
     }
 }
 
-#[widget(min = 0.0, max = 1.0, slide_color = crate::theme::BG_LIGHT, knob_color = crate::theme::FG)]
+#[widget(min = 0.0, max = 1.0, slide_color = narui::theme::BG_LIGHT, knob_color = narui::theme::FG)]
 pub fn slider(
     val: f32,
     on_change: impl for<'a> Fn(&'a CallbackContext, f32) + Clone + 'static,
@@ -73,18 +77,18 @@ pub fn slider(
             <stack>
                 <sized_box constraint=BoxConstraints::default().with_tight_height(5.0)>
                     <padding padding=EdgeInsets::horizontal(10.0)>
-                        <rect border_radius=Fraction(1.) fill=Some(slide_color) /> // the slide
+                        <rect_leaf border_radius=Fraction(1.) fill=Some(slide_color) /> // the slide
                     </padding>
                 </sized_box>
-                <input_composed on_move = on_move>
+                <input on_move = on_move>
                     <align alignment=Alignment::new(2.0 * (val - min) / (max - min) - 1.0, 0.0) factor_height = Some(1.0)>
-                        <input_composed on_click=on_click>
+                        <input on_click=on_click>
                             <sized_box constraint=BoxConstraints::default().with_tight_width(20.0)>
-                                <rect border_radius=Fraction(1.) fill=Some(knob_color) />
+                                <rect_leaf border_radius=Fraction(1.) fill=Some(knob_color) />
                             </sized_box>
-                        </input_composed>
+                        </input>
                     </align>
-                </input_composed>
+                </input>
             </stack>
         </sized_box>
     }

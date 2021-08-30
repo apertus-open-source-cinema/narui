@@ -50,12 +50,9 @@ pub fn drag_detector(
     };
 
     rsx! {
-        <stack>
+        <input on_move=on_move on_click=on_click>
             <fragment>{children.into()}</fragment>
-            <positioned>
-                <input on_move=on_move on_click=on_click />
-            </positioned>
-        </stack>
+        </input>
     }
 }
 
@@ -63,7 +60,7 @@ pub fn drag_detector(
 pub fn hr(color: Color, context: &mut WidgetContext) -> Fragment {
     rsx! {
         <sized_box constraint={BoxConstraints::min_height(10.)}>
-            <rect fill=Some(color) />
+            <rect_leaf fill=Some(color) />
         </sized_box>
     }
 }
@@ -95,7 +92,7 @@ pub fn handle(
                 on_end=(move |context, key| {on_drag_end(context, key, parent_node)})
                 on_start=(move |context, key| {on_drag_start(context, key, parent_node)})
             >
-                <rect
+                <rect_leaf
                     fill=Some(color)
                     border_radius=Paxel(size)
                 />
@@ -172,7 +169,7 @@ pub fn node(
         <sized_box constraint=BoxConstraints::tight(250., 150.)>
             <stack>
                 <padding padding=EdgeInsets::horizontal(10.0)>
-                    <rect border_radius=Paxel(10.0) fill=Some(fill_color) stroke=Some((stroke_color, 2.0)) />
+                    <rect_leaf border_radius=Paxel(10.0) fill=Some(fill_color) stroke=Some((stroke_color, 2.0)) />
                 </padding>
                 <column>
                     <padding padding=EdgeInsets::horizontal(10.0)>

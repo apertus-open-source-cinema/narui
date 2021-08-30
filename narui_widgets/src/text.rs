@@ -50,7 +50,7 @@ impl rutter_layout::Layout for TextLayout {
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
-#[widget(size = 24.0, color = crate::theme::TEXT_WHITE)]
+#[widget(size = 24.0, color = narui::theme::TEXT_WHITE)]
 pub fn text(
     size: f32,
     children: impl ToString + Clone,

@@ -13,10 +13,9 @@ pub fn btn(context: &mut WidgetContext) -> Fragment {
     };
 
     rsx! {
-        <stack>
-            <rect fill=Some(color) />
-            <input on_click = callback />
-        </stack>
+        <rect fill=Some(color)>
+            <input_leaf on_click = callback />
+        </rect>
     }
 }
 

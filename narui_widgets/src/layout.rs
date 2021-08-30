@@ -1,4 +1,4 @@
-use narui::*;
+use narui::{widget, Fragment, FragmentInner, WidgetContext};
 pub use rutter_layout::{
     AbsolutePosition,
     Alignment,
@@ -13,19 +13,14 @@ pub use rutter_layout::{
 };
 use rutter_layout::{Align, Column, Flex, Flexible, Padding, Positioned, Row, SizedBox, Stack};
 
-#[widget(fit = StackFit::Loose, alignment = Alignment::center())]
-pub fn stack(
-    children: FragmentChildren,
-    fit: StackFit,
-    alignment: Alignment,
-    context: &mut WidgetContext,
-) -> FragmentInner {
-    FragmentInner::Node { children, layout: Box::new(Stack { fit, alignment }), is_clipper: false }
-}
 
-#[widget(cross_axis_alignment = CrossAxisAlignment::Center, main_axis_alignment = MainAxisAlignment::Center, main_axis_size = MainAxisSize::Max)]
+#[widget(
+    cross_axis_alignment = rutter_layout::CrossAxisAlignment::Center,
+    main_axis_alignment = rutter_layout::MainAxisAlignment::Center,
+    main_axis_size = rutter_layout::MainAxisSize::Max
+)]
 pub fn column(
-    children: FragmentChildren,
+    children: narui::FragmentChildren,
     cross_axis_alignment: CrossAxisAlignment,
     main_axis_alignment: MainAxisAlignment,
     main_axis_size: MainAxisSize,
@@ -38,12 +33,16 @@ pub fn column(
     }
 }
 
-#[widget(cross_axis_alignment = CrossAxisAlignment::Center, main_axis_alignment = MainAxisAlignment::Center, main_axis_size = MainAxisSize::Max)]
+#[widget(
+    cross_axis_alignment = rutter_layout::CrossAxisAlignment::Center,
+    main_axis_alignment = rutter_layout::MainAxisAlignment::Center,
+    main_axis_size = rutter_layout::MainAxisSize::Max
+)]
 pub fn row(
-    children: FragmentChildren,
-    cross_axis_alignment: CrossAxisAlignment,
-    main_axis_alignment: MainAxisAlignment,
-    main_axis_size: MainAxisSize,
+    children: narui::FragmentChildren,
+    cross_axis_alignment: rutter_layout::CrossAxisAlignment,
+    main_axis_alignment: rutter_layout::MainAxisAlignment,
+    main_axis_size: rutter_layout::MainAxisSize,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -53,11 +52,11 @@ pub fn row(
     }
 }
 
-#[widget(flex = 1.0, fit = FlexFit::Loose)]
+#[widget(flex = 1.0, fit = rutter_layout::FlexFit::Loose)]
 pub fn flexible(
     children: Fragment,
     flex: f32,
-    fit: FlexFit,
+    fit: rutter_layout::FlexFit,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -67,10 +66,10 @@ pub fn flexible(
     }
 }
 
-#[widget(padding = EdgeInsets::all(10.0))]
+#[widget(padding = rutter_layout::EdgeInsets::all(10.0))]
 pub fn padding(
     children: Fragment,
-    padding: EdgeInsets,
+    padding: rutter_layout::EdgeInsets,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -80,10 +79,14 @@ pub fn padding(
     }
 }
 
-#[widget(alignment = Alignment::center(), factor_width = Default::default(), factor_height = Default::default())]
+#[widget(
+    alignment = rutter_layout::Alignment::center(),
+    factor_width = None,
+    factor_height = None
+)]
 pub fn align(
     children: Fragment,
-    alignment: Alignment,
+    alignment: rutter_layout::Alignment,
     factor_width: Option<f32>,
     factor_height: Option<f32>,
     context: &mut WidgetContext,
@@ -98,7 +101,7 @@ pub fn align(
 #[widget]
 pub fn sized_box(
     children: Fragment,
-    constraint: BoxConstraints,
+    constraint: rutter_layout::BoxConstraints,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -108,11 +111,21 @@ pub fn sized_box(
     }
 }
 
+#[widget(fit = rutter_layout::StackFit::Loose, alignment = rutter_layout::Alignment::center(), is_clipper = false)]
+pub fn stack(
+    children: narui::FragmentChildren,
+    fit: rutter_layout::StackFit,
+    alignment: rutter_layout::Alignment,
+    is_clipper: bool,
+    context: &mut WidgetContext,
+) -> FragmentInner {
+    FragmentInner::Node { children, layout: Box::new(Stack { fit, alignment }), is_clipper }
+}
 
-#[widget(pos = AbsolutePosition::zero())]
+#[widget(pos = rutter_layout::AbsolutePosition::zero())]
 pub fn positioned(
     children: Fragment,
-    pos: AbsolutePosition,
+    pos: rutter_layout::AbsolutePosition,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {

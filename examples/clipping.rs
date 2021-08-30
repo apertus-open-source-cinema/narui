@@ -43,17 +43,16 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
     let slider_value = context.listenable(0.75);
     rsx! {
         <align>
-            <sized_box constraint=BoxConstraints::tight(400., 400.)>
+            <sized_box constraint=BoxConstraints::tight(500., 500.)>
                 <column cross_axis_alignment=CrossAxisAlignment::Start>
                     <flexible>
                         <padding padding=EdgeInsets::all(10.)>
                             <reveal_box reveal=context.listen(slider_value)>
-                                <stack>
-                                    <rect fill=Some(color!(#007777)) border_radius=Paxel(15.)/>
-                                    <text size=150.>
+                                <rect fill=Some(color!(#007777)) border_radius=Fraction(1.)>
+                                    <text size=100.>
                                         {"some really long text, that gets clipped..."}
                                     </text>
-                                </stack>
+                                </rect>
                             </reveal_box>
                         </padding>
                     </flexible>
