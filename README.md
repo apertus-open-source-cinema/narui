@@ -51,7 +51,7 @@ fn main() {
 
 ```rust
 #[widget(color = color!(#00aaaa))]  // we assign a default value to the color attribute which is used when color is unspecified
-pub fn colored_container(children: Vec<Fragment>, color: Color, context: &mut WidgetContext) -> Fragment {
+pub fn colored_container(children: FragmentChildren, color: Color, context: &mut WidgetContext) -> Fragment {
     rsx! {
         <stack>
             <positioned>  // positioned is not taken into account for the size calculation of the stack

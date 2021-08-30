@@ -33,6 +33,8 @@ ahash = "0.7.4"
 log = "0.4.14"
 freelist = { path = "freelist" }
 ordered-float = "2.1.1"
+smallvec = "1.6.1"
+take_mut = "0.2.2"
 
 [dev-dependencies]
 narui_widgets = { path = "narui_widgets" }

@@ -1,56 +1,45 @@
 use proc_macro2::{Ident, LineColumn, Span, TokenStream};
 use quote::quote;
-
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     let mut parsed = syn_rsx::parse2(input.into()).unwrap();
-    assert_eq!(parsed.len(), 1, "the rsx macro can have at maximum one child");
+    assert_eq!(parsed.len(), 1, "the rsx macro must have exactly one child!");
     let (beginning, inplace) = handle_rsx_node(parsed.remove(0));
 
-    let transformed = quote! {
-        {
-            context.local_hook = false;
-            let to_return = {
-                #beginning
-                #inplace
-            };
-            context.local_hook = true;
-            to_return
-        }
-    };
+    let transformed = quote! {{
+        #beginning
+        #inplace
+    }};
 
     // println!("rsx: \n{}\n\n", transformed);
-    transformed
+    transformed.into()
 }
 fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
     if x.node_type == NodeType::Element {
         let name = x.name.as_ref().unwrap();
         let node_name = name;
         let name_str = name.to_string();
-        let LineColumn { line, column } = name.span().start();
+        let loc = {
+            let LineColumn { line, column } = name.span().start();
+            // only every fourth part of the column is relevant, because the minimum size
+            // for a rsx node is four: <a />
+            let column = (column / 4) & 0b11_1111;
+            // use 6 bits for column (good for up to 256 columns)
+            // use 10 bits for line (good for up to 1024 lines)
+            let line = (line & 0b11_1111_1111) << 6;
+            (column as u16) | (line as u16)
+        };
 
         let args_listenable_ident =
-            Ident::new(&format!("__{}_{}_{}_args", name_str, line, column), Span::call_site());
-        let widget_key_ident =
-            Ident::new(&format!("__{}_{}_{}_key", name_str, line, column), Span::call_site());
-        let loc = quote! {
-            {
-                let (widget_line, widget_column) = context.widget_loc;
-                let line = #line - widget_line;
-                let column = #column - widget_column;
-                // only every fourth part of the column is relevant, because the minimum size
-                // for a rsx node is four: <a />
-                let column = (column / 4) & 0b1_1111;
-                // use 5 bits for column (good for up to 128 columns)
-                // use 9 bits for line (good for up to 512 lines)
-                let line = (line & 0b1_1111_1111) << 5;
-                (column as u16) | (line as u16)
-            }
-        };
-        let mut key = quote! {
-            KeyPart::Fragment { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc }
-        };
+            Ident::new(&format!("__{}_{}_args", name_str, loc), Span::call_site());
+        let key_ident = Ident::new(&format!("__{}_{}_key", name_str, loc), Span::call_site());
+        let idx_ident = Ident::new(&format!("__{}_{}_idx", name_str, loc), Span::call_site());
+        let mut key = quote! {KeyPart::Fragment { widget_id: #name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc }};
 
         let constructor_path = {
             let constructor_ident =
@@ -63,13 +52,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             let name = attribute.name.as_ref().unwrap();
             let value = attribute.value.as_ref().unwrap().clone();
             if name.to_string() == "key" {
-                key = quote! {
-                    KeyPart::FragmentKey {
-                        widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst),
-                        location_id: #loc,
-                        key: #value as u16,
-                    }
-                }
+                key = quote! {KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value as _ }}
             } else {
                 processed_attributes.push(quote! {#name=#value});
             }
@@ -80,36 +63,51 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             let value = x.children[0].value.as_ref().unwrap();
             (quote! {}, quote! {children=(#value),})
         } else {
+            let len = x.children.len();
             let (beginning, inplace): (Vec<_>, Vec<_>) =
-                x.children.into_iter().map(handle_rsx_node).unzip();
-            (quote! {#(#beginning)*}, quote! {children={vec![#(#inplace,)*]},})
+                x.children.into_iter().map(|child| handle_rsx_node(child)).unzip();
+            if len == 1 {
+                (quote! {#(#beginning)*}, quote! {children={#(#inplace)*.into()},})
+            } else {
+                (quote! {#(#beginning)*}, quote! {children={narui::smallvec![#(#inplace,)*]},})
+            }
+            /*
+
+            let (beginning, inplace): (Vec<_>, Vec<_>) =
+                x.children.into_iter().map(|child| handle_rsx_node(child)).unzip();
+            (quote! {#(#beginning)*}, quote! {children={narui::smallvec![#(#inplace,)*]},})
+             */
         };
 
         let beginning = quote! {
-            let #widget_key_ident = #key;
+            let #key_ident = context.key_map.key_with(context.widget_local.key, #key);
+            let #idx_ident = context.fragment_store.add_empty_fragment(#key_ident);
             let #args_listenable_ident = {
-                let before_key = context.widget_local.key;
-                context.widget_local.key = context.key_map.key_with(context.widget_local.key, #widget_key_ident);
+                let old_key = context.widget_local.key;
+                context.widget_local.key = #key_ident;
 
                 #beginning
                 let to_return = #constructor_path!(
                     @shout_args
                     context=context,
+                    idx=#idx_ident,
                     #(#processed_attributes,)*
                     #children_processed
                 );
 
-                context.widget_local.key = before_key;
+                context.widget_local.key = old_key;
                 to_return
             };
         };
         let inplace = quote! {
-            Fragment {
-                key: context.key_map.key_with(context.widget_local.key, #widget_key_ident),
-                gen: std::rc::Rc::new(move |context: &mut WidgetContext| {
-                    #constructor_path!(@construct listenable=#args_listenable_ident, context=context)
-                })
-            }
+            context.fragment_store.add_fragment(#idx_ident, || {
+                narui::UnevaluatedFragment {
+                    key: #key_ident,
+                    gen: std::rc::Rc::new(move |context: &mut WidgetContext| {
+                        #constructor_path!(@construct listenable=#args_listenable_ident, context=context)
+                    })
+                }
+            })
         };
         (beginning, inplace)
     } else {

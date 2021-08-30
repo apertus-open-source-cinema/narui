@@ -49,7 +49,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-pub fn render(window_builder: WindowBuilder, top_node: Fragment) {
+pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
     let mut event_loop: EventLoop<()> = EventLoop::new();
     let device = VulkanContext::get().device;
     let surface = window_builder.build_vk_surface(&event_loop, device.instance().clone()).unwrap();

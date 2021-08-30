@@ -17,6 +17,7 @@ pub use theme::*;
 pub use util::*;
 pub use vulkano_render::*;
 
+pub use smallvec::smallvec;
 
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;

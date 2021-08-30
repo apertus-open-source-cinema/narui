@@ -27,7 +27,7 @@ impl Layout for RevealClipLayout {
 
 #[widget]
 pub fn reveal_box(
-    children: Vec<Fragment>,
+    children: FragmentChildren,
     reveal: f32,
     context: &mut WidgetContext,
 ) -> FragmentInner {

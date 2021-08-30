@@ -21,9 +21,10 @@ pub fn input(
     }
 }
 
+
 #[widget(on_click = (| _context, _clicked | {}), on_hover = (|_context, _hovered| {}), on_move = (|_context, _position| {}))]
 pub fn input_composed(
-    children: Vec<Fragment>,
+    children: Fragment,
     on_click: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
     on_hover: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
     on_move: impl for<'a> Fn(&'a CallbackContext, Vec2) + Clone + 'static,
@@ -32,7 +33,7 @@ pub fn input_composed(
     rsx! {
         <stack>
             <fragment>
-                {children}
+                {children.into()}
             </fragment>
             <positioned>
                 <input on_click = on_click on_hover = on_hover on_move = on_move />

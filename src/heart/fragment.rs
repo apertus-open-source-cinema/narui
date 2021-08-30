@@ -8,7 +8,9 @@ use crate::heart::*;
 use derivative::Derivative;
 
 use crate::vulkano_render::lyon_render::ColoredBuffersBuilder;
+use freelist::Idx;
 use rutter_layout::Layout;
+use smallvec::SmallVec;
 use std::{rc::Rc, sync::Arc};
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
@@ -30,37 +32,42 @@ the output of this stage is the visual output :). profit!
 
  */
 
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
+pub struct Fragment(pub(crate) Idx);
+pub type FragmentChildren = SmallVec<[Fragment; 8]>;
+
+impl Into<FragmentChildren> for Fragment {
+    fn into(self) -> FragmentChildren {
+        crate::smallvec![self]
+    }
+}
+
 // The data structure that is input into the Evaluator Pass. When a Fragment
 // has both a layout_object and children, the children are the children of the
 // LayoutObject
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct Fragment {
+pub struct UnevaluatedFragment {
     pub key: Key,
     #[derivative(Debug = "ignore")]
     pub gen: Rc<dyn Fn(&mut WidgetContext) -> FragmentInner>,
 }
 
-impl PartialEq for Fragment {
+impl PartialEq for UnevaluatedFragment {
     fn eq(&self, other: &Self) -> bool { self.key == other.key }
 }
 
 #[derive(Debug)]
 pub enum FragmentInner {
     Leaf { render_object: RenderObject, layout: Box<dyn Layout> },
-    Node { children: Vec<Fragment>, layout: Box<dyn Layout>, is_clipper: bool },
+    Node { children: FragmentChildren, layout: Box<dyn Layout>, is_clipper: bool },
 }
+
 impl FragmentInner {
-    pub fn unpack(
-        self,
-    ) -> (Box<dyn Layout>, Option<RenderObject>, impl Iterator<Item = Fragment>, bool) {
+    pub fn unpack(self) -> (Box<dyn Layout>, Option<RenderObject>, FragmentChildren, bool) {
         match self {
-            Self::Leaf { render_object, layout } => {
-                (layout, Some(render_object), vec![].into_iter(), false)
-            }
-            Self::Node { children, layout, is_clipper } => {
-                (layout, None, children.into_iter(), is_clipper)
-            }
+            Self::Leaf { render_object, layout } => (layout, Some(render_object), SmallVec::new(), false),
+            Self::Node { children, layout, is_clipper } => (layout, None, children, is_clipper),
         }
     }
 }

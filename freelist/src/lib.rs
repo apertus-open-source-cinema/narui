@@ -80,6 +80,11 @@ impl<T> FreeList<T> {
         self.next_free = Some(idx);
     }
 
+    // this only works until you push new items
+    pub unsafe fn removed(&mut self, idx: Idx) -> bool {
+        self.entries[idx.get()].next_free.is_some() || self.next_free == Some(idx)
+    }
+
     // make sure to only touch elements one and above
     pub unsafe fn iter_raw(&self) -> impl Iterator<Item = &T> {
         self.entries.iter().map(|v| v.data.deref())

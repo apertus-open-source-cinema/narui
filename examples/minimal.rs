@@ -1,3 +1,4 @@
+#![feature(box_syntax)]
 use narui::*;
 use narui_macros::rsx_toplevel;
 use narui_widgets::*;
@@ -19,7 +20,6 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
         </column>
     }
 }
-
 
 fn main() {
     env_logger::init();

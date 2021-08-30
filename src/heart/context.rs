@@ -1,4 +1,4 @@
-use crate::{EvaluatedFragment, Key, KeyMap, Layouter};
+use crate::{EvaluatedFragment, Key, KeyMap, Layouter, UnevaluatedFragment, Fragment};
 use dashmap::DashMap;
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
@@ -6,69 +6,131 @@ use hashbrown::{HashMap, HashSet};
 use freelist::FreeList;
 use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
 use rutter_layout::Idx;
+use smallvec::SmallVec;
 use std::{any::Any, cell::RefCell, fmt::Debug, ops::Deref, rc::Rc, sync::Arc};
+use crate::MaybeEvaluatedFragment::{Unevaluated, Evaluated};
 
-#[derive(Debug, Default)]
-pub struct ArgsTree {
-    data: FreeList<Vec<Box<dyn Any>>>,
-    map: HashMap<Key, Idx>,
-    dirty: HashSet<Key, ahash::RandomState>,
+#[derive(Debug)]
+pub enum MaybeEvaluatedFragment {
+    Unevaluated(UnevaluatedFragment),
+    Evaluated(EvaluatedFragment),
 }
 
-impl ArgsTree {
-    pub fn set(&mut self, key: Key, values: Vec<Box<dyn Any>>) -> Idx {
-        self.dirty.insert(key);
-        match self.map.get(&key) {
-            Some(idx) => {
-                self.data[*idx] = values;
-                *idx
-            }
+impl MaybeEvaluatedFragment {
+    pub(crate) fn key(&self) -> Key {
+        match self {
+            Unevaluated(frag) => frag.key,
+            Evaluated(frag) => frag.key
+        }
+    }
+
+    pub(crate) fn assert_evaluated(&self) -> &EvaluatedFragment {
+        match self {
+            MaybeEvaluatedFragment::Evaluated(frag) => frag,
+            _ => panic!("tried to get a evaluated fragment from {:?}, but was unevaluated", self),
+        }
+    }
+
+    pub(crate) fn assert_unevaluated(&self) -> &UnevaluatedFragment {
+        match self {
+            MaybeEvaluatedFragment::Unevaluated(frag) => frag,
+            _ => panic!("tried to get a unevaluated fragment from {:?}, but was evaluated", self),
+        }
+    }
+
+    pub(crate) fn into_evaluated(self) -> EvaluatedFragment {
+        match self {
+            MaybeEvaluatedFragment::Evaluated(frag) => frag,
+            _ => panic!("tried to get a evaluated fragment from {:?}, but was unevaluated", self),
+        }
+    }
+
+    pub(crate) fn into_unevaluated(self) -> UnevaluatedFragment {
+        match self {
+            MaybeEvaluatedFragment::Unevaluated(frag) => frag,
+            _ => panic!("tried to get a unevaluated fragment from {:?}, but was evaluated", self),
+        }
+    }
+
+    pub(crate) fn assert_evaluated_mut(&mut self) -> &mut EvaluatedFragment {
+        match self {
+            MaybeEvaluatedFragment::Evaluated(frag) => frag,
+            _ => panic!("tried to get a evaluated fragment from {:?}, but was unevaluated", self),
+        }
+    }
+
+    pub(crate) fn assert_unevaluated_mut(&mut self) -> &mut UnevaluatedFragment {
+        match self {
+            MaybeEvaluatedFragment::Unevaluated(frag) => frag,
+            _ => panic!("tried to get a unevaluated fragment from {:?}, but was evaluated", self),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FragmentInfo {
+    pub fragment: Option<MaybeEvaluatedFragment>,
+    pub args: Option<SmallVec<[Box<dyn Any>; 8]>>,
+}
+
+#[derive(Debug, Default)]
+pub struct FragmentStore {
+    key_to_fragment: HashMap<Key, Fragment, ahash::RandomState>,
+    pub(crate) data: FreeList<FragmentInfo>,
+    dirty_args: Vec<Fragment>,
+}
+
+impl FragmentStore {
+    pub fn add_empty_fragment(&mut self, key: Key) -> Fragment {
+        match self.key_to_fragment.get(&key) {
+            Some(idx) => *idx,
             None => {
-                let idx = self.data.add(values);
-                self.map.insert(key, idx);
+                let idx = Fragment(self.data.add(FragmentInfo { fragment: None, args: None }));
+                log::trace!("initialized a new fragment with idx {:?}", idx);
+                self.key_to_fragment.insert(key, idx);
                 idx
             }
         }
     }
-    pub fn add(&mut self, key: Key, values: Vec<Box<dyn Any>>) -> Idx {
-        self.dirty.insert(key);
-        let idx = self.data.add(values);
-        self.map.insert(key, idx);
+
+    pub unsafe fn removed(&mut self, idx: Fragment) -> bool {
+        self.data.removed(idx.0) || self.data[idx.0].fragment.is_none()
+    }
+
+    pub fn add_fragment(&mut self, idx: Fragment, init: impl FnOnce() -> UnevaluatedFragment) -> Fragment {
+        if self.data[idx.0].fragment.is_none() {
+            self.data[idx.0].fragment = Some(MaybeEvaluatedFragment::Unevaluated(init()));
+        }
         idx
     }
 
-    pub fn set_unconditional(&mut self, key: Key, idx: Idx, values: Vec<Box<dyn Any>>) -> Idx {
-        self.dirty.insert(key);
-        self.data[idx] = values;
-        idx
+    pub(crate) fn get(&self, idx: Fragment) -> &MaybeEvaluatedFragment {
+        self.data[idx.0].fragment.as_ref().unwrap()
     }
 
-    pub fn get_idx(&self, key: Key) -> Option<Idx> { self.map.get(&key).cloned() }
+    pub(crate) fn get_mut(&mut self, idx: Fragment) -> &mut MaybeEvaluatedFragment {
+        self.data[idx.0].fragment.as_mut().unwrap()
+    }
 
-    pub fn get_unconditional(&self, idx: Idx) -> &Vec<Box<dyn Any>> { &self.data[idx] }
-
-    pub fn remove(&mut self, key_map: &mut KeyMap, root: Key) {
-        log::trace!("removing {:?}", key_map.key_debug(root));
-        if let Some(idx) = self.map.remove(&root) {
-            self.data.remove(idx);
+    pub fn remove(&mut self, key: Key) {
+        let idx = self.key_to_fragment.remove(&key);
+        if let Some(idx) = idx {
+            self.data[idx.0].fragment = None;
+            self.data.remove(idx.0);
         }
     }
 
-    pub fn dirty<'a>(&'a mut self) -> impl Iterator<Item = Key> + 'a { self.dirty.drain() }
+    pub fn get_args(&self, idx: Fragment) -> Option<&SmallVec<[Box<dyn Any>; 8]>> {
+        self.data[idx.0].args.as_ref()
+    }
 
-    pub fn debug_print(&self, key_map: &KeyMap) -> String {
-        let mut res = "ArgsTree {\n  map: {\n".to_string();
-        for (key, args) in &self.map {
-            res += &format!("    {:?}: {:?},\n", key_map.key_debug(*key), args);
-        }
-        res += "  },\n  dirty: {\n";
+    pub fn set_args(&mut self, idx: Fragment, args: SmallVec<[Box<dyn Any>; 8]>) {
+        self.dirty_args.push(idx);
+        self.data[idx.0].args = Some(args);
+    }
 
-        for key in &self.dirty {
-            res += &format!("    {:?},\n", key_map.key_debug(*key));
-        }
-        res += "}\n";
-
-        res
+    pub fn dirty_args<'a>(&'a mut self) -> impl Iterator<Item = Fragment> + 'a {
+        self.dirty_args.drain(..).rev()
     }
 }
 
@@ -94,7 +156,7 @@ pub struct WidgetContext<'a> {
     pub tree: Arc<PatchedTree>,
     pub local_hook: bool,
     pub external_hook_count: &'a mut ExternalHookCount,
-    pub args_tree: &'a mut ArgsTree,
+    pub fragment_store: &'a mut FragmentStore,
     pub widget_loc: (usize, usize),
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub(crate) after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
@@ -126,17 +188,18 @@ impl<'a> WidgetContext<'a> {
     pub fn thread_context(&self) -> ThreadContext { ThreadContext { tree: self.tree.clone() } }
 
     pub fn root(
+        top: Fragment,
         tree: Arc<PatchedTree>,
         external_hook_count: &'a mut ExternalHookCount,
-        args_tree: &'a mut ArgsTree,
+        fragment_store: &'a mut FragmentStore,
         after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
         key_map: &'a mut KeyMap,
     ) -> Self {
         Self {
             tree,
             after_frame_callbacks,
-            args_tree,
-            widget_local: Default::default(),
+            fragment_store,
+            widget_local: WidgetLocalContext::for_key(Default::default(), top),
             widget_loc: (0, 0),
             key_map,
             external_hook_count,
@@ -147,16 +210,17 @@ impl<'a> WidgetContext<'a> {
     pub fn for_fragment(
         tree: Arc<PatchedTree>,
         external_hook_count: &'a mut ExternalHookCount,
-        args_tree: &'a mut ArgsTree,
+        fragment_store: &'a mut FragmentStore,
         key: Key,
+        idx: Fragment,
         after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
         key_map: &'a mut KeyMap,
     ) -> Self {
         WidgetContext {
             tree,
             after_frame_callbacks,
-            args_tree,
-            widget_local: WidgetLocalContext::for_key(key),
+            fragment_store,
+            widget_local: WidgetLocalContext::for_key(key, idx),
             widget_loc: (0, 0),
             key_map,
             external_hook_count,
@@ -164,15 +228,15 @@ impl<'a> WidgetContext<'a> {
         }
     }
 
-    pub fn with_key_widget(&mut self, key: Key) -> WidgetContext {
+    pub fn with_key_widget(&mut self, key: Key, idx: Fragment) -> WidgetContext {
         WidgetContext {
             tree: self.tree.clone(),
             local_hook: true,
             external_hook_count: &mut self.external_hook_count,
-            args_tree: self.args_tree,
+            fragment_store: self.fragment_store,
             widget_loc: (0, 0),
             after_frame_callbacks: self.after_frame_callbacks,
-            widget_local: WidgetLocalContext::for_key(key),
+            widget_local: WidgetLocalContext::for_key(key, idx),
             key_map: &mut self.key_map,
         }
     }
@@ -187,7 +251,7 @@ pub struct CallbackContext<'a> {
     pub(crate) tree: Arc<PatchedTree>,
     pub key_map: &'a KeyMap,
     pub(crate) layout: &'a Layouter,
-    pub(crate) key_to_fragment: &'a HashMap<Key, Rc<RefCell<EvaluatedFragment>>>,
+    pub(crate) fragment_store: &'a FragmentStore,
 }
 
 // thread access
@@ -324,9 +388,10 @@ impl PatchedTree {
 
 pub type AfterFrameCallback = Box<dyn for<'a> Fn(&'a CallbackContext<'a>)>;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct WidgetLocalContext {
     pub key: Key,
+    pub idx: Fragment,
     pub hook_counter: u16,
     pub used: HashSet<HookKey, ahash::RandomState>,
 }
@@ -334,5 +399,5 @@ pub struct WidgetLocalContext {
 impl WidgetLocalContext {
     pub fn mark_used(&mut self, key: HookKey) { self.used.insert(key); }
 
-    pub fn for_key(key: Key) -> Self { Self { key, ..Default::default() } }
+    pub fn for_key(key: Key, idx: Fragment) -> Self { Self { idx, key, hook_counter: 0, used: HashSet::new() } }
 }

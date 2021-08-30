@@ -38,7 +38,7 @@ pub trait LayoutTree {
         is_clipper: bool,
     );
     fn remove_node(&mut self, key: Idx);
-    fn set_children(&mut self, parent: Idx, children: &[Idx]);
+    fn set_children(&mut self, parent: Idx, children: impl Iterator<Item = Idx>);
     fn get_positioned(&self, key: Idx) -> (Rect, Option<&RenderObject>);
 }
 
@@ -170,8 +170,8 @@ impl LayoutTree for Layouter {
 
     fn remove_node(&mut self, idx: Idx) { self.layouter.remove(idx); }
 
-    fn set_children(&mut self, parent: Idx, children: &[Idx]) {
-        self.layouter.set_children(parent, children.iter().cloned())
+    fn set_children(&mut self, parent: Idx, children: impl Iterator<Item = Idx>) {
+        self.layouter.set_children(parent, children)
     }
 
     fn get_positioned(&self, idx: Idx) -> (Rect, Option<&RenderObject>) {

@@ -15,13 +15,15 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let rsx = rsx_macro::rsx(input);
 
     (quote! {
-        Fragment {
+        UnevaluatedFragment {
             key: Default::default(),
-            gen: std::rc::Rc::new(|context: &mut WidgetContext| { FragmentInner::Node {
-                children: vec![ #rsx ],
-                layout: Box::new(rutter_layout::Transparent),
-                is_clipper: false,
-            } }),
+            gen: std::rc::Rc::new(|context: &mut WidgetContext| {
+                FragmentInner::Node {
+                    children: narui::smallvec![ #rsx ],
+                    layout: Box::new(rutter_layout::Transparent),
+                    is_clipper: false,
+                }
+            }),
         }
     })
     .into()

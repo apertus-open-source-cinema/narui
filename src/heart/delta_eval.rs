@@ -1,22 +1,12 @@
 // do partial re evaluation of the changed widget tree
 
-use crate::{
-    heart::{Fragment, Key, LayoutTree},
-    AfterFrameCallback,
-    ArgsTree,
-    CallbackContext,
-    ExternalHookCount,
-    FragmentInner,
-    HookKey,
-    KeyMap,
-    Layouter,
-    PatchedTree,
-    WidgetContext,
-};
+use crate::{heart::{Key, LayoutTree, UnevaluatedFragment}, AfterFrameCallback, CallbackContext, ExternalHookCount, FragmentInner, FragmentStore, HookKey, KeyMap, Layouter, PatchedTree, WidgetContext, Fragment, FragmentChildren, MaybeEvaluatedFragment};
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
+use crate::MaybeEvaluatedFragment::{Evaluated, Unevaluated};
 use rutter_layout::Idx;
+use smallvec::SmallVec;
 use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
 // EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally
@@ -30,40 +20,35 @@ pub struct EvaluatedFragment {
     pub gen: Rc<dyn Fn(&mut WidgetContext) -> FragmentInner>,
 
     // this field is information that is gathered by the delta evaluator
-    pub idx: rutter_layout::Idx,
+    pub layout_idx: rutter_layout::Idx,
+    pub store_idx: Fragment,
     pub deps: HashSet<HookKey, ahash::RandomState>,
 
-    pub children: Vec<Rc<RefCell<EvaluatedFragment>>>,
+    pub children: FragmentChildren,
 }
 
 #[derive(Default)]
 pub struct EvaluatorInner {
     pub(crate) tree: Arc<PatchedTree>,
-    deps_map: HashMap<
-        HookKey,
-        HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState>,
-        ahash::RandomState,
-    >,
-    key_to_fragment: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState>,
+    deps_map: HashMap<HookKey, HashSet<Fragment, ahash::RandomState>, ahash::RandomState>,
 }
 
 impl EvaluatorInner {
     fn update(
         &mut self,
         layout_tree: &mut Layouter,
-        args_tree: &mut ArgsTree,
+        fragment_store: &mut FragmentStore,
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
         key_map: &mut KeyMap,
     ) -> bool {
         let mut external_hook_count = Default::default();
-        let mut to_update: HashMap<Key, Rc<RefCell<EvaluatedFragment>>, ahash::RandomState> =
-            HashMap::default();
+        let mut to_update: HashSet<Fragment, ahash::RandomState> = HashSet::default();
 
         let touched_keys = self.tree.update_tree(key_map);
         for key in touched_keys.into_iter() {
             // println!("touched key ({:?}, {})", key_map.key_debug(key.0), key.1);
-            for frag in self.deps_map.get(&key).into_iter().flat_map(|v| v.values()) {
-                to_update.entry(frag.borrow().key).or_insert_with(|| frag.clone());
+            for frag in self.deps_map.get(&key).into_iter().flat_map(|v| v.iter()) {
+                to_update.insert(*frag);
             }
         }
 
@@ -71,162 +56,194 @@ impl EvaluatorInner {
             return false;
         }
 
-        loop {
-            let touched_args = args_tree.dirty();
-            for key in touched_args {
-                // println!("touched arg {:?}", key_map.key_debug(key));
-                if !to_update.contains_key(&key) {
-                    if let Some(frag) = self.key_to_fragment.get(&key) {
-                        to_update.insert(key, frag.clone());
-                    }
-                }
-            }
+        for idx in to_update.drain() {
+            self.re_eval_fragment(
+                layout_tree,
+                fragment_store,
+                &mut external_hook_count,
+                after_frame_callbacks,
+                key_map,
+                idx,
+            )
+        }
 
-            if to_update.is_empty() {
-                return true;
-            }
-            for (_, frag) in to_update.drain() {
+        loop {
+            let mut len = 0;
+            for idx in fragment_store.dirty_args().collect::<Vec<_>>() {
+                len += 1;
                 self.re_eval_fragment(
                     layout_tree,
-                    args_tree,
+                    fragment_store,
                     &mut external_hook_count,
                     after_frame_callbacks,
                     key_map,
-                    frag.clone(),
+                    idx,
                 )
+            }
+
+            if len == 0 {
+                return true;
             }
         }
     }
 
     fn evaluate_unconditional(
         &mut self,
-        fragment: Fragment,
+        fragment_idx: Fragment,
         layout_tree: &mut Layouter,
         context: &mut WidgetContext,
-    ) -> Rc<RefCell<EvaluatedFragment>> {
-        let mut context = context.with_key_widget(fragment.key);
-        let evaluated: FragmentInner = (fragment.gen)(&mut context);
-        let deps = std::mem::take(&mut context.widget_local.used);
+    ) -> Fragment {
+        log::trace!("unconditionally evaluating {:?}", context.key_map.key_debug(context.fragment_store.get(fragment_idx).key()));
+        let (layout_idx, deps, children) = {
+            let UnevaluatedFragment { key, gen } =
+                context.fragment_store.get(fragment_idx).assert_unevaluated();
+            let gen = gen.clone();
+            let mut context = context.with_key_widget(*key, fragment_idx);
+            let evaluated: FragmentInner = (gen.clone())(&mut context);
+            let deps = std::mem::take(&mut context.widget_local.used);
 
-        let (layout, render_object, children, is_clipper) = evaluated.unpack();
+            let (layout, render_object, children, is_clipper) = evaluated.unpack();
+            let layout_idx = layout_tree.add_node(layout, render_object, is_clipper);
 
-        let (children_indices, children): (Vec<_>, Vec<_>) = children
-            .map(|fragment| {
-                let evaluated = self.evaluate_unconditional(fragment, layout_tree, &mut context);
-                let key = evaluated.borrow().idx;
-                (key, evaluated)
+            for child in &children {
+                self.evaluate_unconditional(*child, layout_tree, &mut context);
+            }
+
+            layout_tree.set_children(
+                layout_idx,
+                children
+                    .iter()
+                    .map(|idx| context.fragment_store.get(*idx).assert_evaluated().layout_idx),
+            );
+            (layout_idx, deps, children)
+        };
+
+        take_mut::take(context.fragment_store.get_mut(fragment_idx), |unevaluated| {
+            let frag = unevaluated.into_unevaluated();
+            Evaluated(EvaluatedFragment {
+                layout_idx,
+                key: frag.key,
+                gen: frag.gen,
+                deps: deps.clone(),
+                store_idx: fragment_idx,
+                children,
             })
-            .unzip();
-
-        let idx = layout_tree.add_node(layout, render_object, is_clipper);
-        layout_tree.set_children(idx, &children_indices[..]);
-
-        Self::check_unique_keys_children(
-            context.key_map.key_debug(fragment.key),
-            children.iter().map(|c| c.borrow().key),
-        );
-
-        let to_return = Rc::new(RefCell::new(EvaluatedFragment {
-            idx,
-            key: fragment.key,
-            gen: fragment.gen,
-            deps: deps.clone(),
-            children,
-        }));
+        });
 
         for key in deps {
-            self.deps_map.entry(key).or_default().insert(to_return.borrow().key, to_return.clone());
+            self.deps_map.entry(key).or_default().insert(fragment_idx);
         }
-        self.key_to_fragment.insert(fragment.key, to_return.clone());
 
-        to_return
+        fragment_idx
     }
 
     fn re_eval_fragment(
         &mut self,
         layout_tree: &mut Layouter,
-        args_tree: &mut ArgsTree,
+        fragment_store: &mut FragmentStore,
         external_hook_count: &mut ExternalHookCount,
         after_frame_callbacks: &mut Vec<AfterFrameCallback>,
         key_map: &mut KeyMap,
-        frag_cell: Rc<RefCell<EvaluatedFragment>>,
+        frag_idx: Fragment,
     ) {
-        let mut frag = frag_cell.borrow_mut();
-
-        // we were on the dirty list, but some fragment above us removed us,
-        // so just skip
-        if !self.key_to_fragment.contains_key(&frag.key) {
-            log::trace!(
-                "wanted to re-evaluate {:?}, but we were already removed",
-                key_map.key_debug(frag.key)
-            );
+        if unsafe { fragment_store.removed(frag_idx) } {
+            log::trace!("tried to reeval already removed fragment {:?}, skipping it", frag_idx);
             return;
         }
 
-        let mut context = WidgetContext::for_fragment(
-            self.tree.clone(),
-            external_hook_count,
-            args_tree,
-            frag.key,
-            after_frame_callbacks,
-            key_map,
-        );
+        match fragment_store.get(frag_idx) {
+            Unevaluated(frag) => {
+                log::trace!("tried to reeval unevaluated fragment: {:?}", key_map.key_debug(frag.key));
+                self.evaluate_unconditional(frag_idx, layout_tree, &mut WidgetContext::for_fragment(self.tree.clone(), external_hook_count, fragment_store, frag.key, frag_idx, after_frame_callbacks, key_map));
+            },
+            Evaluated(EvaluatedFragment { key, gen, .. }) => {
+                log::trace!("reevaluating {:?}", key_map.key_debug(*key));
+                let key = key.clone();
+                let gen = gen.clone();
 
-        let evaluated: FragmentInner = (frag.gen)(&mut context);
-        let (layout, render_object, children, is_clipper) = evaluated.unpack();
+                let (mut widget_local, evaluated) = {
+                    let mut context = WidgetContext::for_fragment(
+                        self.tree.clone(),
+                        external_hook_count,
+                        fragment_store,
+                        key,
+                        frag_idx,
+                        after_frame_callbacks,
+                        key_map,
+                    );
 
-        let mut old_children = std::mem::take(&mut frag.children);
-        let num_old_children = old_children.len();
+                    let evaluated: FragmentInner = (gen)(&mut context);
+                    let WidgetContext { widget_local, .. } = context;
+                    (widget_local, evaluated)
+                };
+                let (layout, render_object, children, is_clipper) = evaluated.unpack();
 
-        let new_deps = &mut context.widget_local.used;
-        for to_remove in frag.deps.difference(new_deps) {
-            self.deps_map.entry(*to_remove).or_default().remove(&frag.key);
-        }
+                let (mut old_children, layout_idx) = {
+                    let frag = &mut fragment_store.get_mut(frag_idx).assert_evaluated_mut();
+                    (&mut std::mem::take(&mut frag.children), frag.layout_idx)
+                };
+                let num_new_children = children.len();
+                let num_old_children = old_children.len();
 
-        for to_insert in new_deps.difference(&frag.deps) {
-            self.deps_map.entry(*to_insert).or_default().insert(frag.key, frag_cell.clone());
-        }
-        frag.deps = std::mem::take(new_deps);
+                for child in &children {
+                    match fragment_store.get(*child) {
+                        Unevaluated(_) => {
+                            self.evaluate_unconditional(
+                                *child,
+                                layout_tree,
+                                &mut WidgetContext::for_fragment(
+                                    self.tree.clone(),
+                                    external_hook_count,
+                                    fragment_store,
+                                    key,
+                                    *child,
+                                    after_frame_callbacks,
+                                    key_map,
+                                ),
+                            );
+                        }
+                        Evaluated(_) => {
+                            old_children
+                                .iter()
+                                .position(|old_idx| old_idx == child)
+                                .map(|idx| old_children.swap_remove(idx));
+                        }
+                    }
+                }
 
+                // if they were both zero nothing changed and we can avoid some unnecessary key
+                // lookups
+                if (num_old_children != 0) || (num_new_children != 0) {
+                    layout_tree.set_children(
+                        layout_idx,
+                        children.iter().map(|c| fragment_store.get(*c).assert_evaluated().layout_idx),
+                    );
+                }
 
-        let mut children_indices = vec![];
-        let mut children_keys = vec![];
-        for child in children {
-            let evaluated = match old_children
-                .iter()
-                .position(|frag| frag.borrow().key == child.key)
-                .map(|idx| old_children.swap_remove(idx))
-            {
-                Some(f) => f,
-                None => self.evaluate_unconditional(child, layout_tree, &mut context),
-            };
+                let mut old_children = {
+                    let frag = fragment_store.get_mut(frag_idx).assert_evaluated_mut();
 
-            children_indices.push(evaluated.borrow().idx);
-            children_keys.push(evaluated.borrow().key);
-            frag.children.push(evaluated);
-        }
+                    let new_deps = &mut widget_local.used;
+                    for to_remove in frag.deps.difference(new_deps) {
+                        self.deps_map.entry(*to_remove).or_default().remove(&frag.store_idx);
+                    }
 
+                    for to_insert in new_deps.difference(&frag.deps) {
+                        self.deps_map.entry(*to_insert).or_default().insert(frag_idx);
+                    }
+                    frag.deps = std::mem::take(new_deps);
+                    frag.children = children;
 
-        Self::check_unique_keys_children(
-            context.key_map.key_debug(frag.key),
-            children_keys.iter().cloned(),
-        );
-        layout_tree.set_node(frag.idx, layout, render_object, is_clipper);
+                    layout_tree.set_node(frag.layout_idx, layout, render_object, is_clipper);
 
+                    old_children
+                };
 
-        log::trace!(
-            "setting children of {:?} to {:?}",
-            key_map.key_debug(frag.key),
-            children_keys.iter().map(|k| key_map.key_debug(*k)).collect::<Vec<_>>()
-        );
-        // if they were both zero nothing changed and we can avoid some unnecessary key
-        // lookups
-        if (num_old_children != 0) || (!children_indices.is_empty()) {
-            layout_tree.set_children(frag.idx, &children_indices[..]);
-        }
+                for child in old_children {
+                    self.remove_tree(key_map, layout_tree, fragment_store, *child);
+                }
 
-        for child in old_children {
-            self.remove_tree(key_map, layout_tree, args_tree, &*child);
+            }
         }
     }
 
@@ -234,22 +251,28 @@ impl EvaluatorInner {
         &mut self,
         key_map: &mut KeyMap,
         layout_tree: &mut Layouter,
-        args_tree: &mut ArgsTree,
-        tree: &RefCell<EvaluatedFragment>,
+        fragment_store: &mut FragmentStore,
+        frag: Fragment,
     ) {
-        let frag = tree.borrow();
-        for child in frag.children.iter() {
-            self.remove_tree(key_map, layout_tree, args_tree, child);
+        let deps = std::mem::take(&mut fragment_store.get_mut(frag).assert_evaluated_mut().deps);
+        let EvaluatedFragment { key, children, layout_idx, store_idx, .. } =
+            fragment_store.get(frag).assert_evaluated();
+        let key = *key;
+        let layout_idx = *layout_idx;
+        let store_idx = *store_idx;
+        for child in children.clone() {
+            self.remove_tree(key_map, layout_tree, fragment_store, child);
         }
-        for to_remove in frag.deps.iter() {
-            self.deps_map.entry(*to_remove).or_default().remove(&frag.key);
+        for to_remove in deps.iter() {
+            self.deps_map.entry(*to_remove).or_default().remove(&store_idx);
         }
-        self.tree.remove_widget(&frag.key);
-        self.key_to_fragment.remove(&frag.key);
-        args_tree.remove(key_map, frag.key);
-        log::trace!("removing layout_node {:?}", key_map.key_debug(frag.key));
-        layout_tree.remove_node(frag.idx);
-        key_map.remove(&frag.key);
+        self.tree.remove_widget(&key);
+
+        log::trace!("removing layout_node {:?}", key_map.key_debug(key));
+        layout_tree.remove_node(layout_idx);
+        key_map.remove(&key);
+
+        fragment_store.remove(key);
     }
 
     fn check_unique_keys_children(
@@ -277,28 +300,31 @@ impl EvaluatorInner {
 pub struct Evaluator {
     pub(crate) key_map: KeyMap,
     pub(crate) after_frame_callbacks: Vec<AfterFrameCallback>,
-    args_tree: ArgsTree,
+    fragment_store: FragmentStore,
     inner: EvaluatorInner,
     #[derivative(Default(value = "std::num::NonZeroUsize::new(12312803).unwrap()"))]
     pub(crate) top_node: Idx,
 }
 
 impl Evaluator {
-    pub fn new(top_node: Fragment, layout_tree: &mut Layouter) -> Self {
+    pub fn new(top_node_frag: UnevaluatedFragment, layout_tree: &mut Layouter) -> Self {
         let mut evaluator = Evaluator::default();
+        let top_node = evaluator.fragment_store.add_empty_fragment(Default::default());
+        evaluator.fragment_store.add_fragment(top_node, || top_node_frag);
         let root = evaluator.inner.evaluate_unconditional(
             top_node,
             layout_tree,
             &mut WidgetContext::root(
+                top_node,
                 evaluator.inner.tree.clone(),
                 &mut Default::default(),
-                &mut evaluator.args_tree,
+                &mut evaluator.fragment_store,
                 &mut evaluator.after_frame_callbacks,
                 &mut evaluator.key_map,
             ),
         );
-        evaluator.top_node = root.borrow().idx;
-        let _ = evaluator.inner.tree.update_tree(&mut evaluator.key_map);
+        evaluator.top_node = evaluator.fragment_store.get(top_node).assert_evaluated().layout_idx;
+        std::mem::drop(evaluator.fragment_store.dirty_args());
 
         evaluator
     }
@@ -306,7 +332,7 @@ impl Evaluator {
     pub fn update(&mut self, layout_tree: &mut Layouter) -> bool {
         self.inner.update(
             layout_tree,
-            &mut self.args_tree,
+            &mut self.fragment_store,
             &mut self.after_frame_callbacks,
             &mut self.key_map,
         )
@@ -317,7 +343,7 @@ impl Evaluator {
             tree: self.inner.tree.clone(),
             layout,
             key_map: &self.key_map,
-            key_to_fragment: &self.inner.key_to_fragment,
+            fragment_store: &self.fragment_store,
         }
     }
 }

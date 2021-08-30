@@ -13,16 +13,16 @@ use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 #[widget(on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}), relative = false)]
 pub fn drag_detector(
     on_drag: impl Fn(&CallbackContext, Vec2) + Clone + Sync + Send + 'static,
-    on_start: impl Fn(&CallbackContext, Key) + Clone + Sync + Send + 'static,
-    on_end: impl Fn(&CallbackContext, Key) + Clone + Sync + Send + 'static,
-    children: Vec<Fragment>,
+    on_start: impl Fn(&CallbackContext, Fragment) + Clone + Sync + Send + 'static,
+    on_end: impl Fn(&CallbackContext, Fragment) + Clone + Sync + Send + 'static,
+    children: Fragment,
     relative: bool,
     context: &mut WidgetContext,
 ) -> Fragment {
     let click_start_position = context.listenable(Vec2::zero());
     let click_started = context.listenable(false);
     let clicked = context.listenable(false);
-    let key = context.widget_local.key;
+    let key = context.widget_local.idx;
     let on_click = move |context: &CallbackContext, clicked_current| {
         context.shout(clicked, clicked_current);
         if clicked_current {
@@ -51,7 +51,7 @@ pub fn drag_detector(
 
     rsx! {
         <stack>
-            <fragment>{children}</fragment>
+            <fragment>{children.into()}</fragment>
             <positioned>
                 <input on_move=on_move on_click=on_click />
             </positioned>
@@ -72,14 +72,14 @@ pub fn hr(color: Color, context: &mut WidgetContext) -> Fragment {
 pub fn handle(
     color: Color,
     size: f32,
-    graph_root: Key,
-    parent_node: Key,
+    graph_root: Fragment,
+    parent_node: Fragment,
     on_drag: impl Fn(&CallbackContext, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
-    on_drag_end: impl Fn(&CallbackContext, Key, Key) + Clone + Sync + Send + 'static,
-    on_drag_start: impl Fn(&CallbackContext, Key, Key) + Clone + Sync + Send + 'static,
+    on_drag_end: impl Fn(&CallbackContext, Fragment, Fragment) + Clone + Sync + Send + 'static,
+    on_drag_start: impl Fn(&CallbackContext, Fragment, Fragment) + Clone + Sync + Send + 'static,
     context: &mut WidgetContext,
 ) -> Fragment {
-    let this_key = context.widget_local.key;
+    let this_key = context.widget_local.idx;
     let on_drag = move |context: &CallbackContext, pos: Vec2| {
         let size = context.measure_size(this_key).unwrap();
         let position = context.measure_offset(graph_root, this_key).unwrap();
@@ -147,8 +147,8 @@ pub fn connection(
 
 fn get_handle_offset(
     context: &CallbackContext,
-    handle: Key,
-    node: Key,
+    handle: Fragment,
+    node: Fragment,
 ) -> Result<Vec2, MeasureError> {
     Ok(context.measure_offset(node, handle)? + (context.measure_size(handle)? / 2.))
 }
@@ -158,12 +158,12 @@ pub fn node(
     name: impl ToString + Clone + Send + Sync + 'static,
     on_drag: impl Fn(&CallbackContext, Vec2) + Clone + Sync + Send + 'static,
     on_handle_drag: impl Fn(&CallbackContext, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,
-    on_handle_drag_start: impl Fn(&CallbackContext, Key, Key) + Clone + Sync + Send + 'static,
-    on_handle_drag_end: impl Fn(&CallbackContext, Key, Key) + Clone + Sync + Send + 'static,
-    graph_root: Key,
+    on_handle_drag_start: impl Fn(&CallbackContext, Fragment, Fragment) + Clone + Sync + Send + 'static,
+    on_handle_drag_end: impl Fn(&CallbackContext, Fragment, Fragment) + Clone + Sync + Send + 'static,
+    graph_root: Fragment,
     context: &mut WidgetContext,
 ) -> Fragment {
-    let key = context.widget_local.key;
+    let key = context.widget_local.idx;
 
     let fill_color = Color::from_linear(Shade::lighten(&BG_DARK.into_linear(), 0.1));
     let stroke_color = Color::from_linear(Shade::lighten(&BG_LIGHT.into_linear(), 0.2));
@@ -208,7 +208,7 @@ pub fn node(
 
 #[widget]
 pub fn node_graph(context: &mut WidgetContext) -> Fragment {
-    let this_key = context.widget_local.key;
+    let this_key = context.widget_local.idx;
 
     let nodes = context.listenable(vec![
         ("narui", Vec2::zero()),
@@ -224,8 +224,8 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
     let on_handle_drag = move |context: &CallbackContext, start: Vec2, end: Vec2, color: Color| {
         context.shout(current_connection, Some((start, end, color)))
     };
-    let drop_handle: Listenable<Option<(Key, Key, usize)>> = context.listenable(None);
-    let drag_handle: Listenable<Option<(Key, Key, usize)>> = context.listenable(None);
+    let drop_handle: Listenable<Option<(Fragment, Fragment, usize)>> = context.listenable(None);
+    let drag_handle: Listenable<Option<(Fragment, Fragment, usize)>> = context.listenable(None);
     context.after_frame(move |context| {
         if context.spy(drop_handle).is_some() {
             let start = context.spy(drag_handle).unwrap();
@@ -265,7 +265,7 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
                                 context.shout(nodes, new_positions);
                             }}
                             on_handle_drag=on_handle_drag
-                            on_handle_drag_end={move |context: &CallbackContext, handle: Key, node: Key| {
+                            on_handle_drag_end={move |context: &CallbackContext, handle: Fragment, node: Fragment| {
                                 if handle != context.spy(drag_handle).unwrap().0 {
                                     context.shout(drop_handle, Some((handle, node, i)));
                                 }
@@ -282,8 +282,10 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
         <fragment>
             {
                 if let Some((start, end, color)) = context.listen(current_connection) {
-                    vec![rsx! { <connection start=start end=end color=color /> }]
-                } else { vec![] }
+                    Some(rsx! { <connection start=start end=end color=color /> })
+                } else {
+                    None
+                }
             }
         </fragment>
         <stack>
@@ -297,7 +299,7 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
                         let (i, vec) = end;
                         context.listen(nodes)[*i].1 + *vec
                     };
-                    rsx! {<connection key=i  start=start end=end color=*color />}
+                    rsx! {<connection key=i start=start end=end color=*color />}
                 }).collect()
             }
         </stack>

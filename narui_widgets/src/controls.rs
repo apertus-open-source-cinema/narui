@@ -13,7 +13,7 @@ pub fn button(
     border_radius: Dimension,
     color: Color,
     stroke_color: Color,
-    children: Vec<Fragment>,
+    children: Fragment,
     context: &mut WidgetContext,
 ) -> Fragment {
     let clicked = context.listenable(false);
@@ -54,7 +54,7 @@ pub fn slider(
     knob_color: Color,
     context: &mut WidgetContext,
 ) -> Fragment {
-    let widget_key = context.widget_local.key;
+    let widget_key = context.widget_local.idx;
     let clicked = context.listenable(false);
     let on_click = move |context: &CallbackContext, is_clicked| context.shout(clicked, is_clicked);
 

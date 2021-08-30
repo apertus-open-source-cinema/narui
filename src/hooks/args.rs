@@ -1,16 +1,17 @@
-use crate::WidgetContext;
+use crate::{WidgetContext, Fragment};
 use derivative::Derivative;
 pub use freelist::Idx;
+use smallvec::SmallVec;
 use std::{any::Any, marker::PhantomData};
 
 pub trait ContextArgs {
-    fn listen_args(&self, key: &Idx) -> &Vec<Box<dyn Any>>;
+    fn listen_args(&self, key: &Fragment) -> &SmallVec<[Box<dyn Any>; 8]>;
 }
 
 
 impl<'a> ContextArgs for WidgetContext<'a> {
-    fn listen_args(&self, key: &Idx) -> &Vec<Box<dyn Any>> {
-        self.args_tree.get_unconditional(*key)
+    fn listen_args(&self, key: &Fragment) -> &SmallVec<[Box<dyn Any>; 8]> {
+        self.fragment_store.get_args(*key).unwrap()
     }
 }
 
@@ -38,8 +39,8 @@ impl<T> ArgRef<T> {
 // args.
 #[macro_export]
 macro_rules! shout_args {
-    ($context:expr, $key:expr, [$($values:ident,)*]) => {{
-        let mut arg_refs = (narui::args::Idx::new(1).unwrap(),
+    ($context:expr, $idx:ident, [$($values:ident,)*]) => {{
+        let mut arg_refs = ($idx,
             $({
                 let arg_ref = narui::args::ArgRef::new();
                 #[allow(unused)]
@@ -49,10 +50,9 @@ macro_rules! shout_args {
             }),*
         );
 
-        let idx = match $context.args_tree.get_idx($key) {
-            None => $context.args_tree.add($key, vec![$(Box::new($values),)*]),
-            Some(old_idx) => {
-                let old_values = $context.args_tree.get_unconditional(old_idx);
+        match $context.fragment_store.get_args($idx) {
+            None => $context.fragment_store.set_args($idx, narui::smallvec![$(Box::new($values) as _,)*]),
+            Some(old_values) => {
                 let mut changed = false;
                 let mut idx = 0;
                 #[allow(unused)]
@@ -72,13 +72,10 @@ macro_rules! shout_args {
                     )*
                 }
                 if changed {
-                    $context.args_tree.set_unconditional($key, old_idx, vec![$(Box::new($values),)*]);
+                    $context.fragment_store.set_args($idx, narui::smallvec![$(Box::new($values) as _,)*]);
                 }
-                old_idx
             }
         };
-
-        arg_refs.0 = idx;
 
         arg_refs
     }};

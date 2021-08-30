@@ -136,12 +136,12 @@ pub fn widget(
             .collect();
 
         quote! {
-            (@shout_args context=$context:expr, $($args:tt)*) => {
+            (@shout_args context=$context:expr, idx=$idx:ident, $($args:tt)*) => {
                 {
                     #(#initializers;)*
                     #mod_ident::#macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
 
-                    shout_args!($context, $context.widget_local.key, [#(#arg_names,)*])
+                    shout_args!($context, $idx, [#(#arg_names,)*])
                 }
             };
         }
@@ -169,7 +169,7 @@ pub fn widget(
             quote! {
                 fn transformer(input: Fragment) -> FragmentInner {
                     FragmentInner::Node {
-                        children: vec![ input ],
+                        children: narui::smallvec![ input ],
                         layout: Box::new(rutter_layout::Transparent),
                         is_clipper: false,
                     }

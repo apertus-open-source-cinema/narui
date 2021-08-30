@@ -20,7 +20,6 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
                         <sized_box constraint=BoxConstraints::tight(10.0, 10.0) key=y>
                             <rect
                                 fill=Some({
-                                    let dummy = context.listenable(0);
                                     let val = context.listen(frame_counter);
                                     Color::from_components((x as f32 / 50., y as f32 / 50., ((val as f32 / 10.0).sin() + 1.) / 2., 1.))
                                 })
