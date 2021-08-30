@@ -36,10 +36,8 @@ the output of this stage is the visual output :). profit!
 pub struct Fragment(pub(crate) Idx);
 pub type FragmentChildren = SmallVec<[Fragment; 8]>;
 
-impl Into<FragmentChildren> for Fragment {
-    fn into(self) -> FragmentChildren {
-        crate::smallvec![self]
-    }
+impl From<Fragment> for FragmentChildren {
+    fn from(fragment: Fragment) -> Self { crate::smallvec![fragment] }
 }
 
 // The data structure that is input into the Evaluator Pass. When a Fragment
@@ -66,7 +64,9 @@ pub enum FragmentInner {
 impl FragmentInner {
     pub fn unpack(self) -> (Box<dyn Layout>, Option<RenderObject>, FragmentChildren, bool) {
         match self {
-            Self::Leaf { render_object, layout } => (layout, Some(render_object), SmallVec::new(), false),
+            Self::Leaf { render_object, layout } => {
+                (layout, Some(render_object), SmallVec::new(), false)
+            }
             Self::Node { children, layout, is_clipper } => (layout, None, children, is_clipper),
         }
     }

@@ -121,7 +121,7 @@ impl Layouter {
                     rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
                     z_index,
                     render_object,
-                    clipping_rect: last_clipper.or(clipper_stack.last().cloned()),
+                    clipping_rect: last_clipper.or_else(|| clipper_stack.last().cloned()),
                 };
                 (layout_item.idx, positioned_render_object)
             })

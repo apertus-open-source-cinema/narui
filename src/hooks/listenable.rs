@@ -1,4 +1,3 @@
-use crate::all_eq;
 use std::{marker::PhantomData, ops::Deref};
 
 pub trait ListenableCreate {

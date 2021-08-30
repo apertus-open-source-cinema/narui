@@ -43,7 +43,7 @@ pub fn drag_detector(
                     - if relative {
                         context.spy(click_start_position)
                     } else {
-                        (context.measure_size(key).unwrap() / 2.)
+                        context.measure_size(key).unwrap() / 2.
                     },
             )
         }

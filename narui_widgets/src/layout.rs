@@ -63,7 +63,7 @@ pub fn flexible(
     FragmentInner::Node {
         children: narui::smallvec![children],
         layout: Box::new(Flexible { flex: Flex { flex, fit } }),
-        is_clipper: false
+        is_clipper: false,
     }
 }
 
@@ -76,7 +76,7 @@ pub fn padding(
     FragmentInner::Node {
         children: narui::smallvec![children],
         layout: Box::new(Padding::new(padding)),
-        is_clipper: false
+        is_clipper: false,
     }
 }
 
@@ -104,7 +104,7 @@ pub fn sized_box(
     FragmentInner::Node {
         children: narui::smallvec![children],
         layout: Box::new(SizedBox::constrained(constraint)),
-        is_clipper: false
+        is_clipper: false,
     }
 }
 
@@ -118,6 +118,6 @@ pub fn positioned(
     FragmentInner::Node {
         children: narui::smallvec![children],
         layout: Box::new(Positioned::new(pos)),
-        is_clipper: false
+        is_clipper: false,
     }
 }

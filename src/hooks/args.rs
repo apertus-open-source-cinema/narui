@@ -1,4 +1,4 @@
-use crate::{WidgetContext, Fragment};
+use crate::{Fragment, WidgetContext};
 use derivative::Derivative;
 pub use freelist::Idx;
 use smallvec::SmallVec;

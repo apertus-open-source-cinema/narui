@@ -1,14 +1,14 @@
-use crate::{EvaluatedFragment, Key, KeyMap, Layouter, UnevaluatedFragment, Fragment};
+use crate::{EvaluatedFragment, Fragment, Key, KeyMap, Layouter, UnevaluatedFragment};
 use dashmap::DashMap;
 use derivative::Derivative;
 use hashbrown::{HashMap, HashSet};
 
+use crate::MaybeEvaluatedFragment::{Evaluated, Unevaluated};
 use freelist::FreeList;
 use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
 use rutter_layout::Idx;
 use smallvec::SmallVec;
-use std::{any::Any, cell::RefCell, fmt::Debug, ops::Deref, rc::Rc, sync::Arc};
-use crate::MaybeEvaluatedFragment::{Unevaluated, Evaluated};
+use std::{any::Any, fmt::Debug, ops::Deref, sync::Arc};
 
 #[derive(Debug)]
 pub enum MaybeEvaluatedFragment {
@@ -20,7 +20,7 @@ impl MaybeEvaluatedFragment {
     pub(crate) fn key(&self) -> Key {
         match self {
             Unevaluated(frag) => frag.key,
-            Evaluated(frag) => frag.key
+            Evaluated(frag) => frag.key,
         }
     }
 
@@ -97,7 +97,11 @@ impl FragmentStore {
         self.data.removed(idx.0) || self.data[idx.0].fragment.is_none()
     }
 
-    pub fn add_fragment(&mut self, idx: Fragment, init: impl FnOnce() -> UnevaluatedFragment) -> Fragment {
+    pub fn add_fragment(
+        &mut self,
+        idx: Fragment,
+        init: impl FnOnce() -> UnevaluatedFragment,
+    ) -> Fragment {
         if self.data[idx.0].fragment.is_none() {
             self.data[idx.0].fragment = Some(MaybeEvaluatedFragment::Unevaluated(init()));
         }
@@ -399,5 +403,7 @@ pub struct WidgetLocalContext {
 impl WidgetLocalContext {
     pub fn mark_used(&mut self, key: HookKey) { self.used.insert(key); }
 
-    pub fn for_key(key: Key, idx: Fragment) -> Self { Self { idx, key, hook_counter: 0, used: HashSet::new() } }
+    pub fn for_key(key: Key, idx: Fragment) -> Self {
+        Self { idx, key, hook_counter: 0, used: HashSet::new() }
+    }
 }
