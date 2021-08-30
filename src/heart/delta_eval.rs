@@ -283,7 +283,7 @@ impl EvaluatorInner {
         layout_tree.remove_node(layout_idx);
         key_map.remove(&key);
 
-        fragment_store.remove(key);
+        fragment_store.remove(store_idx);
     }
 
     fn check_unique_keys_children(
@@ -320,7 +320,7 @@ pub struct Evaluator {
 impl Evaluator {
     pub fn new(top_node_frag: UnevaluatedFragment, layout_tree: &mut Layouter) -> Self {
         let mut evaluator = Evaluator::default();
-        let top_node = evaluator.fragment_store.add_empty_fragment(Default::default());
+        let top_node = evaluator.fragment_store.add_empty_fragment();
         evaluator.fragment_store.add_fragment(top_node, || top_node_frag);
         let _root = evaluator.inner.evaluate_unconditional(
             top_node,

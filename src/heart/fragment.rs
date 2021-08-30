@@ -36,6 +36,14 @@ the output of this stage is the visual output :). profit!
 pub struct Fragment(pub(crate) Idx);
 pub type FragmentChildren = SmallVec<[Fragment; 8]>;
 
+impl From<Key> for Fragment {
+    fn from(key: Key) -> Self { Fragment(key.0) }
+}
+
+impl From<Fragment> for Key {
+    fn from(fragment: Fragment) -> Self { Key(fragment.0) }
+}
+
 impl From<Fragment> for FragmentChildren {
     fn from(fragment: Fragment) -> Self { crate::smallvec![fragment] }
 }

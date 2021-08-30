@@ -1,33 +1,36 @@
+use freelist::Idx;
 use hashbrown::HashMap;
 use std::{
     fmt::{Debug, Formatter},
     hash::Hash,
 };
 
-type KeyInner = u32;
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug)]
-pub struct Key(KeyInner);
+type KeyInner = Idx;
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Key(pub(crate) KeyInner);
+
+impl Default for Key {
+    fn default() -> Self { Key::ROOT }
+}
 
 impl Key {
-    const ROOT: Key = Key(0);
+    const ROOT: Key = Key(unsafe { Idx::new_unchecked(1) });
 }
 
 #[derive(Debug)]
 pub struct KeyMap {
     id_to_part_parent: HashMap<KeyInner, (KeyPart, KeyInner)>,
     parent_part_to_id: HashMap<(KeyInner, KeyPart), KeyInner>,
-    key_count: KeyInner,
 }
 impl KeyMap {
-    pub fn key_with(&mut self, parent: Key, tail: KeyPart) -> Key {
+    pub fn key_with(&mut self, parent: Key, tail: KeyPart, next: impl FnOnce() -> Key) -> Key {
         let query_result = self.parent_part_to_id.get(&(parent.0, tail)).cloned();
         if let Some(id) = query_result {
             Key(id)
         } else {
-            let new_id = self.key_count + 1;
+            let new_id = next().0;
             self.id_to_part_parent.insert(new_id, (tail, parent.0));
             self.parent_part_to_id.insert((parent.0, tail), new_id);
-            self.key_count += 1;
 
             Key(new_id)
         }
@@ -57,7 +60,7 @@ impl Default for KeyMap {
 
         let parent_part_to_id = HashMap::with_capacity(1024);
 
-        Self { id_to_part_parent, parent_part_to_id, key_count: 0 }
+        Self { id_to_part_parent, parent_part_to_id }
     }
 }
 pub struct DebuggableKey<'a> {

@@ -68,17 +68,15 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             } else {
                 (quote! {#(#beginning)*}, quote! {children={narui::smallvec![#(#inplace,)*]},})
             }
-            /*
-
-            let (beginning, inplace): (Vec<_>, Vec<_>) =
-                x.children.into_iter().map(|child| handle_rsx_node(child)).unzip();
-            (quote! {#(#beginning)*}, quote! {children={narui::smallvec![#(#inplace,)*]},})
-             */
         };
 
         let beginning = quote! {
-            let #key_ident = context.key_map.key_with(context.widget_local.key, #key);
-            let #idx_ident = context.fragment_store.add_empty_fragment(#key_ident);
+            let (#key_ident, #idx_ident) = {
+                let fragment_store = &mut context.fragment_store;
+                let key = context.key_map.key_with(context.widget_local.key, #key, || fragment_store.add_empty_fragment().into());
+                let idx = Fragment::from(key);
+                (key, idx)
+            };
             let #args_listenable_ident = {
                 let old_key = context.widget_local.key;
                 context.widget_local.key = #key_ident;

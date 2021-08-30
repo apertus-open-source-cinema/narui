@@ -76,22 +76,15 @@ pub struct FragmentInfo {
 
 #[derive(Debug, Default)]
 pub struct FragmentStore {
-    key_to_fragment: HashMap<Key, Fragment, ahash::RandomState>,
     pub(crate) data: FreeList<FragmentInfo>,
     dirty_args: Vec<Fragment>,
 }
 
 impl FragmentStore {
-    pub fn add_empty_fragment(&mut self, key: Key) -> Fragment {
-        match self.key_to_fragment.get(&key) {
-            Some(idx) => *idx,
-            None => {
-                let idx = Fragment(self.data.add(FragmentInfo { fragment: None, args: None }));
-                log::trace!("initialized a new fragment with idx {:?}", idx);
-                self.key_to_fragment.insert(key, idx);
-                idx
-            }
-        }
+    pub fn add_empty_fragment(&mut self) -> Fragment {
+        let idx = Fragment(self.data.add(FragmentInfo { fragment: None, args: None }));
+        log::trace!("initialized a new fragment with idx {:?}", idx);
+        idx
     }
 
     pub unsafe fn removed(&mut self, idx: Fragment) -> bool {
@@ -117,12 +110,9 @@ impl FragmentStore {
         self.data[idx.0].fragment.as_mut().unwrap()
     }
 
-    pub fn remove(&mut self, key: Key) {
-        let idx = self.key_to_fragment.remove(&key);
-        if let Some(idx) = idx {
-            self.data[idx.0].fragment = None;
-            self.data.remove(idx.0);
-        }
+    pub fn remove(&mut self, idx: Fragment) {
+        self.data[idx.0].fragment = None;
+        self.data.remove(idx.0);
     }
 
     pub fn get_args(&self, idx: Fragment) -> Option<&SmallVec<[Box<dyn Any>; 8]>> {
