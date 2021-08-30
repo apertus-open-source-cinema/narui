@@ -1,0 +1,41 @@
+[package]
+name = "narui_core"
+version = "0.1.0"
+authors = ["Jaro Habiger <jarohabiger@googlemail.com>"]
+edition = "2018"
+
+[lib]
+name = "narui_core"
+
+[features]
+default = []
+debug_bounds = []
+
+[dependencies]
+rutter_layout = { path = "../rutter_layout" }
+freelist = { path = "../freelist" }
+
+lyon = "0.17.5"
+winit = "0.25.0"
+anyhow = "1.0.40"
+lazy_static = "1.4.0"
+vulkano = "0.25.0"
+vulkano-shaders = "0.25.0"
+vulkano-win = "0.25.0"
+derivative = "2.2.0"
+glyph_brush = "0.7.2"
+notosans = "0.1.0"
+palette = "0.6.0"
+hashbrown = "0.11.2"
+parking_lot = "0.11.1"
+dashmap = "4.0.2"
+ctor = "0.1.20"
+ahash = "0.7.4"
+log = "0.4.14"
+ordered-float = "2.1.1"
+smallvec = "1.6.1"
+take_mut = "0.2.2"
+tinyset = "0.4.6"
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = "0.3.2"

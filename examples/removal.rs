@@ -1,6 +1,4 @@
 use narui::*;
-use narui_widgets::*;
-use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 #[widget]
 pub fn top(context: &mut WidgetContext) -> Fragment {
@@ -34,12 +32,8 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
 
 fn main() {
     env_logger::init();
-    let window_builder = WindowBuilder::new()
-        .with_title("narui removal test")
-        .with_gtk_theme_variant("dark".parse().unwrap());
-
-    render(
-        window_builder,
+    app::render(
+        app::WindowBuilder::new().with_title("narui minimal test"),
         rsx_toplevel! {
             <top />
         },

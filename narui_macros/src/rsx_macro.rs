@@ -1,6 +1,7 @@
 use proc_macro2::{Ident, LineColumn, Span, TokenStream};
 use quote::quote;
 
+use crate::narui_crate;
 use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
@@ -20,6 +21,8 @@ pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
     transformed
 }
 fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
+    let narui = narui_crate();
+
     if x.node_type == NodeType::Element {
         let name = x.name.as_ref().unwrap();
         let node_name = name;
@@ -39,7 +42,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             Ident::new(&format!("__{}_{}_args", name_str, loc), Span::call_site());
         let key_ident = Ident::new(&format!("__{}_{}_key", name_str, loc), Span::call_site());
         let idx_ident = Ident::new(&format!("__{}_{}_idx", name_str, loc), Span::call_site());
-        let mut key = quote! {KeyPart::Fragment { widget_id: #name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc }};
+        let mut key = quote! {#narui::KeyPart::Fragment { widget_id: #name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc }};
 
         let constructor_path = {
             let constructor_ident =
@@ -52,7 +55,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             let name = attribute.name.as_ref().unwrap();
             let value = attribute.value.as_ref().unwrap().clone();
             if name.to_string() == "key" {
-                key = quote! {KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value as _ }}
+                key = quote! {#narui::KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value as _ }}
             } else {
                 processed_attributes.push(quote! {#name=#value});
             }
@@ -69,7 +72,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             if len == 1 {
                 (quote! {#(#beginning)*}, quote! {children={#(#inplace)*.into()},})
             } else {
-                (quote! {#(#beginning)*}, quote! {children={narui::smallvec![#(#inplace,)*]},})
+                (quote! {#(#beginning)*}, quote! {children={#narui::smallvec![#(#inplace,)*]},})
             }
         };
 
@@ -77,7 +80,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             let (#key_ident, #idx_ident) = {
                 let fragment_store = &mut context.fragment_store;
                 let key = context.key_map.key_with(context.widget_local.key, #key, || fragment_store.add_empty_fragment().into());
-                let idx = Fragment::from(key);
+                let idx = #narui::Fragment::from(key);
                 (key, idx)
             };
             let #args_listenable_ident = {
@@ -100,9 +103,9 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         };
         let inplace = quote! {
             context.fragment_store.add_fragment(#idx_ident, || {
-                narui::UnevaluatedFragment {
+                #narui::UnevaluatedFragment {
                     key: #key_ident,
-                    gen: std::rc::Rc::new(move |context: &mut WidgetContext| {
+                    gen: std::rc::Rc::new(move |context: &mut #narui::WidgetContext| {
                         #constructor_path!(@construct listenable=#args_listenable_ident, context=context)
                     })
                 }

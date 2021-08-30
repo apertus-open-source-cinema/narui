@@ -20,3 +20,5 @@ pub use text_widget::*;
 #[path = "input.rs"]
 mod input_widget;
 pub use input_widget::*;
+
+pub mod theme;

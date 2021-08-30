@@ -895,13 +895,25 @@ dependencies = [
 name = "narui"
 version = "0.1.0"
 dependencies = [
+ "cargo-husky",
+ "env_logger",
+ "jemallocator",
+ "log",
+ "narui_core",
+ "narui_macros",
+ "narui_widgets",
+ "rutter_layout",
+]
+
+[[package]]
+name = "narui_core"
+version = "0.1.0"
+dependencies = [
  "ahash",
  "anyhow",
- "cargo-husky",
  "ctor",
  "dashmap",
  "derivative",
- "env_logger",
  "freelist",
  "glyph_brush",
  "hashbrown",
@@ -909,8 +921,6 @@ dependencies = [
  "lazy_static",
  "log",
  "lyon",
- "narui_macros",
- "narui_widgets",
  "notosans",
  "ordered-float",
  "palette",
@@ -941,11 +951,8 @@ dependencies = [
 name = "narui_widgets"
 version = "0.1.0"
 dependencies = [
- "glyph_brush",
- "lyon",
- "narui",
- "palette",
- "rutter_layout",
+ "narui_core",
+ "narui_macros",
 ]
 
 [[package]]

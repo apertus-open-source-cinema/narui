@@ -1,13 +1,16 @@
-use lyon::{
-    lyon_tessellation::{path::geom::Point, FillTessellator, StrokeTessellator},
-    tessellation::{path::path::Builder, LineCap, StrokeOptions},
+use narui::{
+    layout::Maximal,
+    re_export::{
+        lyon::{
+            lyon_tessellation::{path::geom::Point, FillTessellator, StrokeTessellator},
+            tessellation::{path::path::Builder, LineCap, StrokeOptions},
+        },
+        palette::Shade,
+    },
+    renderer::ColoredBuffersBuilder,
+    *,
 };
-use narui::{lyon_render::ColoredBuffersBuilder, *};
-use narui_widgets::*;
-use palette::Shade;
-use rutter_layout::Maximal;
 use std::sync::Arc;
-use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 
 #[widget(on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}), relative = false)]
@@ -162,8 +165,8 @@ pub fn node(
 ) -> Fragment {
     let key = context.widget_local.idx;
 
-    let fill_color = Color::from_linear(Shade::lighten(&BG_DARK.into_linear(), 0.1));
-    let stroke_color = Color::from_linear(Shade::lighten(&BG_LIGHT.into_linear(), 0.2));
+    let fill_color = Color::from_linear(Shade::lighten(&theme::BG_DARK.into_linear(), 0.1));
+    let stroke_color = Color::from_linear(Shade::lighten(&theme::BG_LIGHT.into_linear(), 0.2));
 
     rsx! {
         <sized constraint=BoxConstraints::tight(250., 150.)>
@@ -185,13 +188,13 @@ pub fn node(
                         <stack>
                             <align alignment=Alignment::center_left()>
                                 <column main_axis_alignment=MainAxisAlignment::SpaceEvenly>
-                                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={color!(#ffff00)} />
-                                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={color!(#00ffff)} />
+                                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={Color::new(1., 1., 0., 1.)} />
+                                    <handle on_drag_end=on_handle_drag_end.clone() on_drag_start=on_handle_drag_start.clone() graph_root=graph_root parent_node=key on_drag=on_handle_drag.clone() color={Color::new(0., 1., 1., 1.)} />
                                 </column>
                             </align>
                             <align alignment=Alignment::center_right()>
                                 <column>
-                                    <handle on_drag_end=on_handle_drag_end on_drag_start=on_handle_drag_start graph_root=graph_root parent_node=key on_drag=on_handle_drag color={color!(#ff00ff)} />
+                                    <handle on_drag_end=on_handle_drag_end on_drag_start=on_handle_drag_start graph_root=graph_root parent_node=key on_drag=on_handle_drag color={Color::new(1., 0., 1., 1.)} />
                                 </column>
                             </align>
                                 /* TODO: add controls, etc */
@@ -230,7 +233,7 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
             let connection = (
                 (start.2, get_handle_offset(context, start.0, start.1).unwrap()),
                 (end.2, get_handle_offset(context, end.0, end.1).unwrap()),
-                color!(#ffffff),
+                Color::new(1., 1., 1., 1.),
             );
             let mut connections = context.spy(settled_connections);
             if let Some(i) = connections.iter().position(|x| x == &connection) {
@@ -306,12 +309,9 @@ pub fn node_graph(context: &mut WidgetContext) -> Fragment {
 
 
 fn main() {
-    let window_builder = WindowBuilder::new()
-        .with_title("narui node graph demo")
-        .with_gtk_theme_variant("dark".parse().unwrap());
-
-    render(
-        window_builder,
+    env_logger::init();
+    app::render(
+        app::WindowBuilder::new().with_title("narui node graph demo"),
         rsx_toplevel! {
             <node_graph />
         },

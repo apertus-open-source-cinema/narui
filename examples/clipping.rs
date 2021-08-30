@@ -1,8 +1,4 @@
-use narui::*;
-use narui_widgets::*;
-use rutter_layout::{Layout, LayoutableChildren, Size};
-use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
-
+use narui::{layout::layout_trait::*, *};
 
 #[derive(Debug, PartialEq)]
 struct RevealClipLayout {
@@ -39,7 +35,7 @@ pub fn reveal_box(
 }
 
 #[widget]
-pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
+pub fn top(context: &mut WidgetContext) -> Fragment {
     let slider_value = context.listenable(0.75);
     rsx! {
         <align>
@@ -48,7 +44,7 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
                     <flexible>
                         <padding padding=EdgeInsets::all(10.)>
                             <reveal_box reveal=context.listen(slider_value)>
-                                <rect fill=Some(color!(#007777)) border_radius=Fraction(1.) do_clipping=true>
+                                <rect fill=Some(Color::new(0., 0.7, 0.7, 1.0)) border_radius=Fraction(1.) do_clipping=true>
                                     <text size=100.>
                                         {"some really long text, that gets clipped..."}
                                     </text>
@@ -71,14 +67,10 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
 
 fn main() {
     env_logger::init();
-    let window_builder = WindowBuilder::new()
-        .with_title("narui clipping demo")
-        .with_gtk_theme_variant("dark".parse().unwrap());
-
-    render(
-        window_builder,
+    app::render(
+        app::WindowBuilder::new().with_title("narui clipping demo"),
         rsx_toplevel! {
-            <slider_demo />
+            <top />
         },
     );
 }

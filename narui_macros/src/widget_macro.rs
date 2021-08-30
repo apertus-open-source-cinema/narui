@@ -33,13 +33,16 @@ impl Parse for AttributeParameter {
     }
 }
 
+// TODO(anujen): this breaks when it is not imported
 const WIDGET_CONTEXT_TYPE_STRING: &str = "& mut WidgetContext";
 
 // allows for kwarg-style calling of functions
 pub fn widget(
-    args: proc_macro::TokenStream,
+    defaults: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
+    let narui = narui_crate();
+
     // parse the function
     let parsed: Result<ItemFn, _> = syn::parse2(item.into());
     let function = parsed.unwrap();
@@ -55,18 +58,16 @@ pub fn widget(
 
     // parse & format the default arguments
     let parser = Punctuated::<AttributeParameter, Token![,]>::parse_terminated;
-    let parsed_args = parser.parse(args).unwrap();
+    let parsed_defaults = parser.parse(defaults).unwrap();
 
     let macro_ident = Ident::new(&format!("__{}_constructor_", function_ident), Span::call_site());
     let macro_ident_pub =
         Ident::new(&format!("__{}_constructor", function_ident), Span::call_site());
 
-    let narui = narui_crate();
-
     let arg_types = get_arg_types(&function);
     let match_arms: Vec<_> = {
         let args_with_default: HashSet<_> =
-            parsed_args.clone().into_iter().map(|x| x.ident.to_string()).collect();
+            parsed_defaults.clone().into_iter().map(|x| x.ident.to_string()).collect();
 
         get_arg_names(&function)
             .iter()
@@ -79,7 +80,7 @@ pub fn widget(
                     Ident::new(&format!("_constrain_arg_type_{}", unhygienic), Span::call_site());
                 let dummy_function = quote! {
                     // this is needed to be able to use the default argument with the correct type &
-                    // mute unusesd warnings
+                    // mute unused warnings
                     #[allow(non_snake_case, unused)]
                     fn #dummy_function_ident(arg: #arg_type) -> #arg_type { arg }
                 };
@@ -107,28 +108,34 @@ pub fn widget(
             .collect()
     };
 
-    let shout_args_arm = {
-        let initializers = parsed_args.into_iter().map(|x| {
-            let unhygienic = &x.ident;
-            let ident = desinfect_ident(unhygienic);
-            let value = x.expr;
-            let arg_type = &arg_types[&unhygienic.to_string()];
-            let dummy_function_ident =
-                Ident::new(&format!("_constrain_arg_type_{}", unhygienic), Span::call_site());
-            let dummy_function = quote! {
-                // this is needed to be able to use the default argument with the correct type &
-                // mute unusesd warnings
-                #[allow(non_snake_case, unused)]
-                fn #dummy_function_ident(arg: #arg_type) -> #arg_type { arg }
-            };
+    let arg_types = get_arg_types(&function);
 
-            quote! {
-                let #ident = {
-                    #dummy_function
-                    #dummy_function_ident(#value)
-                }
+    let mut default_fns = vec![];
+    let mut default_fn_uses = vec![];
+    let mut initializers = vec![];
+    for x in parsed_defaults {
+        let default_fn_ident =
+            Ident::new(&format!("__{}_{}_default_arg", function_ident, x.ident), x.ident.span());
+        let default_fn_ident_use = Ident::new(&format!("{}_default_arg", x.ident), x.ident.span());
+
+        let expr = &x.expr;
+        let ty = arg_types[&x.ident.to_string()].as_ref();
+        default_fns.push(quote! {
+            #[allow(unused)]
+            pub fn #default_fn_ident() -> #ty {
+                #expr
             }
         });
+        default_fn_uses.push(quote! {
+            pub use super::#default_fn_ident as #default_fn_ident_use;
+        });
+        let hygienic = desinfect_ident(&x.ident);
+        initializers.push(quote! {
+            let #hygienic = #mod_ident::#default_fn_ident_use();
+        });
+    }
+
+    let shout_args_arm = {
         let arg_names: Vec<_> = get_arg_names(&function)
             .into_iter()
             .filter(|ident| &ident.to_string() != "context")
@@ -138,7 +145,7 @@ pub fn widget(
         quote! {
             (@shout_args context=$context:expr, idx=$idx:ident, $($args:tt)*) => {
                 {
-                    #(#initializers;)*
+                    #(#initializers)*
                     #mod_ident::#macro_ident_pub!(@parse_args [#(#arg_names,)*] $($args)*);
 
                     #narui::shout_args!($context, $idx, [#(#arg_names,)*])
@@ -159,22 +166,19 @@ pub fn widget(
             .map(|i| Literal::usize_unsuffixed(i + 1))
             .collect();
 
-        let transformer = if return_type == "FragmentInner" {
-            quote! {
-                fn transformer(input: FragmentInner) -> FragmentInner {
-                    input
-                }
+        let function_call = quote! {{
+            #[allow(unused_unsafe)]
+            unsafe {
+                #mod_ident::#function_ident(
+                    #($listenables.#arg_numbers_plus_one.parse(&*args[#arg_numbers]).clone(),)*
+                    $context
+                )
             }
+        }};
+        let function_call = if return_type == "FragmentInner" {
+            function_call
         } else if return_type == "Fragment" {
-            quote! {
-                fn transformer(input: Fragment) -> FragmentInner {
-                    FragmentInner::Node {
-                        children: narui::smallvec![ input ],
-                        layout: Box::new(rutter_layout::Transparent),
-                        is_clipper: false,
-                    }
-                }
-            }
+            quote! { #narui::FragmentInner::from_fragment(#function_call) }
         } else {
             panic!("widgets need to either return Fragment or FragmentInner, not {}", return_type)
         };
@@ -189,19 +193,9 @@ pub fn widget(
                 (@parse_args [#($#arg_names:ident,)*] ) => { };
 
                 (@construct listenable=$listenables:ident, context=$context:expr) => {{
-                    use #narui::args::ContextArgs;
-
-                    #transformer
-
                     #[allow(unused)]
-                    let args = $context.listen_args(&$listenables.0);
-                    #[allow(unused_unsafe)]
-                    unsafe {
-                        transformer(#mod_ident::#function_ident(
-                            #($listenables.#arg_numbers_plus_one.parse(&*args[#arg_numbers]).clone(),)*
-                            $context
-                        ))
-                    }
+                    let args = #narui::listen_args($context, &$listenables.0);
+                    #function_call
                 }}
             }
 
@@ -222,12 +216,12 @@ pub fn widget(
         quote! {
             pub static WIDGET_ID: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
 
-            #[#narui::internal::ctor]
+            #[#narui::ctor]
             fn _init_widget() {
-                let mut lock = #narui::internal::WIDGET_INFO.write();
+                let mut lock = #narui::WIDGET_INFO.write();
                 let id = lock.len();
                 WIDGET_ID.store(id as u16, std::sync::atomic::Ordering::SeqCst);
-                lock.push(#narui::internal::WidgetDebugInfo {
+                lock.push(#narui::WidgetDebugInfo {
                     name: stringify!(#mod_ident).to_string(),
                     loc: #source_loc.to_string(),
                     arg_names: vec![#(stringify!(#arg_names).to_string(),)*],
@@ -242,7 +236,9 @@ pub fn widget(
 
     let transformed = quote! {
         #transformed_function
+        #(#default_fns)*
         #function_vis mod #mod_ident {
+            #(#default_fn_uses)*
             #data_constructor_function
             #constructor_macro
             pub use super::#new_ident as #original_ident;
@@ -325,7 +321,7 @@ fn get_arg_names(function: &ItemFn) -> Vec<Ident> {
         .collect()
 }
 
-// creates a hyginic (kind of) identifier from an unhyginic one
+// creates a hygienic (kind of) identifier from an unhyginic one
 fn desinfect_ident(ident: &Ident) -> Ident {
     Ident::new(&format!("__{}", ident), Span::call_site())
 }

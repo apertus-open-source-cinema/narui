@@ -1,13 +1,18 @@
-use glyph_brush::{
-    ab_glyph::{Font, ScaleFont},
-    FontId,
-    GlyphPositioner,
-    Layout,
-    SectionGeometry,
-    SectionText,
+use crate::theme;
+use narui::{
+    layout::{layout_trait::LayoutableChildren, BoxConstraints, Layout, Size},
+    re_export::glyph_brush::{
+        ab_glyph::{Font, ScaleFont},
+        FontId,
+        GlyphPositioner,
+        Layout as GbLayout,
+        SectionGeometry,
+        SectionText,
+    },
+    renderer::FONT,
+    *,
 };
-use narui::{vulkano_render::text_render::FONT, *};
-use rutter_layout::{BoxConstraints, LayoutableChildren, Size};
+use narui_macros::widget;
 use std::rc::Rc;
 
 #[derive(Debug, PartialEq)]
@@ -16,12 +21,12 @@ pub struct TextLayout {
     text: Rc<String>,
 }
 
-impl rutter_layout::Layout for TextLayout {
+impl Layout for TextLayout {
     fn layout(&self, constraint: BoxConstraints, children: LayoutableChildren) -> (Size, u32) {
         assert_eq!(children.len(), 0);
         let fonts = &[FONT.clone()];
         let sfont = fonts[0].as_scaled(self.size);
-        let glyphs = Layout::default().calculate_glyphs(
+        let glyphs = GbLayout::default().calculate_glyphs(
             fonts,
             &SectionGeometry {
                 screen_position: (0.0, -sfont.descent()),
@@ -38,19 +43,13 @@ impl rutter_layout::Layout for TextLayout {
             calculated_height = calculated_height.max(glyph.glyph.position.y);
         }
 
-        (
-            constraint.constrain(rutter_layout::Size {
-                width: calculated_width,
-                height: calculated_height,
-            }),
-            1,
-        )
+        (constraint.constrain(Size { width: calculated_width, height: calculated_height }), 1)
     }
 }
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
-#[widget(size = 24.0, color = narui::theme::TEXT_WHITE)]
+#[widget(size = 24.0, color = theme::TEXT_WHITE)]
 pub fn text(
     size: f32,
     children: impl ToString + Clone,

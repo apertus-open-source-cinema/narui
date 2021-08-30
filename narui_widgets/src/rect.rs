@@ -1,21 +1,25 @@
-use crate::{fragment, positioned, sized, stack};
-use lyon::{
-    geom::point,
-    math::rect as lyon_rect,
-    path::{builder::*, Winding},
-    tessellation::{
-        path::{builder::BorderRadii, path::Builder},
-        FillTessellator,
-        StrokeOptions,
-        StrokeTessellator,
+use crate::layout::{positioned, sized, stack};
+use narui::{
+    layout::Maximal,
+    re_export::lyon::{
+        algorithms::{
+            math::{point, rect as lyon_rect},
+            path::{
+                builder::{BorderRadii, PathBuilder},
+                Winding,
+            },
+        },
+        lyon_algorithms::path::path::Builder,
+        lyon_tessellation::{FillTessellator, StrokeOptions, StrokeTessellator},
     },
+    renderer::ColoredBuffersBuilder,
+    *,
 };
-use narui::{heart::*, lyon_render::ColoredBuffersBuilder, macros::widget, rsx};
-use rutter_layout::Maximal;
+use narui_macros::{rsx, widget};
 use std::sync::Arc;
 
 
-#[widget(border_radius = narui::Dimension::default(), fill = None, stroke = None)]
+#[widget(border_radius = Dimension::default(), fill = None, stroke = None)]
 pub fn rect_leaf(
     border_radius: Dimension,
     fill: Option<Color>,
@@ -82,7 +86,7 @@ pub fn rect_leaf(
 }
 
 
-#[widget(border_radius = narui::Dimension::default(), fill = None)]
+#[widget(border_radius = Dimension::default(), fill = None)]
 pub fn inverse_rect_leaf(
     border_radius: Dimension,
     fill: Option<Color>,
@@ -99,7 +103,7 @@ pub fn inverse_rect_leaf(
             };
             if let Some(fill) = fill {
                 let mut builder = Builder::new();
-                let m = 0.552_284_8;
+                let m = 0.5522848;
                 let mut corner = |a: Vec2, b: Vec2, c: Vec2| {
                     builder.begin(a.into());
                     builder.line_to(point(b.x, b.y));
@@ -142,19 +146,19 @@ pub fn inverse_rect_leaf(
 }
 
 #[widget(
-    border_radius = narui::Dimension::default(),
+    border_radius = Default::default(),
     fill = None,
     stroke = None,
     do_clipping = false,
-    constraint = rutter_layout::BoxConstraints::default(),
+    constraint = Default::default(),
     children = None,
 )]
 pub fn rect(
-    border_radius: narui::Dimension,
+    border_radius: Dimension,
     fill: Option<Color>,
     stroke: Option<(Color, f32)>,
     do_clipping: bool,
-    constraint: rutter_layout::BoxConstraints,
+    constraint: narui::layout::BoxConstraints,
     children: Option<Fragment>,
     context: &mut WidgetContext,
 ) -> Fragment {
@@ -179,7 +183,7 @@ pub fn rect(
                 <positioned>
                     <rect_leaf border_radius=border_radius fill=fill stroke=stroke />
                 </positioned>
-                <sized constraint=constraint>{children.into()}</sized>
+                <sized constraint=constraint>{children}</sized>
                 <positioned>
                     <inverse_rect_leaf fill=Some(Color::new(0., 0., 0., 0.)) border_radius=border_radius />
                 </positioned>

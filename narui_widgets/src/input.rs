@@ -1,8 +1,7 @@
-use narui::*;
-use rutter_layout::Maximal;
-use std::sync::Arc;
-
 use crate::{fragment, positioned, stack};
+use narui::{layout::Maximal, *};
+use narui_macros::{rsx, widget};
+use std::sync::Arc;
 
 #[widget(on_click = (| _context, _clicked | {}), on_hover = (|_context, _hovered| {}), on_move = (|_context, _position| {}))]
 pub fn input_leaf(

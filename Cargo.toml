@@ -7,38 +7,14 @@ edition = "2018"
 [lib]
 name = "narui"
 
-[features]
-default = []
-debug_bounds = []
-
 [dependencies]
+narui_core = { path = "narui_core" }
 narui_macros = { path = "narui_macros" }
 rutter_layout = { path = "rutter_layout" }
-freelist = { path = "freelist" }
-lyon = "0.17.5"
-winit = "0.25.0"
-anyhow = "1.0.40"
-lazy_static = "1.4.0"
-vulkano = "0.25.0"
-vulkano-shaders = "0.25.0"
-vulkano-win = "0.25.0"
-derivative = "2.2.0"
-glyph_brush = "0.7.2"
-notosans = "0.1.0"
-palette = "0.6.0"
-hashbrown = "0.11.2"
-parking_lot = "0.11.1"
-dashmap = "4.0.2"
-ctor = "0.1.20"
-ahash = "0.7.4"
-log = "0.4.14"
-ordered-float = "2.1.1"
-smallvec = "1.6.1"
-take_mut = "0.2.2"
-tinyset = "0.4.6"
+narui_widgets = { path = "narui_widgets" }
 
 [dev-dependencies]
-narui_widgets = { path = "narui_widgets" }
+log = "0.4.14"
 env_logger = "0.9.0"
 
 [dev-dependencies.cargo-husky]
@@ -48,12 +24,10 @@ features = ["precommit-hook", "run-cargo-fmt", "run-cargo-check"]
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.3.2"
 
-[profile.release]
-debug = true
-
 
 [workspace]
 members = [
+    "narui_core",
     "narui_macros",
     "narui_widgets",
     "rutter_layout",

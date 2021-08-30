@@ -1,14 +1,14 @@
-pub mod types;
-pub use types::*;
+mod types;
+pub use types::{BoxConstraints, Offset, Size};
 
 pub mod layouter;
-pub use layouter::*;
+pub use layouter::Layout;
 
-pub mod basic;
-pub use basic::*;
+pub mod layout_trait {
+    pub use crate::layouter::{Layout, LayoutableChild, LayoutableChildren, TraitComparable};
+}
 
-pub mod flex;
-pub use flex::*;
+pub mod layouts;
 
-pub mod stack;
-pub use stack::*;
+#[cfg(test)]
+mod smoke_test;

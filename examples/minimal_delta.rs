@@ -1,13 +1,13 @@
 use narui::*;
-use narui_widgets::*;
-use rutter_layout::BoxConstraints;
-use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
-
 
 #[widget]
 pub fn btn(context: &mut WidgetContext) -> Fragment {
     let clicked = context.listenable(false);
-    let color = if context.listen(clicked) { color!(#222222) } else { color!(#ffffff) };
+    let color = if context.listen(clicked) {
+        Color::new(1., 0., 0., 1.)
+    } else {
+        Color::new(0., 1., 0., 1.)
+    };
 
     let callback = move |context: &CallbackContext, is_clicked| {
         context.shout(clicked, is_clicked);
@@ -23,12 +23,8 @@ pub fn btn(context: &mut WidgetContext) -> Fragment {
 
 fn main() {
     env_logger::init();
-    let window_builder = WindowBuilder::new()
-        .with_title("narui minimal delta demo")
-        .with_gtk_theme_variant("dark".parse().unwrap());
-
-    render(
-        window_builder,
+    app::render(
+        app::WindowBuilder::new().with_title("narui minimal delta demo"),
         rsx_toplevel! {
             <btn />
         },

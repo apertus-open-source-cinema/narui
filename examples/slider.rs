@@ -1,6 +1,4 @@
 use narui::*;
-use narui_widgets::*;
-use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 #[widget]
 pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
@@ -27,12 +25,8 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
 
 fn main() {
     env_logger::init();
-    let window_builder = WindowBuilder::new()
-        .with_title("narui slider demo")
-        .with_gtk_theme_variant("dark".parse().unwrap());
-
-    render(
-        window_builder,
+    app::render(
+        app::WindowBuilder::new().with_title("narui slider demo"),
         rsx_toplevel! {
             <slider_demo />
         },

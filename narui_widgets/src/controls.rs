@@ -1,16 +1,16 @@
 use crate::*;
-use narui::*;
-use palette::Shade;
+use narui::{re_export::palette::Shade, *};
+use narui_macros::{rsx, widget};
 
 #[widget(
     on_click = (| _context | {}),
-    border_radius = narui::Paxel(10.),
-    color = narui::theme::BG,
-    stroke_color = narui::theme::FG,
+    border_radius = Paxel(10.),
+    color = theme::BG,
+    stroke_color = theme::FG,
 )]
 pub fn button(
     on_click: impl for<'a> Fn(&'a CallbackContext) + Clone + 'static,
-    border_radius: Dimension,
+    border_radius: narui::layout::Dimension,
     color: Color,
     stroke_color: Color,
     children: Fragment,
@@ -48,7 +48,7 @@ pub fn button(
     }
 }
 
-#[widget(min = 0.0, max = 1.0, slide_color = narui::theme::BG_LIGHT, knob_color = narui::theme::FG)]
+#[widget(min = 0.0, max = 1.0, slide_color = theme::BG_LIGHT, knob_color = theme::FG)]
 pub fn slider(
     val: f32,
     on_change: impl for<'a> Fn(&'a CallbackContext, f32) + Clone + 'static,

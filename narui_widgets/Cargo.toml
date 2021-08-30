@@ -3,11 +3,6 @@ name = "narui_widgets"
 version = "0.1.0"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-narui = { path = ".." }
-rutter_layout = { path = "../rutter_layout" }
-palette = "*"
-glyph_brush = "*"
-lyon = "*"
+narui = { path = "../narui_core", package = "narui_core" }
+narui_macros = { path = "../narui_macros" }

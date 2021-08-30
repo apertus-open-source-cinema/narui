@@ -1,4 +1,4 @@
-use crate::EdgeInsets;
+use crate::layouts::EdgeInsets;
 use std::ops::Add;
 
 #[derive(Copy, Clone, PartialEq, Debug)]

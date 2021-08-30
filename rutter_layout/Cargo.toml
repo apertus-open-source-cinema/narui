@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-hashbrown = "*"
-ahash = "*"
-derivative = "2.2.0"
 freelist = { path = "../freelist" }
+
+hashbrown = "0.11.2"
+ahash = "0.7.4"
+derivative = "2.2.0"

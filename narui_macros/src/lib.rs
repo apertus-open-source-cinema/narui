@@ -5,30 +5,6 @@ use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
 
-#[proc_macro]
-pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    rsx_macro::rsx(input).into()
-}
-
-#[proc_macro]
-pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let rsx = rsx_macro::rsx(input);
-
-    (quote! {
-        UnevaluatedFragment {
-            key: Default::default(),
-            gen: std::rc::Rc::new(|context: &mut WidgetContext| {
-                FragmentInner::Node {
-                    children: narui::smallvec![ #rsx ],
-                    layout: Box::new(rutter_layout::Transparent),
-                    is_clipper: false,
-                }
-            }),
-        }
-    })
-    .into()
-}
-
 #[proc_macro_attribute]
 pub fn widget(
     args: proc_macro::TokenStream,
@@ -37,44 +13,43 @@ pub fn widget(
     widget_macro::widget(args, item)
 }
 
+
 #[proc_macro]
-pub fn color(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let string = input.to_string();
-    let trimmed = string.trim_start_matches("# ");
-    let str_to_float =
-        |s| i64::from_str_radix(s, 16).unwrap() as f32 / 16u32.pow(s.len() as u32) as f32;
-    match trimmed.len() {
-        6 => {
-            let r = str_to_float(&trimmed[0..2]);
-            let g = str_to_float(&trimmed[2..4]);
-            let b = str_to_float(&trimmed[4..6]);
-            (quote! {
-                Color {
-                    color: narui::__Rgb {
-                        red: #r,
-                        green: #g,
-                        blue: #b,
-                        standard: core::marker::PhantomData,
-                    },
-                    alpha: 1.0
-                }
-            })
-            .into()
-        }
-        _ => {
-            unimplemented!()
-        }
-    }
+pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    rsx_macro::rsx(input).into()
 }
 
+#[proc_macro]
+pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let rsx = rsx_macro::rsx(input);
+    let narui = narui_crate();
+
+    (quote! {
+        UnevaluatedFragment {
+            key: Default::default(),
+            gen: std::rc::Rc::new(|context: &mut WidgetContext| {
+                FragmentInner::Node {
+                    children: #narui::smallvec![ #rsx ],
+                    layout: Box::new(#narui::Transparent),
+                    is_clipper: false,
+                }
+            }),
+        }
+    })
+    .into()
+}
+
+
 fn narui_crate() -> TokenStream {
-    let found_crate = crate_name("narui").expect("narui is present in `Cargo.toml`");
+    let found_crate = crate_name("narui")
+        .or_else(|_| crate_name("narui_core"))
+        .expect("narui is present in `Cargo.toml`");
 
     match found_crate {
-        FoundCrate::Itself => quote!(crate),
+        FoundCrate::Itself => quote!(crate::_macro_api),
         FoundCrate::Name(name) => {
             let ident = Ident::new(&name, Span::call_site());
-            quote!( #ident )
+            quote!( #ident::_macro_api )
         }
     }
 }
