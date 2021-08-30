@@ -59,9 +59,9 @@ pub fn drag_detector(
 #[widget]
 pub fn hr(color: Color, context: &mut WidgetContext) -> Fragment {
     rsx! {
-        <sized_box constraint={BoxConstraints::min_height(10.)}>
+        <sized constraint={BoxConstraints::min_height(10.)}>
             <rect_leaf fill=Some(color) />
-        </sized_box>
+        </sized>
     }
 }
 
@@ -86,7 +86,7 @@ pub fn handle(
     };
 
     rsx! {
-        <sized_box constraint={BoxConstraints::tight(size, size)}>
+        <sized constraint={BoxConstraints::tight(size, size)}>
             <drag_detector
                 on_drag=on_drag
                 on_end=(move |context, key| {on_drag_end(context, key, parent_node)})
@@ -97,7 +97,7 @@ pub fn handle(
                     border_radius=Paxel(size)
                 />
             </drag_detector>
-        </sized_box>
+        </sized>
     }
 }
 
@@ -166,7 +166,7 @@ pub fn node(
     let stroke_color = Color::from_linear(Shade::lighten(&BG_LIGHT.into_linear(), 0.2));
 
     rsx! {
-        <sized_box constraint=BoxConstraints::tight(250., 150.)>
+        <sized constraint=BoxConstraints::tight(250., 150.)>
             <stack>
                 <padding padding=EdgeInsets::horizontal(10.0)>
                     <rect_leaf border_radius=Paxel(10.0) fill=Some(fill_color) stroke=Some((stroke_color, 2.0)) />
@@ -199,7 +199,7 @@ pub fn node(
                     </flexible>
                 </column>
             </stack>
-        </sized_box>
+        </sized>
     }
 }
 

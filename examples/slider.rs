@@ -7,13 +7,13 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
     let slider_value = context.listenable(24.0);
     rsx! {
         <column>
-            <sized_box constraint=BoxConstraints::default().with_tight_height(300.0)>
+            <sized constraint=BoxConstraints::default().with_tight_height(300.0)>
                 <align alignment=Alignment::bottom_center()>
                     <text size=context.listen(slider_value)>
                         {format!("{:.1} px", context.listen(slider_value))}
                     </text>
                 </align>
-            </sized_box>
+            </sized>
             <slider
                 val={context.listen(slider_value)}
                 on_change={move |context: &CallbackContext, new_val| {

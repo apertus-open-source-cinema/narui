@@ -31,6 +31,14 @@ impl BoxConstraints {
             max_height: size.height,
         }
     }
+    pub fn fill() -> Self {
+        Self {
+            min_width: f32::INFINITY,
+            max_width: f32::INFINITY,
+            min_height: f32::INFINITY,
+            max_height: f32::INFINITY,
+        }
+    }
 
     pub fn tight(width: f32, height: f32) -> Self {
         Self { min_width: width, max_width: width, min_height: height, max_height: height }

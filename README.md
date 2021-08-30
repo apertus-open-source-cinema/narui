@@ -24,9 +24,7 @@ Make sure to also check out [the examples](examples/) that cover some more advan
 #[widget]
 pub fn square(context: &mut WidgetContext) -> Fragment {
     rsx! {
-        <sized_box constraint=BoxConstraints::tight(10.0, 10.0)>
-            <rect fill=Some(color!(#ffffff)) />
-        </sized>
+        <rect fill=Some(color!(#ffffff)) constraint=BoxConstraints::tight(10.0, 10.0)>
     }
 }
 ```
@@ -51,17 +49,15 @@ fn main() {
 
 ```rust
 #[widget(color = color!(#00aaaa))]  // we assign a default value to the color attribute which is used when color is unspecified
-pub fn colored_container(children: FragmentChildren, color: Color, context: &mut WidgetContext) -> Fragment {
+pub fn colored_column(children: FragmentChildren, color: Color, context: &mut WidgetContext) -> Fragment {
     rsx! {
-        <stack>
-            <positioned>  // positioned is not taken into account for the size calculation of the stack
-                <rect fill=Some(color) />
-            </positioned>
-
+        <rect fill=Some(color)>
             <padding padding=EdgeInsets::all(10.0)>
-                <column>{children}</column>
+                <column>
+                    {children}
+                </column>
             </padding>
-        </stack>
+        </rect>
     }
 }
 ```

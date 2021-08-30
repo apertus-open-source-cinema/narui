@@ -19,7 +19,7 @@ pub fn button(
     let clicked = context.listenable(false);
 
     let color = if context.listen(clicked) {
-        Color::from_linear(color.into_linear().lighten(0.1))
+        Color::from_linear(Shade::lighten(&color.into_linear(), 0.1))
     } else {
         color
     };
@@ -37,9 +37,9 @@ pub fn button(
                 <rect_leaf fill=Some(color) stroke=Some((stroke_color, 1.0)) border_radius=border_radius />
             </positioned>
             <padding>
-                <sized_box constraint=BoxConstraints::min_width(100.0)>
+                <sized constraint=BoxConstraints::min_width(100.0)>
                     <align factor_width=Some(1.0) factor_height=Some(1.0)>{children}</align>
-                </sized_box>
+                </sized>
             </padding>
             <positioned>
                 <input_leaf on_click=callback />
@@ -73,23 +73,21 @@ pub fn slider(
     };
 
     rsx! {
-        <sized_box constraint=BoxConstraints::default().with_tight_height(20.0)>
+        <sized constraint=BoxConstraints::default().with_tight_height(20.0)>
             <stack>
-                <sized_box constraint=BoxConstraints::default().with_tight_height(5.0)>
+                <sized constraint=BoxConstraints::default().with_tight_height(5.0)>
                     <padding padding=EdgeInsets::horizontal(10.0)>
                         <rect_leaf border_radius=Fraction(1.) fill=Some(slide_color) /> // the slide
                     </padding>
-                </sized_box>
+                </sized>
                 <input on_move = on_move>
                     <align alignment=Alignment::new(2.0 * (val - min) / (max - min) - 1.0, 0.0) factor_height = Some(1.0)>
                         <input on_click=on_click>
-                            <sized_box constraint=BoxConstraints::default().with_tight_width(20.0)>
-                                <rect_leaf border_radius=Fraction(1.) fill=Some(knob_color) />
-                            </sized_box>
+                            <rect border_radius=Fraction(1.) fill=Some(knob_color) constraint=BoxConstraints::fill().with_tight_width(20.0) />
                         </input>
                     </align>
                 </input>
             </stack>
-        </sized_box>
+        </sized>
     }
 }

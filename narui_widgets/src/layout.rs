@@ -99,13 +99,13 @@ pub fn align(
 }
 
 #[widget]
-pub fn sized_box(
-    children: Fragment,
+pub fn sized(
+    children: Option<Fragment>,
     constraint: rutter_layout::BoxConstraints,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
-        children: narui::smallvec![children],
+        children: children.into_iter().collect(),
         layout: Box::new(SizedBox::constrained(constraint)),
         is_clipper: false,
     }

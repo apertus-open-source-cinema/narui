@@ -43,7 +43,7 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
     let slider_value = context.listenable(0.75);
     rsx! {
         <align>
-            <sized_box constraint=BoxConstraints::tight(500., 500.)>
+            <sized constraint=BoxConstraints::tight(500., 500.)>
                 <column cross_axis_alignment=CrossAxisAlignment::Start>
                     <flexible>
                         <padding padding=EdgeInsets::all(10.)>
@@ -64,7 +64,7 @@ pub fn slider_demo(context: &mut WidgetContext) -> Fragment {
                         min=0.0 max=1.0
                     />
                 </column>
-            </sized_box>
+            </sized>
         </align>
     }
 }

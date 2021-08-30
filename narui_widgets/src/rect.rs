@@ -1,4 +1,4 @@
-use crate::{fragment, positioned, stack};
+use crate::{fragment, positioned, sized, stack};
 use lyon::{
     geom::point,
     math::rect as lyon_rect,
@@ -141,13 +141,21 @@ pub fn inverse_rect_leaf(
     }
 }
 
-#[widget(border_radius = narui::Dimension::default(), fill = None, stroke = None, do_clipping = false)]
+#[widget(
+    border_radius = narui::Dimension::default(),
+    fill = None,
+    stroke = None,
+    do_clipping = false,
+    constraint = rutter_layout::BoxConstraints::default(),
+    children = None,
+)]
 pub fn rect(
     border_radius: narui::Dimension,
     fill: Option<Color>,
     stroke: Option<(Color, f32)>,
     do_clipping: bool,
-    children: Fragment,
+    constraint: rutter_layout::BoxConstraints,
+    children: Option<Fragment>,
     context: &mut WidgetContext,
 ) -> Fragment {
     if do_clipping {
@@ -156,7 +164,7 @@ pub fn rect(
                 <positioned>
                     <rect_leaf border_radius=border_radius fill=fill stroke=stroke />
                 </positioned>
-                <fragment>{children.into()}</fragment>
+                <sized constraint=constraint>{children.into()}</sized>
             </stack>
         }
     } else {
@@ -165,7 +173,7 @@ pub fn rect(
                 <positioned>
                     <rect_leaf border_radius=border_radius fill=fill stroke=stroke />
                 </positioned>
-                <fragment>{children.into()}</fragment>
+                <sized constraint=constraint>{children.into()}</sized>
                 <positioned>
                     <inverse_rect_leaf fill=Some(Color::new(0., 0., 0., 0.)) border_radius=border_radius />
                 </positioned>

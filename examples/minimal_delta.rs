@@ -1,5 +1,6 @@
 use narui::*;
 use narui_widgets::*;
+use rutter_layout::BoxConstraints;
 use winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder};
 
 
@@ -13,9 +14,9 @@ pub fn btn(context: &mut WidgetContext) -> Fragment {
     };
 
     rsx! {
-        <rect fill=Some(color)>
-            <input_leaf on_click = callback />
-        </rect>
+        <input on_click=callback>
+            <rect fill=Some(color) constraint=BoxConstraints::fill()/>
+        </input>
     }
 }
 
