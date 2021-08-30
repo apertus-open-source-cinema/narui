@@ -58,8 +58,8 @@ pub fn rect_leaf(
                     &lyon_rect(
                         border_width / 2.0,
                         border_width / 2.0,
-                        size.x - border_width / 2.0,
-                        size.y - border_width / 2.0,
+                        size.x - border_width,
+                        size.y - border_width,
                     ),
                     &border_radii,
                     Winding::Positive,

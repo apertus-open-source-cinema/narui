@@ -112,6 +112,7 @@ impl FragmentStore {
         init: impl FnOnce() -> UnevaluatedFragment,
     ) -> Fragment {
         if self.data[idx.0].fragment.is_none() {
+            log::trace!("adding fragment {:?}", idx);
             self.data[idx.0].fragment = Some(MaybeEvaluatedFragment::Unevaluated(init()));
         }
         idx
