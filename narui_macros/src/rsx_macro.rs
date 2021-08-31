@@ -1,12 +1,17 @@
-use proc_macro2::{Ident, LineColumn, Span, TokenStream};
-use quote::quote;
-
 use crate::narui_crate;
+use proc_macro2::{Ident, LineColumn, Span, TokenStream};
+use proc_macro_error::{abort, abort_call_site};
+use quote::quote;
+use std::collections::BTreeMap;
+use syn::spanned::Spanned;
 use syn_rsx::{Node, NodeType};
 
 pub fn rsx(input: proc_macro::TokenStream) -> TokenStream {
-    let mut parsed = syn_rsx::parse2(input.into()).unwrap();
-    assert_eq!(parsed.len(), 1, "the rsx macro must have exactly one child!");
+    let mut parsed =
+        syn_rsx::parse2(input.into()).unwrap_or_else(|err| abort!(err.span(), err.to_string()));
+    if parsed.len() != 1 {
+        abort_call_site!("the rsx macro must have exactly one child!");
+    };
     let (beginning, inplace) = handle_rsx_node(parsed.remove(0));
 
     let transformed = quote! {{
@@ -45,37 +50,43 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         let mut key = quote! {#narui::KeyPart::Fragment { widget_id: #name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc }};
 
         let constructor_path = {
-            let constructor_ident =
-                Ident::new(&format!("__{}_constructor", name), Span::call_site());
+            let constructor_ident = Ident::new(&format!("{}_constructor", name), node_name.span());
             let mod_ident = Ident::new(&format!("{}", name), Span::call_site());
             quote! {#mod_ident::#constructor_ident}
         };
-        let mut processed_attributes = vec![];
+        let mut processed_attributes = BTreeMap::new();
         for attribute in &x.attributes {
             let name = attribute.name.as_ref().unwrap();
             let value = attribute.value.as_ref().unwrap().clone();
             if name.to_string() == "key" {
                 key = quote! {#narui::KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value as _ }}
             } else {
-                processed_attributes.push(quote! {#name=#value});
+                processed_attributes.insert(name.to_string(), quote! {#name=#value});
             }
         }
-        let (beginning, children_processed) = if x.children.is_empty() {
-            (quote! {}, quote! {})
+        let beginning = if x.children.is_empty() {
+            quote! {}
         } else if x.children.len() == 1 && x.children[0].node_type == NodeType::Block {
             let value = x.children[0].value.as_ref().unwrap();
-            (quote! {}, quote! {children=(#value),})
+            processed_attributes.insert("children".to_string(), quote! {children=(#value)});
+            quote! {}
         } else {
             let len = x.children.len();
             let (beginning, inplace): (Vec<_>, Vec<_>) =
                 x.children.into_iter().map(handle_rsx_node).unzip();
             if len == 1 {
-                (quote! {#(#beginning)*}, quote! {children={#(#inplace)*.into()},})
+                processed_attributes
+                    .insert("children".to_string(), quote! {children={#(#inplace)*.into()}});
             } else {
-                (quote! {#(#beginning)*}, quote! {children={#narui::smallvec![#(#inplace,)*]},})
+                processed_attributes.insert(
+                    "children".to_string(),
+                    quote! {children={#narui::smallvec![#(#inplace,)*]}},
+                );
             }
+            quote! {#(#beginning)*}
         };
 
+        let processed_attributes = processed_attributes.values();
         let beginning = quote! {
             let (#key_ident, #idx_ident) = {
                 let fragment_store = &mut context.fragment_store;
@@ -93,7 +104,6 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
                     context=context,
                     idx=#idx_ident,
                     #(#processed_attributes,)*
-                    #children_processed
                 );
 
                 context.widget_local.key = old_key;
@@ -113,6 +123,10 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         };
         (beginning, inplace)
     } else {
-        panic!("you shall not give this input to the rsx macro")
+        abort!(
+            x.value.unwrap().span(),
+            "you shall not give inputs of type '{}' to the rsx macro",
+            x.node_type
+        );
     }
 }

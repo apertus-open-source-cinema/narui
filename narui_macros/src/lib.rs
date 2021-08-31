@@ -3,8 +3,10 @@ mod widget_macro;
 
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
+use proc_macro_error::proc_macro_error;
 use quote::quote;
 
+#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn widget(
     args: proc_macro::TokenStream,
@@ -13,12 +15,13 @@ pub fn widget(
     widget_macro::widget(args, item)
 }
 
-
+#[proc_macro_error]
 #[proc_macro]
 pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     rsx_macro::rsx(input).into()
 }
 
+#[proc_macro_error]
 #[proc_macro]
 pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let rsx = rsx_macro::rsx(input);
