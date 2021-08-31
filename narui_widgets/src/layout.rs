@@ -7,10 +7,10 @@ use narui_macros::widget;
     main_axis_size = MainAxisSize::Max
 )]
 pub fn column(
-    children: narui::FragmentChildren,
-    cross_axis_alignment: narui::layout::CrossAxisAlignment,
-    main_axis_alignment: narui::layout::MainAxisAlignment,
-    main_axis_size: narui::layout::MainAxisSize,
+    children: FragmentChildren,
+    cross_axis_alignment: CrossAxisAlignment,
+    main_axis_alignment: MainAxisAlignment,
+    main_axis_size: MainAxisSize,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -26,10 +26,10 @@ pub fn column(
     main_axis_size = MainAxisSize::Max
 )]
 pub fn row(
-    children: narui::FragmentChildren,
-    cross_axis_alignment: narui::layout::CrossAxisAlignment,
-    main_axis_alignment: narui::layout::MainAxisAlignment,
-    main_axis_size: narui::layout::MainAxisSize,
+    children: FragmentChildren,
+    cross_axis_alignment: CrossAxisAlignment,
+    main_axis_alignment: MainAxisAlignment,
+    main_axis_size: MainAxisSize,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -41,9 +41,9 @@ pub fn row(
 
 #[widget(flex = 1.0, fit = FlexFit::Loose)]
 pub fn flexible(
-    children: narui::Fragment,
+    children: Fragment,
     flex: f32,
-    fit: narui::layout::FlexFit,
+    fit: FlexFit,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -55,8 +55,8 @@ pub fn flexible(
 
 #[widget(padding = EdgeInsets::all(10.0))]
 pub fn padding(
-    children: narui::Fragment,
-    padding: narui::layout::EdgeInsets,
+    children: Fragment,
+    padding: EdgeInsets,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -72,8 +72,8 @@ pub fn padding(
     factor_height = None
 )]
 pub fn align(
-    children: narui::Fragment,
-    alignment: narui::layout::Alignment,
+    children: Fragment,
+    alignment: Alignment,
     factor_width: Option<f32>,
     factor_height: Option<f32>,
     context: &mut WidgetContext,
@@ -87,8 +87,8 @@ pub fn align(
 
 #[widget]
 pub fn sized(
-    children: Option<narui::Fragment>,
-    constraint: narui::layout::BoxConstraints,
+    children: Option<Fragment>,
+    constraint: BoxConstraints,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -100,9 +100,9 @@ pub fn sized(
 
 #[widget(fit = StackFit::Loose, alignment = Alignment::center(), is_clipper = false)]
 pub fn stack(
-    children: narui::FragmentChildren,
-    fit: narui::layout::StackFit,
-    alignment: narui::layout::Alignment,
+    children: FragmentChildren,
+    fit: StackFit,
+    alignment: Alignment,
     is_clipper: bool,
     context: &mut WidgetContext,
 ) -> FragmentInner {
@@ -111,8 +111,8 @@ pub fn stack(
 
 #[widget(pos = AbsolutePosition::zero())]
 pub fn positioned(
-    children: narui::Fragment,
-    pos: narui::layout::AbsolutePosition,
+    children: Fragment,
+    pos: AbsolutePosition,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {

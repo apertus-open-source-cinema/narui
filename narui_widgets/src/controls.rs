@@ -10,7 +10,7 @@ use narui_macros::{rsx, widget};
 )]
 pub fn button(
     on_click: impl for<'a> Fn(&'a CallbackContext) + Clone + 'static,
-    border_radius: narui::layout::Dimension,
+    border_radius: Dimension,
     color: Color,
     stroke_color: Color,
     children: Fragment,

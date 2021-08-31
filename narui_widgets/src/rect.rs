@@ -158,7 +158,7 @@ pub fn rect(
     fill: Option<Color>,
     stroke: Option<(Color, f32)>,
     do_clipping: bool,
-    constraint: narui::layout::BoxConstraints,
+    constraint: BoxConstraints,
     children: Option<Fragment>,
     context: &mut WidgetContext,
 ) -> Fragment {
