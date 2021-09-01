@@ -24,16 +24,13 @@ pub struct KeyMap {
 }
 impl KeyMap {
     pub fn key_with(&mut self, parent: Key, tail: KeyPart, next: impl FnOnce() -> Key) -> Key {
-        let query_result = self.parent_part_to_id.get(&(parent.0, tail)).cloned();
-        if let Some(id) = query_result {
-            Key(id)
-        } else {
+        let id_to_part_parent = &mut self.id_to_part_parent;
+        Key(*self.parent_part_to_id.entry((parent.0, tail)).or_insert_with(move || {
             let new_id = next().0;
-            self.id_to_part_parent.insert(new_id, (tail, parent.0));
-            self.parent_part_to_id.insert((parent.0, tail), new_id);
+            id_to_part_parent.insert(new_id, (tail, parent.0));
 
-            Key(new_id)
-        }
+            new_id
+        }))
     }
     pub fn key_parent(&self, key: Key) -> Key { Key(self.id_to_part_parent.get(&key.0).unwrap().1) }
     pub fn key_tail(&self, key: Key) -> KeyPart { self.id_to_part_parent.get(&key.0).unwrap().0 }

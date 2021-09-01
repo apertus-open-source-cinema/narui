@@ -15,14 +15,15 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
             {(0..frame_count).map(|x| rsx!{
                 <column main_axis_alignment=MainAxisAlignment::SpaceEvenly key=x>
                     {(0..frame_count).map(|y| rsx! {
-                        <rect
-                            constraint=BoxConstraints::tight(10.0, 10.0)
-                            key=y
-                            fill=Some({
-                                let val = context.listen(frame_counter);
-                                Color::from_components((x as f32 / 50., y as f32 / 50., ((val as f32 / 10.0).sin() + 1.) / 2., 1.))
-                            })
-                        />
+                        <sized constraint=BoxConstraints::tight(10.0, 10.0) key=y>
+                            <rect_leaf
+                                key=y
+                                fill=Some({
+                                    let val = context.listen(frame_counter);
+                                    Color::from_components((x as f32 / 50., y as f32 / 50., ((val as f32 / 10.0).sin() + 1.) / 2., 1.))
+                                })
+                            />
+                        </sized>
                     }).collect()}
                 </column>
             }).collect()}
