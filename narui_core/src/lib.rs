@@ -58,10 +58,3 @@ pub use context::{CallbackContext, Key, ThreadContext, WidgetContext};
 pub use eval::fragment::*;
 pub use re_export::Color;
 pub use util::geom;
-
-
-#[cfg(not(target_env = "msvc"))]
-use jemallocator::Jemalloc;
-#[cfg(not(target_env = "msvc"))]
-#[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;

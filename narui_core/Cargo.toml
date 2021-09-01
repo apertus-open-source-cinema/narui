@@ -37,6 +37,3 @@ smallvec = "1.6.1"
 take_mut = "0.2.2"
 tinyset = "0.4.6"
 crevice = "0.7.1"
-
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = "0.3.2"
