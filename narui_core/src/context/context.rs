@@ -100,27 +100,26 @@ pub struct FragmentStore {
 
 impl FragmentStore {
     pub fn next_external_hook_count(&mut self, idx: Fragment) -> u16 {
-        let count = self.data[idx.0].external_hook_count;
-        self.data[idx.0].external_hook_count += 1;
+        let count = self.data[idx.into()].external_hook_count;
+        self.data[idx.into()].external_hook_count += 1;
         count
     }
 
     pub fn reset_external_hook_count(&mut self, idx: Fragment) {
-        self.data[idx.0].external_hook_count = 0;
+        self.data[idx.into()].external_hook_count = 0;
     }
 
     pub fn add_empty_fragment(&mut self) -> Fragment {
-        let idx = Fragment(self.data.add(FragmentInfo {
-            fragment: None,
-            args: None,
-            external_hook_count: 0,
-        }));
+        let idx = Fragment(
+            self.data.add(FragmentInfo { fragment: None, args: None, external_hook_count: 0 }).get()
+                as _,
+        );
         log::trace!("initialized a new fragment with idx {:?}", idx);
         idx
     }
 
     pub unsafe fn removed(&mut self, idx: Fragment) -> bool {
-        self.data.removed(idx.0) || self.data[idx.0].fragment.is_none()
+        self.data.removed(idx.into()) || self.data[idx.into()].fragment.is_none()
     }
 
     pub fn add_fragment(
@@ -128,39 +127,39 @@ impl FragmentStore {
         idx: Fragment,
         init: impl FnOnce() -> UnevaluatedFragment,
     ) -> Fragment {
-        if self.data[idx.0].fragment.is_none() {
+        if self.data[idx.into()].fragment.is_none() {
             log::trace!("adding fragment {:?}", idx);
-            self.data[idx.0].fragment = Some(MaybeEvaluatedFragment::Unevaluated(init()));
+            self.data[idx.into()].fragment = Some(MaybeEvaluatedFragment::Unevaluated(init()));
         }
         idx
     }
 
     pub(crate) fn get(&self, idx: Fragment) -> &MaybeEvaluatedFragment {
-        self.data[idx.0].fragment.as_ref().unwrap()
+        self.data[idx.into()].fragment.as_ref().unwrap()
     }
 
     pub(crate) fn get_mut(&mut self, idx: Fragment) -> &mut MaybeEvaluatedFragment {
-        self.data[idx.0].fragment.as_mut().unwrap()
+        self.data[idx.into()].fragment.as_mut().unwrap()
     }
 
     pub fn remove(&mut self, idx: Fragment) {
-        self.data[idx.0].fragment = None;
-        self.data.remove(idx.0);
+        self.data[idx.into()].fragment = None;
+        self.data.remove(idx.into());
     }
 
     pub fn get_args(&self, idx: Fragment) -> &Option<SmallVec<[Box<dyn Any>; 8]>> {
-        &self.data[idx.0].args
+        &self.data[idx.into()].args
     }
 
     pub fn get_args_mut(&mut self, idx: Fragment) -> &mut Option<SmallVec<[Box<dyn Any>; 8]>> {
-        &mut self.data[idx.0].args
+        &mut self.data[idx.into()].args
     }
 
     pub fn set_args_dirty(&mut self, idx: Fragment) { self.dirty_args.push(idx); }
 
     pub fn set_args(&mut self, idx: Fragment, args: SmallVec<[Box<dyn Any>; 8]>) {
         self.dirty_args.push(idx);
-        self.data[idx.0].args = Some(args);
+        self.data[idx.into()].args = Some(args);
     }
 
     pub fn dirty_args(&'_ mut self) -> impl Iterator<Item = Fragment> + '_ {

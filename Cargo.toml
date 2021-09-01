@@ -35,4 +35,4 @@ debug_bounds = ["narui_core/debug_bounds"]
 
 [profile.release]
 lto = "fat"
-codegen-units = 1
+# debug = true

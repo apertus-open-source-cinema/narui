@@ -37,3 +37,4 @@ smallvec = "1.6.1"
 take_mut = "0.2.2"
 tinyset = { version = "0.4.6", default-features = false }
 crevice = "0.7.1"
+halfbrown = "0.1.11"

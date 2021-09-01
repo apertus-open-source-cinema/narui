@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use freelist::{FreeList, Idx};
 use hashbrown::HashMap;
 use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
-use std::{any::Any, num::NonZeroUsize, ops::Deref};
+use std::{any::Any, ops::Deref};
 
 type Dependents = tinyset::Set64<usize>;
 pub type TreeItem = Box<dyn Any + Send + Sync>;
@@ -127,12 +127,10 @@ impl PatchedTree {
     }
 
     pub fn set_dependent(&self, key: HookRef, frag: Fragment) {
-        self.data.write()[key.1].0.insert(frag.0.get());
+        self.data.write()[key.1].0.insert(frag.0 as _);
     }
 
     pub fn dependents(&'_ self, key: HookRef) -> impl Iterator<Item = Fragment> + '_ {
-        std::mem::take(&mut self.data.write()[key.1].0)
-            .into_iter()
-            .map(|v| Fragment(unsafe { NonZeroUsize::new_unchecked(v) }))
+        std::mem::take(&mut self.data.write()[key.1].0).into_iter().map(|v| Fragment(v as _))
     }
 }

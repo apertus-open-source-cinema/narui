@@ -6,13 +6,13 @@ use std::{
 
 pub type Idx = NonZeroUsize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Slot<T> {
     data: ManuallyDrop<T>,
     next_free: Option<Idx>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FreeList<T> {
     entries: Vec<Slot<T>>,
     next_free: Option<Idx>,
@@ -80,6 +80,26 @@ impl<T> FreeList<T> {
         self.next_free = Some(idx);
     }
 
+    pub fn remove_replace(&mut self, idx: Idx, sentinel: T) {
+        self.entries[idx.get()].next_free = self.next_free;
+        unsafe {
+            ManuallyDrop::drop(&mut std::mem::replace(
+                &mut self.entries[idx.get()].data,
+                ManuallyDrop::new(sentinel),
+            ));
+        }
+        self.next_free = Some(idx);
+    }
+
+    // potentially accesses data already removed
+    pub unsafe fn find(&self, predicate: impl FnMut(&&T) -> bool) -> Option<&T> {
+        self.entries
+            .iter()
+            .skip(if self.used_slot_two { 1 } else { 2 })
+            .map(|v| &*v.data)
+            .find(predicate)
+    }
+
     // this only works until you push new items
     pub unsafe fn removed(&mut self, idx: Idx) -> bool {
         self.entries[idx.get()].next_free.is_some() || self.next_free == Some(idx)
@@ -88,6 +108,16 @@ impl<T> FreeList<T> {
     // make sure to only touch elements one and above
     pub unsafe fn iter_raw(&self) -> impl Iterator<Item = &T> {
         self.entries.iter().map(|v| v.data.deref())
+    }
+
+    pub fn used_space(&self) -> usize { self.entries.len() }
+
+    pub unsafe fn get_unchecked(&self, idx: Idx) -> &T {
+        &self.entries.get_unchecked(idx.get()).data
+    }
+
+    pub unsafe fn get_unchecked_mut(&mut self, idx: Idx) -> &mut T {
+        &mut self.entries.get_unchecked_mut(idx.get()).data
     }
 }
 

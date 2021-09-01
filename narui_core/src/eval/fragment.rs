@@ -34,9 +34,12 @@ the output of this stage is the visual output :). profit!
 
 /// Fragment is merely a reference (for performance reasons)
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
-pub struct Fragment(pub(crate) Idx);
+pub struct Fragment(pub(crate) u32);
 impl From<Key> for Fragment {
     fn from(key: Key) -> Self { Fragment(key.0) }
+}
+impl From<Fragment> for Idx {
+    fn from(fragment: Fragment) -> Self { unsafe { Idx::new_unchecked(fragment.0 as _) } }
 }
 impl From<Fragment> for Key {
     fn from(fragment: Fragment) -> Self { Key(fragment.0) }
