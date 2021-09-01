@@ -6,3 +6,5 @@ flamegraph.svg
 heaptrack*
 dhat*
 vk_layer_settings.txt
+cargo-timing*
+narui_core/src/vulkano_render/blur.rs

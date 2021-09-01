@@ -152,6 +152,12 @@ impl FragmentStore {
         &self.data[idx.0].args
     }
 
+    pub fn get_args_mut(&mut self, idx: Fragment) -> &mut Option<SmallVec<[Box<dyn Any>; 8]>> {
+        &mut self.data[idx.0].args
+    }
+
+    pub fn set_args_dirty(&mut self, idx: Fragment) { self.dirty_args.push(idx); }
+
     pub fn set_args(&mut self, idx: Fragment, args: SmallVec<[Box<dyn Any>; 8]>) {
         self.dirty_args.push(idx);
         self.data[idx.0].args = Some(args);

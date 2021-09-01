@@ -44,29 +44,31 @@ macro_rules! shout_args_ {
             }),*
         );
 
-        match $context.fragment_store.get_args($idx) {
+        match $context.fragment_store.get_args_mut($idx) {
             None => $context.fragment_store.set_args($idx, $crate::_macro_api::smallvec![$(Box::new($values) as _,)*]),
             Some(old_values) => {
-                let mut changed = false;
                 let mut idx = 0;
+                let mut any_changed = false;
                 #[allow(unused)]
                 fn constrain_type<T>(_a: &T, _b: &T) {}
-                for i in 0..1 {
-                    $(
+                $({
+                    let changed = {
                         let old_value = &old_values[idx];
                         let old = (&**old_value).downcast_ref().expect(
                             "old value of arg has wrong type; this is likely an internal narui bug :(",
                         );
                         constrain_type(old, &$values);
-                        if !$crate::_macro_api::all_eq!(old, &$values) {
-                            changed = true;
-                            break;
-                        }
-                        idx += 1;
-                    )*
-                }
-                if changed {
-                    $context.fragment_store.set_args($idx, $crate::_macro_api::smallvec![$(Box::new($values) as _,)*]);
+                        !$crate::_macro_api::all_eq!(old, &$values)
+                    };
+                    any_changed = any_changed || changed;
+
+                    if changed {
+                        old_values[idx] = Box::new($values) as _;
+                    }
+                    idx += 1;
+                })*
+                if any_changed {
+                    $context.fragment_store.set_args_dirty($idx);
                 }
             }
         };
