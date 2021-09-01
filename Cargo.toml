@@ -33,3 +33,6 @@ members = [
     "rutter_layout",
     "freelist"
 ]
+
+[features]
+debug_bounds = ["narui_core/debug_bounds"]

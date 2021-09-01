@@ -130,7 +130,7 @@ impl PatchedTree {
         self.data.write()[key.1].0.insert(frag.0.get());
     }
 
-    pub fn dependents<'a>(&'a self, key: HookRef) -> impl Iterator<Item = Fragment> + 'a {
+    pub fn dependents(&'_ self, key: HookRef) -> impl Iterator<Item = Fragment> + '_ {
         std::mem::take(&mut self.data.write()[key.1].0)
             .into_iter()
             .map(|v| Fragment(unsafe { NonZeroUsize::new_unchecked(v) }))

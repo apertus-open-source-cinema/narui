@@ -5,3 +5,4 @@ perf.data.old
 flamegraph.svg
 heaptrack*
 dhat*
+vk_layer_settings.txt

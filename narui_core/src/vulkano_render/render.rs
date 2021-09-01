@@ -17,6 +17,7 @@ use crate::{
 };
 use freelist::Idx;
 
+use crate::vulkano_render::renderer::Renderer;
 use std::{
     collections::VecDeque,
     sync::Arc,
@@ -136,9 +137,10 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
 
     let mut fps_report = FPSReporter::new("gui");
 
-    let mut lyon_renderer = LyonRenderer::new(render_pass.clone());
-    let mut text_render = TextRenderer::new(render_pass.clone(), queue.clone());
+    let mut lyon_renderer = LyonRenderer::new();
+    let mut text_render = TextRenderer::new(queue.clone());
     let mut raw_render = RawRenderer::new(render_pass.clone());
+    let mut renderer = Renderer::new(render_pass.clone(), device.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
 
     let mut layouter = Layouter::new();
@@ -196,11 +198,11 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
 
                 layouter.do_layout(evaluator.top_node, dimensions.into());
 
-                let mut lyon_state = lyon_renderer.begin();
                 for (idx, obj) in layouter.iter_layouted(evaluator.top_node) {
                     raw_render.render(&mut builder, &dynamic_state, &dimensions, &obj);
-                    lyon_renderer.render(&mut lyon_state, &obj);
+                    lyon_renderer.render(&mut renderer.data, &obj);
                     text_render.render(&obj);
+                    renderer.render(&obj);
                     if let PositionedRenderObject {
                         render_object: RenderObject::Input { .. },
                         ..
@@ -209,8 +211,9 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                         input_render_objects.push((idx, obj.clipping_rect));
                     }
                 }
-                lyon_renderer.finish(lyon_state, &mut builder, &dynamic_state, &dimensions);
-                text_render.finish(&mut builder, &dynamic_state, &dimensions);
+                let (texture, texture_fut) = text_render.finish(&mut renderer.data);
+                let (vertex_fut, primitive_fut, index_fut) =
+                    renderer.finish(texture, &mut builder, &dynamic_state, &dimensions);
 
                 builder.end_render_pass().unwrap();
                 let command_buffer = builder.build().unwrap();
@@ -219,6 +222,14 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 let future = previous_frame_end
                     .take()
                     .unwrap()
+                    .join(
+                        texture_fut
+                            .map(|v| Box::new(v) as Box<dyn GpuFuture>)
+                            .unwrap_or_else(|| Box::new(sync::now(device.clone())) as _),
+                    )
+                    .join(index_fut)
+                    .join(vertex_fut)
+                    .join(primitive_fut)
                     .join(acquire_future)
                     .then_execute(queue.clone(), command_buffer)
                     .unwrap()
@@ -303,11 +314,16 @@ fn window_size_dependent_setup(
         .iter()
         .map(|image| {
             let intermediary = ImageView::new(
-                AttachmentImage::transient_multisampled(
+                AttachmentImage::multisampled_with_usage(
                     render_pass.device().clone(),
                     [dimensions.width(), dimensions.height()],
                     Sample4,
                     image.format(),
+                    ImageUsage {
+                        transient_attachment: true,
+                        input_attachment: true,
+                        ..ImageUsage::none()
+                    },
                 )
                 .unwrap(),
             )

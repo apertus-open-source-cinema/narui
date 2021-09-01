@@ -8,6 +8,11 @@ pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
+
+impl From<Vec2> for crevice::std430::Vec2 {
+    fn from(vec2: Vec2) -> crevice::std430::Vec2 { crevice::std430::Vec2 { x: vec2.x, y: vec2.y } }
+}
+
 impl Vec2 {
     pub fn zero() -> Self { Vec2 { x: 0.0, y: 0.0 } }
     pub fn new(x: f32, y: f32) -> Self { Vec2 { x, y } }
@@ -19,6 +24,7 @@ impl Vec2 {
     }
     pub fn with_x(&self, x: f32) -> Self { Self { x, ..*self } }
     pub fn with_y(&self, y: f32) -> Self { Self { y, ..*self } }
+    pub fn maximum(&self) -> f32 { self.x.max(self.y) }
 }
 impl Add for Vec2 {
     type Output = Vec2;
@@ -148,5 +154,9 @@ impl Rect {
                 self.far_corner().y.min(clipper.far_corner().y),
             ),
         )
+    }
+    pub fn center(&self) -> Vec2 { self.pos + self.size / 2.0 }
+    pub fn inset(&self, val: f32) -> Self {
+        Self { pos: self.pos + val, size: self.size - 2.0 * val }
     }
 }

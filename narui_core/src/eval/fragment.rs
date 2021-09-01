@@ -3,6 +3,7 @@ use crate::{
     vulkano_render::lyon_render::ColoredBuffersBuilder,
     CallbackContext,
     Color,
+    Dimension,
     Key,
     WidgetContext,
 };
@@ -100,6 +101,13 @@ pub type RenderFnInner = dyn Fn(
 #[derivative(Debug)]
 pub enum RenderObject {
     DebugRect,
+    RoundedRect {
+        inverted: bool,
+        stroke_color: Option<Color>,
+        fill_color: Option<Color>,
+        stroke_width: f32,
+        border_radius: Dimension,
+    },
     Path {
         #[derivative(Debug = "ignore")]
         path_gen: Arc<PathGenInner>,
