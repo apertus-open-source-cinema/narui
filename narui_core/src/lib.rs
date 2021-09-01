@@ -24,7 +24,7 @@ pub mod _macro_api {
     };
 }
 pub mod renderer {
-    pub use super::vulkano_render::{lyon_render::ColoredBuffersBuilder, text_render::FONT};
+    pub use super::vulkano_render::{glyph_brush::FONT, lyon::ColoredBuffersBuilder};
 }
 pub mod app {
     pub use super::{re_export::winit::window::WindowBuilder, vulkano_render::render::render};

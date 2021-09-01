@@ -157,7 +157,7 @@ impl FragmentStore {
         self.data[idx.0].args = Some(args);
     }
 
-    pub fn dirty_args<'a>(&'a mut self) -> impl Iterator<Item = Fragment> + 'a {
+    pub fn dirty_args(&'_ mut self) -> impl Iterator<Item = Fragment> + '_ {
         self.dirty_args.drain(..).rev()
     }
 }

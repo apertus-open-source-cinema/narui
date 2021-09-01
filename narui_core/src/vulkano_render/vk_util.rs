@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use std::sync::Arc;
 use vulkano::{
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
-    instance::Instance,
+    instance::{Instance, InstanceExtensions},
     Version,
 };
 
@@ -16,10 +16,19 @@ pub struct VulkanContext {
 lazy_static! {
     pub static ref VULKAN_CONTEXT: VulkanContext = VulkanContext::create().unwrap();
 }
+
+
 impl VulkanContext {
     pub fn create() -> Result<Self> {
         let required_extensions = vulkano_win::required_extensions();
-        let instance = Instance::new(None, Version::V1_2, &required_extensions, None)?;
+        let extensions = InstanceExtensions {
+            ext_debug_utils: true,
+            ext_debug_report: true,
+            ..required_extensions
+        };
+        dbg!(required_extensions);
+        let instance = Instance::new(None, Version::V1_2, &extensions, None)?;
+
         let physical = PhysicalDevice::enumerate(&instance)
             .next()
             .ok_or_else(|| anyhow!("No physical device found"))?;
@@ -29,6 +38,7 @@ impl VulkanContext {
             khr_swapchain: true,
             khr_storage_buffer_storage_class: true,
             khr_8bit_storage: true,
+            khr_shader_non_semantic_info: true,
             ..(*physical.required_extensions())
         };
         let (device, queues) =

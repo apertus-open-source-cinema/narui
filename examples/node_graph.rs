@@ -97,7 +97,7 @@ pub fn handle(
             >
                 <rect_leaf
                     fill=Some(color)
-                    border_radius=Paxel(size)
+                    border_radius=Fraction(1.0)
                 />
             </drag_detector>
         </sized>

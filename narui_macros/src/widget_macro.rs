@@ -115,13 +115,13 @@ pub fn widget(
     let mut constrain_fns = vec![];
     let mut constrain_fn_uses = vec![];
     let mut arg_names = get_arg_names(&function);
-    arg_names.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+    arg_names.sort_by_key(|a| a.to_string());
     arg_names = arg_names.into_iter().filter(|ident| &ident.to_string() != "context").collect();
 
     let mut match_arms = Vec::new();
     let first_arg = arg_names.get(0);
     for (this_arg, next_arg) in
-        arg_names.iter().zip(arg_names.iter().skip(1).map(|x| Some(x)).chain(Some(None)))
+        arg_names.iter().zip(arg_names.iter().skip(1).map(Some).chain(Some(None)))
     {
         let constrain_fn_ident = Ident::new(
             &format!("__{}_{}_constrain_arg", function_ident, this_arg),
