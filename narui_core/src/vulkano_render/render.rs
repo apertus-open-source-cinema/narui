@@ -198,10 +198,15 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
 
                 layouter.do_layout(evaluator.top_node, dimensions.into());
 
+                for (_, obj) in layouter.iter_layouted(evaluator.top_node) {
+                    text_render.prerender(&obj);
+                }
+                let (mut text_state, texture, texture_fut) = text_render.finish(&mut renderer.data);
+
                 for (idx, obj) in layouter.iter_layouted(evaluator.top_node) {
                     raw_render.render(&mut builder, &dynamic_state, &dimensions, &obj);
                     lyon_renderer.render(&mut renderer.data, &obj);
-                    text_render.render(&obj);
+                    text_render.render(&obj, &mut renderer.data, &mut text_state);
                     renderer.render(&obj);
                     if let PositionedRenderObject {
                         render_object: RenderObject::Input { .. },
@@ -211,7 +216,6 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                         input_render_objects.push((idx, obj.clipping_rect));
                     }
                 }
-                let (texture, texture_fut) = text_render.finish(&mut renderer.data);
                 let (vertex_fut, primitive_fut, index_fut) =
                     renderer.finish(texture, &mut builder, &dynamic_state, &dimensions);
 

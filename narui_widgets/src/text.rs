@@ -59,7 +59,12 @@ pub fn text(
     let text = Rc::new(children.to_string());
 
     FragmentInner::Leaf {
-        render_object: RenderObject::Text { text: text.clone(), size, color },
+        render_object: RenderObject::Text {
+            key: context.widget_local.key,
+            text: text.clone(),
+            size,
+            color,
+        },
         layout: Box::new(TextLayout { size, text }),
     }
 }

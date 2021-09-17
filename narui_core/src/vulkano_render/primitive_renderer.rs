@@ -194,23 +194,17 @@ impl RenderData {
         self.vertices.push(Vertex { pos: [rect.pos.x, rect.pos.y + rect.size.y], primitive_index });
         self.vertices.push(Vertex { pos: [rect.pos.x + rect.size.x, rect.pos.y], primitive_index });
         self.vertices.push(Vertex { pos: rect.far_corner().into(), primitive_index });
-        self.indices.push(vertex_id + 1);
-        self.indices.push(vertex_id);
-        self.indices.push(vertex_id + 2);
-
-        self.indices.push(vertex_id + 1);
-        self.indices.push(vertex_id + 3);
-        self.indices.push(vertex_id + 2);
+        self.push_quad(vertex_id);
     }
 
-    pub fn add_text_quad(
+    pub fn add_text_quad_data(
         &mut self,
         color: [f32; 4],
         z_index: f32,
         rect: Rect,
         tex_base: Vec2,
         tex_scale: Vec2,
-    ) {
+    ) -> u32 {
         let primitive_index = self.primitive_data.len() as u32;
         self.primitive_data.push(
             PrimitiveData {
@@ -230,6 +224,10 @@ impl RenderData {
         self.vertices.push(Vertex { pos: [rect.pos.x, rect.pos.y + rect.size.y], primitive_index });
         self.vertices.push(Vertex { pos: [rect.pos.x + rect.size.x, rect.pos.y], primitive_index });
         self.vertices.push(Vertex { pos: rect.far_corner().into(), primitive_index });
+        vertex_id
+    }
+
+    pub fn push_quad(&mut self, vertex_id: u32) {
         self.indices.push(vertex_id + 1);
         self.indices.push(vertex_id);
         self.indices.push(vertex_id + 2);

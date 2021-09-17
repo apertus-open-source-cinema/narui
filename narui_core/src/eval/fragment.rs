@@ -116,6 +116,7 @@ pub enum RenderObject {
         path_gen: Arc<PathGenInner>,
     },
     Text {
+        key: Key,
         text: Rc<String>,
         size: f32,
         color: Color,
