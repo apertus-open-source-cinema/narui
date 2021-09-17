@@ -33,14 +33,14 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     (quote! {
         #narui::UnevaluatedFragment {
             key: Default::default(),
-            gen: std::rc::Rc::new(|context: &mut #narui::WidgetContext| {
+            gen: Some(std::boxed::Box::new(|context: &mut #narui::WidgetContext| {
                 let __widget_loc_start = #loc;
                 #narui::FragmentInner::Node {
                     children: #narui::smallvec![ #rsx ],
                     layout: Box::new(#narui::Transparent),
                     is_clipper: false,
                 }
-            }),
+            })),
         }
     })
     .into()

@@ -116,9 +116,9 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             context.fragment_store.add_fragment(#idx_ident, || {
                 #narui::UnevaluatedFragment {
                     key: #key_ident,
-                    gen: std::rc::Rc::new(move |context: &mut #narui::WidgetContext| {
+                    gen: Some(std::boxed::Box::new(move |context: &mut #narui::WidgetContext| {
                         #constructor_path!(@construct listenable=#args_listenable_ident, context=context)
-                    })
+                    }))
                 }
             })
         };

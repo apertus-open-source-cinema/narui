@@ -51,12 +51,12 @@ impl From<Fragment> for FragmentChildren {
 pub type FragmentChildren = SmallVec<[Fragment; 8]>;
 
 
-#[derive(Clone, Derivative)]
+#[derive(Derivative)]
 #[derivative(Debug)]
 pub struct UnevaluatedFragment {
     pub key: Key,
     #[derivative(Debug = "ignore")]
-    pub gen: Rc<dyn Fn(&mut WidgetContext) -> FragmentInner>,
+    pub gen: Option<Box<dyn Fn(&mut WidgetContext) -> FragmentInner>>,
 }
 impl PartialEq for UnevaluatedFragment {
     fn eq(&self, other: &Self) -> bool { self.key == other.key }
