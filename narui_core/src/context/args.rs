@@ -52,19 +52,19 @@ macro_rules! shout_args_ {
                 #[allow(unused)]
                 fn constrain_type<T>(_a: &T, _b: &T) {}
                 $({
-                    let changed = {
-                        let old_value = &old_values[idx];
-                        let old = (&**old_value).downcast_ref().expect(
-                            "old value of arg has wrong type; this is likely an internal narui bug :(",
-                        );
-                        constrain_type(old, &$values);
-                        !$crate::_macro_api::all_eq!(old, &$values)
-                    };
-                    any_changed = any_changed || changed;
+                    let old_value = &mut old_values[idx];
+                    let old = (&mut **old_value).downcast_mut().expect(
+                        "old value of arg has wrong type; this is likely an internal narui bug :(",
+                    );
+                    constrain_type(old, &$values);
+                    let changed = !$crate::_macro_api::all_eq!(&*old, &$values);
 
                     if changed {
-                        old_values[idx] = Box::new($values) as _;
+                        *old = $values;
                     }
+
+                    any_changed = any_changed || changed;
+
                     idx += 1;
                 })*
                 if any_changed {
