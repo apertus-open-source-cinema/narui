@@ -76,25 +76,35 @@ impl InputHandler {
                 if self.cursor_moved {
                     let is_hover = rect.contains(self.cursor_position);
                     if input_state.hover != is_hover {
-                        on_hover(&context, is_hover);
+                        on_hover(
+                            &context,
+                            is_hover,
+                            self.cursor_position - rect.pos,
+                            self.cursor_position,
+                        );
                         input_state.hover = is_hover;
                         updated = true;
                     }
                     if input_state.clicked || is_hover {
-                        on_move(&context, self.cursor_position - rect.pos);
+                        on_move(&context, self.cursor_position - rect.pos, self.cursor_position);
                         updated = true;
                     }
                 }
                 if self.cursor_pressed && rect.contains(self.cursor_position) {
                     input_state.clicked = true;
-                    on_click(&context, true);
+                    on_click(&context, true, self.cursor_position - rect.pos, self.cursor_position);
                     updated = true;
                 }
                 if self.cursor_released
                     && (input_state.clicked || rect.contains(self.cursor_position))
                 {
                     input_state.clicked = false;
-                    on_click(&context, false);
+                    on_click(
+                        &context,
+                        false,
+                        self.cursor_position - rect.pos,
+                        self.cursor_position,
+                    );
                     updated = true;
                 }
             }

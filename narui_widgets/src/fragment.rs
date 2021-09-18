@@ -7,5 +7,6 @@ pub fn fragment(children: Option<Fragment>, context: &mut WidgetContext) -> Frag
         children: children.into_iter().collect(),
         layout: Box::new(Transparent),
         is_clipper: false,
+        subpass: None,
     }
 }

@@ -4,6 +4,7 @@ pub(crate) mod lyon;
 pub(crate) mod primitive_renderer;
 pub mod raw_render;
 pub(crate) mod render;
+pub(crate) mod subpass_stack;
 pub(crate) mod vk_util;
 
 

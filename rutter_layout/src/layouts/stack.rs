@@ -9,12 +9,15 @@ struct PositionedQuery;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Positioned {
     pub position: AbsolutePosition,
+    pub z_top: bool,
 }
 
 impl Positioned {
-    pub fn new(position: AbsolutePosition) -> Self { Self { position } }
+    pub fn new(position: AbsolutePosition) -> Self { Self { position, z_top: false } }
 
-    pub fn get<'a>(child: &LayoutableChild<'a>) -> Option<&'a AbsolutePosition> {
+    pub fn z_top(position: AbsolutePosition) -> Self { Self { position, z_top: true } }
+
+    pub fn get<'a>(child: &LayoutableChild<'a>) -> Option<&'a Positioned> {
         child.query(&PositionedQuery as &dyn Any).and_then(|v| <dyn Any>::downcast_ref(v))
     }
 }
@@ -40,7 +43,7 @@ impl Layout for Positioned {
         children: LayoutableChildren<'a>,
     ) -> Option<&'a dyn Any> {
         if <dyn Any>::downcast_ref::<PositionedQuery>(query).is_some() {
-            Some(&self.position)
+            Some(self)
         } else {
             assert!(children.len() <= 1);
             if let Some(child) = children.into_iter().last() {
@@ -114,12 +117,23 @@ impl Layout for Stack {
             StackFit::Passthrough => constraint,
         };
 
+        let mut z_top = None;
         for child in &children {
-            if Positioned::get(&child).is_none() {
-                let (size, num_z_index) = child.layout(non_positioned_constraint);
-                max_size = max_size.max(size);
-                child.set_z_index_offset(num_z_index);
-            };
+            match Positioned::get(&child) {
+                None => {
+                    let (size, num_z_index) = child.layout(non_positioned_constraint);
+                    max_size = max_size.max(size);
+                    child.set_z_index_offset(num_z_index);
+                }
+                Some(pos @ Positioned { z_top: true, .. }) => {
+                    if z_top.is_none() {
+                        z_top = Some((child, pos));
+                    } else {
+                        panic!("Can only have a single z_top per stack, but got (atleast two): {:?}, {:?}", z_top, child)
+                    }
+                }
+                _ => {}
+            }
         }
 
         let mut z_index_offset = 0;
@@ -131,13 +145,24 @@ impl Layout for Stack {
         let positioned_constraint = BoxConstraints::tight_for(our_size).loosen();
         for child in &children {
             let num_z_index = if let Some(pos) = Positioned::get(&child) {
-                let (_, num_z_index) = child.layout(positioned_constraint);
-                child.set_pos(pos.position(our_size));
-                num_z_index
+                if !pos.z_top {
+                    let (_, num_z_index) = child.layout(positioned_constraint);
+                    child.set_pos(pos.position.position(our_size));
+                    num_z_index
+                } else {
+                    0
+                }
             } else {
                 child.set_pos(self.alignment.position(our_size, child.size()));
                 child.z_index_offset()
             };
+            child.set_z_index_offset(z_index_offset);
+            z_index_offset += num_z_index;
+        }
+
+        if let Some((child, pos)) = z_top {
+            let (_, num_z_index) = child.layout(positioned_constraint);
+            child.set_pos(pos.position.position(our_size));
             child.set_z_index_offset(z_index_offset);
             z_index_offset += num_z_index;
         }

@@ -16,7 +16,7 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
 fn main() {
     env_logger::init();
     app::render(
-        app::WindowBuilder::new().with_title("narui minimal demo"),
+        app::WindowBuilder::new().with_title("narui text alpha demo"),
         rsx_toplevel! {
             <top />
         },

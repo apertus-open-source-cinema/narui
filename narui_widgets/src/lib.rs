@@ -21,5 +21,8 @@ pub use text_widget::*;
 mod input_widget;
 pub use input_widget::*;
 
+#[path = "subpass.rs"]
+mod subpass_widget;
+pub use subpass_widget::*;
 
 pub mod theme;

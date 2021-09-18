@@ -1,6 +1,8 @@
 use crate::{
     geom::{Rect, Vec2},
+    Fragment,
     RenderObject,
+    SubPassSetup,
 };
 use derivative::Derivative;
 use freelist::Idx;
@@ -9,14 +11,21 @@ use std::ops::Deref;
 
 /// PositionedRenderObject is the main output data structure of the Layouting
 /// pass. It attaches Position & other information to the RenderObject.
-#[derive(Debug, Clone)]
-pub struct PositionedRenderObject<'a> {
-    pub render_object: &'a RenderObject,
+#[derive(Debug)]
+pub struct PositionedElement<'a> {
+    pub element: RenderObjectOrSubPass<'a>,
     pub clipping_rect: Option<Rect>,
     pub rect: Rect,
     pub z_index: u32,
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub enum RenderObjectOrSubPass<'a> {
+    RenderObject(&'a RenderObject),
+    SubPassPush,
+    SubPassPop(#[derivative(Debug = "ignore")] SubPassSetup),
+}
 
 /// A tree of layout Nodes that can be manipulated.
 /// This is the API with which the Evaluator commands the Layouter
@@ -26,6 +35,8 @@ pub trait LayoutTree {
         layout: Box<dyn Layout>,
         render_object: Option<RenderObject>,
         is_clipper: bool,
+        subpass: Option<SubPassSetup>,
+        key: Fragment,
     ) -> Idx;
     fn set_node(
         &mut self,
@@ -33,17 +44,23 @@ pub trait LayoutTree {
         layout: Box<dyn Layout>,
         render_object: Option<RenderObject>,
         is_clipper: bool,
+        subpass: Option<SubPassSetup>,
+        key: Fragment,
     );
     fn remove_node(&mut self, key: Idx);
     fn set_children(&mut self, parent: Idx, children: impl Iterator<Item = Idx>);
     fn get_positioned(&self, key: Idx) -> (Rect, Option<&RenderObject>);
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 struct LayoutWithData {
     layout: Box<dyn Layout>,
     render_object: Option<RenderObject>,
     is_clipper: bool,
+    #[derivative(Debug = "ignore")]
+    subpass: Option<SubPassSetup>,
+    key: Fragment,
 }
 impl Deref for LayoutWithData {
     type Target = dyn Layout;
@@ -64,14 +81,11 @@ impl Layouter {
     }
 
     #[cfg(not(feature = "debug_bounds"))]
-    pub fn iter_layouted(&self, top: Idx) -> impl Iterator<Item = (Idx, PositionedRenderObject)> {
+    pub fn iter_layouted(&self, top: Idx) -> impl Iterator<Item = (Idx, PositionedElement)> {
         self.iter_layouted_internal(top)
     }
 
-    fn iter_layouted_internal(
-        &self,
-        top: Idx,
-    ) -> impl Iterator<Item = (Idx, PositionedRenderObject)> {
+    fn iter_layouted_internal(&self, top: Idx) -> impl Iterator<Item = (Idx, PositionedElement)> {
         use LayoutIterDirection::*;
 
         let mut parent_z_index = 0;
@@ -121,27 +135,41 @@ impl Layouter {
             }
             last_z_index_offset = layout_item.z_index_offset;
 
-            layout_item.obj.render_object.as_ref().map(|render_object| {
-                let positioned_render_object = PositionedRenderObject {
-                    rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
-                    z_index,
-                    render_object,
-                    clipping_rect: last_clipper.or_else(|| clipper_stack.last().cloned()),
-                };
-                (layout_item.idx, positioned_render_object)
-            })
+            layout_item
+                .obj
+                .render_object
+                .as_ref()
+                .map(RenderObjectOrSubPass::RenderObject)
+                .or_else(|| {
+                    layout_item.obj.subpass.as_ref().map(|resolve| {
+                        if matches!(direction_that_led_here, Right | Down) {
+                            RenderObjectOrSubPass::SubPassPush
+                        } else {
+                            RenderObjectOrSubPass::SubPassPop(resolve.clone())
+                        }
+                    })
+                })
+                .map(|element| {
+                    let positioned_render_object = PositionedElement {
+                        rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
+                        z_index,
+                        element,
+                        clipping_rect: last_clipper.or_else(|| clipper_stack.last().cloned()),
+                    };
+                    (layout_item.idx, positioned_render_object)
+                })
         })
     }
 
     #[cfg(feature = "debug_bounds")]
-    pub fn iter_layouted(&self, top: Idx) -> impl Iterator<Item = (Idx, PositionedRenderObject)> {
+    pub fn iter_layouted(&self, top: Idx) -> impl Iterator<Item = (Idx, PositionedElement)> {
         let real = self.iter_layouted_internal(top);
         let debug_rects = self.layouter.iter(top).filter_map(|(layout_item, direction)| {
             if direction != LayoutIterDirection::Up {
-                let positioned_render_object = PositionedRenderObject {
+                let positioned_render_object = PositionedElement {
                     rect: Rect { pos: layout_item.pos.into(), size: layout_item.size.into() },
                     z_index: 0,
-                    render_object: &RenderObject::DebugRect,
+                    element: RenderObjectOrSubPass::RenderObject(&RenderObject::DebugRect),
                     clipping_rect: None,
                 };
                 Some((layout_item.idx, positioned_render_object))
@@ -159,8 +187,10 @@ impl LayoutTree for Layouter {
         layout: Box<dyn Layout>,
         render_object: Option<RenderObject>,
         is_clipper: bool,
+        subpass: Option<SubPassSetup>,
+        key: Fragment,
     ) -> Idx {
-        self.layouter.add_node(LayoutWithData { layout, render_object, is_clipper })
+        self.layouter.add_node(LayoutWithData { layout, render_object, is_clipper, subpass, key })
     }
 
     fn set_node(
@@ -169,8 +199,11 @@ impl LayoutTree for Layouter {
         layout: Box<dyn Layout>,
         render_object: Option<RenderObject>,
         is_clipper: bool,
+        subpass: Option<SubPassSetup>,
+        key: Fragment,
     ) {
-        self.layouter.set_node(idx, LayoutWithData { layout, render_object, is_clipper });
+        self.layouter
+            .set_node(idx, LayoutWithData { layout, render_object, is_clipper, subpass, key });
     }
 
     fn remove_node(&mut self, idx: Idx) { self.layouter.remove(idx); }

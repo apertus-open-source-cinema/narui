@@ -17,6 +17,7 @@ pub fn rect_leaf(
             stroke_width: stroke.map(|v| v.1).unwrap_or(0.0),
             border_radius,
             inverted: false,
+            for_clipping: false,
         },
         layout: Box::new(Maximal),
     }
@@ -27,6 +28,7 @@ pub fn rect_leaf(
 pub fn inverse_rect_leaf(
     #[default] border_radius: Dimension,
     #[default] fill: Option<Color>,
+    #[default(false)] for_clipping: bool,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Leaf {
@@ -35,6 +37,7 @@ pub fn inverse_rect_leaf(
             stroke_color: None,
             fill_color: fill,
             stroke_width: 0.0,
+            for_clipping,
             border_radius,
         },
         layout: Box::new(Maximal),
@@ -69,13 +72,13 @@ pub fn rect(
     } else {
         rsx! {
             <stack is_clipper=true>
+                <positioned z_top=true>
+                    <inverse_rect_leaf fill=Some(Color::new(0., 0., 0., 0.)) border_radius=border_radius for_clipping=true />
+                </positioned>
                 <positioned>
                     <rect_leaf border_radius=border_radius fill=fill stroke=stroke />
                 </positioned>
                 <sized constraint=constraint>{children}</sized>
-                <positioned>
-                    <inverse_rect_leaf fill=Some(Color::new(0., 0., 0., 0.)) border_radius=border_radius />
-                </positioned>
             </stack>
         }
     }

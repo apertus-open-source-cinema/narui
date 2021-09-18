@@ -1,5 +1,5 @@
 use crate::{
-    eval::layout::PositionedRenderObject,
+    eval::layout::{PositionedElement, RenderObjectOrSubPass},
     geom::Rect,
     vulkano_render::primitive_renderer::RenderData,
     Key,
@@ -63,9 +63,11 @@ impl PartialEq for Extra {
     fn eq(&self, other: &Self) -> bool { self.as_arr() == other.as_arr() }
 }
 
+type VertexData = (Key, [f32; 4], f32, Rect, Vec2, Vec2);
+
 pub struct GlyphBrush {
     queue: Arc<Queue>,
-    glyph_brush: glyph_brush::GlyphBrush<(Key, [f32; 4], f32, Rect, Vec2, Vec2), Extra>,
+    glyph_brush: glyph_brush::GlyphBrush<VertexData, Extra>,
     old_data: Vec<(Key, [f32; 4], f32, Rect, Vec2, Vec2)>,
     texture_bytes: Vec<u8>,
     texture: Arc<ImmutableImage>,
@@ -96,7 +98,7 @@ impl GlyphBrush {
             [0u8].iter().cloned(),
             ImageDimensions::Dim2d { width: 1, height: 1, array_layers: 1 },
             MipmapsCount::One,
-            Format::R8Unorm,
+            Format::R8_UNORM,
             queue.clone(),
         )
         .unwrap();
@@ -111,14 +113,16 @@ impl GlyphBrush {
         }
     }
 
-    pub fn prerender<'a>(&mut self, render_object: &PositionedRenderObject<'a>) {
+    pub fn prerender<'a>(&mut self, render_object: &PositionedElement<'a>) {
         let clipping_rect = if let Some(clipping_rect) = render_object.clipping_rect {
             render_object.rect.clip(clipping_rect)
         } else {
             render_object.rect
         };
 
-        if let RenderObject::Text { key, text, size, color } = &render_object.render_object {
+        if let RenderObjectOrSubPass::RenderObject(RenderObject::Text { key, text, size, color }) =
+            &render_object.element
+        {
             self.glyph_brush.queue(
                 Section::new()
                     .add_text(Text {
@@ -208,7 +212,7 @@ impl GlyphBrush {
                 self.texture_bytes.iter().cloned(),
                 ImageDimensions::Dim2d { width, height, array_layers: 1 },
                 MipmapsCount::One,
-                Format::R8Unorm,
+                Format::R8_UNORM,
                 self.queue.clone(),
             )
             .unwrap();
@@ -221,11 +225,13 @@ impl GlyphBrush {
 
     pub fn render<'a>(
         &mut self,
-        render_object: &PositionedRenderObject<'a>,
+        render_object: &PositionedElement<'a>,
         data: &mut RenderData,
         state: &mut GlyphBrushState,
     ) {
-        if let RenderObject::Text { key, .. } = &render_object.render_object {
+        if let RenderObjectOrSubPass::RenderObject(RenderObject::Text { key, .. }) =
+            &render_object.element
+        {
             for idx in state.lookup(*key) {
                 data.push_quad(idx);
             }

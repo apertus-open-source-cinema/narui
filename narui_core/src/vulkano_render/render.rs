@@ -1,14 +1,8 @@
-use super::{
-    glyph_brush::GlyphBrush,
-    input_handler::InputHandler,
-    lyon::Lyon,
-    raw_render::RawRenderer,
-    vk_util::VulkanContext,
-};
+use super::{glyph_brush::GlyphBrush, input_handler::InputHandler, lyon::Lyon};
 use crate::{
     eval::{
         delta_eval::Evaluator,
-        layout::{Layouter, PositionedRenderObject},
+        layout::{Layouter, PositionedElement},
     },
     geom::Rect,
     util::fps_report::FPSReporter,
@@ -17,31 +11,24 @@ use crate::{
 };
 use freelist::Idx;
 
-use crate::vulkano_render::primitive_renderer::Renderer;
+use crate::{
+    context::context,
+    eval::layout::RenderObjectOrSubPass,
+    vulkano_render::{
+        primitive_renderer::Renderer,
+        subpass_stack::{create_framebuffer, AbstractFramebuffer, AbstractImage, SubPassStack},
+        vk_util::VulkanContext,
+    },
+};
 use std::{
     collections::VecDeque,
     sync::Arc,
     time::{Duration, Instant},
 };
 use vulkano::{
-    command_buffer::{
-        AutoCommandBufferBuilder,
-        CommandBufferUsage::OneTimeSubmit,
-        DynamicState,
-        SubpassContents,
-    },
-    device::DeviceOwned,
-    format::{ClearValue, Format},
-    image::{
-        view::ImageView,
-        AttachmentImage,
-        ImageAccess,
-        ImageUsage,
-        SampleCount::Sample4,
-        SwapchainImage,
-    },
-    pipeline::viewport::Viewport,
-    render_pass::{Framebuffer, FramebufferAbstract, RenderPass},
+    format::Format,
+    image::{ImageAccess, ImageUsage, SwapchainImage},
+    render_pass::RenderPass,
     swapchain,
     swapchain::{AcquireError, PresentMode, Swapchain, SwapchainCreationError},
     sync,
@@ -57,10 +44,9 @@ use winit::{
 
 pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
     let mut event_loop: EventLoop<()> = EventLoop::new();
-    let device = VulkanContext::get().device;
+    let VulkanContext { device, queues } = VulkanContext::create().unwrap();
     let surface = window_builder.build_vk_surface(&event_loop, device.instance().clone()).unwrap();
-    let queue = VulkanContext::get()
-        .queues
+    let queue = queues
         .iter()
         .find(|&q| {
             q.family().supports_graphics() && surface.is_supported(q.family()).unwrap_or(false)
@@ -71,11 +57,16 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
     let mut dimensions;
 
     let caps = surface.capabilities(device.physical_device()).unwrap();
+    let format = Format::B8G8R8A8_SRGB;
     let (mut swapchain, images) = {
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         dimensions = surface.window().inner_size().into();
         Swapchain::start(device.clone(), surface.clone())
-            .usage(ImageUsage::color_attachment())
+            .usage(ImageUsage {
+                color_attachment: true,
+                transfer_destination: true,
+                ..ImageUsage::none()
+            })
             .num_images(caps.min_image_count)
             .composite_alpha(alpha)
             .dimensions(dimensions)
@@ -86,7 +77,7 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                     PresentMode::Fifo
                 },
             )
-            .format(Format::B8G8R8A8Srgb)
+            .format(format)
             .build()
             .expect("cant create swapchain")
     };
@@ -95,16 +86,16 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
         vulkano::single_pass_renderpass!(device.clone(),
             attachments: {
                 intermediary: {
-                    load: Clear,
-                    store: DontCare,
+                    load: Load,
+                    store: Store,
                     format: swapchain.format(),
-                    samples: 4,
+                    samples: 2,
                 },
                 depth: {
-                    load: Clear,
+                    load: Load,
                     store: Store,
-                    format: Format::D16Unorm,
-                    samples: 4,
+                    format: Format::D16_UNORM,
+                    samples: 2,
                 },
                 color: {
                     load: DontCare,
@@ -122,16 +113,7 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
         .unwrap(),
     );
 
-    let mut dynamic_state = DynamicState {
-        line_width: None,
-        viewports: None,
-        scissors: None,
-        compare_mask: None,
-        write_mask: None,
-        reference: None,
-    };
-    let mut framebuffers =
-        window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
+    let mut framebuffers = window_size_dependent_setup(&images, render_pass.clone());
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
 
 
@@ -139,12 +121,15 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
 
     let mut lyon_renderer = Lyon::new();
     let mut text_render = GlyphBrush::new(queue.clone());
-    let mut raw_render = RawRenderer::new(render_pass.clone());
     let mut renderer = Renderer::new(render_pass.clone(), device.clone(), queue.clone());
     let mut input_handler = InputHandler::new();
 
     let mut layouter = Layouter::new();
-    let mut evaluator = Evaluator::new(top_node, &mut layouter);
+    let mut evaluator = Evaluator::new(
+        context::VulkanContext { device: device.clone(), queues, render_pass: render_pass.clone() },
+        top_node,
+        &mut layouter,
+    );
 
     let mut recreate_swapchain = false;
     let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
@@ -182,21 +167,24 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
 
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-                let clear_values = vec![[0., 0., 0., 0.].into(), 1f32.into(), ClearValue::None];
-                let mut builder = AutoCommandBufferBuilder::primary(
-                    device.clone(),
-                    queue.family(),
-                    OneTimeSubmit,
-                )
-                .unwrap();
-                let framebuffer = <Arc<_> as Clone>::clone(&framebuffers[image_num]);
-                builder
-                    .begin_render_pass(framebuffer, SubpassContents::Inline, clear_values)
-                    .unwrap();
+                let (framebuffer, intermediary_image, depth_image): &(
+                    AbstractFramebuffer,
+                    AbstractImage,
+                    AbstractImage,
+                ) = &framebuffers[image_num];
 
                 input_render_objects.clear();
 
                 layouter.do_layout(evaluator.top_node, dimensions.into());
+
+                let mut subpass_stack = SubPassStack::new(
+                    format,
+                    queue.clone(),
+                    render_pass.clone(),
+                    framebuffer.clone(),
+                    intermediary_image.clone(),
+                    depth_image.clone(),
+                );
 
                 for (_, obj) in layouter.iter_layouted(evaluator.top_node) {
                     text_render.prerender(&obj);
@@ -204,23 +192,46 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 let (mut text_state, texture, texture_fut) = text_render.finish(&mut renderer.data);
 
                 for (idx, obj) in layouter.iter_layouted(evaluator.top_node) {
-                    raw_render.render(&mut builder, &dynamic_state, &dimensions, &obj);
+                    subpass_stack.handle(&renderer.data, &obj);
                     lyon_renderer.render(&mut renderer.data, &obj);
                     text_render.render(&obj, &mut renderer.data, &mut text_state);
                     renderer.render(&obj);
-                    if let PositionedRenderObject {
-                        render_object: RenderObject::Input { .. },
+                    if let PositionedElement {
+                        element: RenderObjectOrSubPass::RenderObject(RenderObject::Input { .. }),
                         ..
                     } = &obj
                     {
                         input_render_objects.push((idx, obj.clipping_rect));
                     }
                 }
-                let (vertex_fut, primitive_fut, index_fut) =
-                    renderer.finish(texture, &mut builder, &dynamic_state, &dimensions);
+                subpass_stack.finish(&renderer.data);
+                let (
+                    vertex_fut,
+                    primitive_fut,
+                    index_fut,
+                    descriptor_set,
+                    vertex_buffer,
+                    index_buffer,
+                ) = renderer.finish(texture);
 
-                builder.end_render_pass().unwrap();
-                let command_buffer = builder.build().unwrap();
+                let after_frame_callbacks = std::mem::take(&mut evaluator.after_frame_callbacks);
+                let callback_context = evaluator.callback_context(&layouter);
+                let command_buffer = subpass_stack.render(
+                    &callback_context,
+                    |builder, viewport, dimensions, offset, start, end| {
+                        renderer.render_part(
+                            builder,
+                            descriptor_set.clone(),
+                            viewport,
+                            dimensions,
+                            offset,
+                            start,
+                            end,
+                        )
+                    },
+                    vertex_buffer,
+                    index_buffer,
+                );
                 fps_report.frame();
 
                 let future = previous_frame_end
@@ -254,10 +265,8 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                     }
                 }
 
-                let after_frame_callbacks = std::mem::take(&mut evaluator.after_frame_callbacks);
-                let context = evaluator.callback_context(&layouter);
                 for callback in after_frame_callbacks {
-                    callback(&context);
+                    callback(&callback_context);
                 }
             }
             _e => {}
@@ -273,8 +282,7 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 };
 
             swapchain = new_swapchain;
-            framebuffers =
-                window_size_dependent_setup(&new_images, render_pass.clone(), &mut dynamic_state);
+            framebuffers = window_size_dependent_setup(&new_images, render_pass.clone());
             recreate_swapchain = false;
             acquired_images.clear();
         }
@@ -303,62 +311,18 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
 fn window_size_dependent_setup(
     images: &[Arc<SwapchainImage<Window>>],
     render_pass: Arc<RenderPass>,
-    dynamic_state: &mut DynamicState,
-) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
+) -> Vec<(AbstractFramebuffer, AbstractImage, AbstractImage)> {
     let dimensions = images[0].dimensions();
-
-    let viewport = Viewport {
-        origin: [0.0, 0.0],
-        dimensions: [dimensions.width() as f32, dimensions.height() as f32],
-        depth_range: 0.0..1.0,
-    };
-    dynamic_state.viewports = Some(vec![viewport]);
-
     images
         .iter()
         .map(|image| {
-            let intermediary = ImageView::new(
-                AttachmentImage::multisampled_with_usage(
-                    render_pass.device().clone(),
-                    [dimensions.width(), dimensions.height()],
-                    Sample4,
-                    image.format(),
-                    ImageUsage {
-                        transient_attachment: true,
-                        input_attachment: true,
-                        ..ImageUsage::none()
-                    },
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            let view = ImageView::new(image.clone()).unwrap();
-            let depth_buffer = ImageView::new(
-                AttachmentImage::multisampled_with_usage(
-                    render_pass.device().clone(),
-                    [dimensions.width(), dimensions.height()],
-                    Sample4,
-                    Format::D16Unorm,
-                    ImageUsage {
-                        transient_attachment: true,
-                        input_attachment: true,
-                        ..ImageUsage::none()
-                    },
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            Arc::new(
-                Framebuffer::start(render_pass.clone())
-                    .add(intermediary)
-                    .unwrap()
-                    .add(depth_buffer)
-                    .unwrap()
-                    .add(view)
-                    .unwrap()
-                    .build()
-                    .unwrap(),
-            ) as Arc<dyn FramebufferAbstract + Send + Sync>
+            let fb = create_framebuffer(
+                [dimensions.width(), dimensions.height()],
+                render_pass.clone(),
+                image.format(),
+                Some(image.clone()),
+            );
+            (fb.0, fb.3, fb.4)
         })
         .collect::<Vec<_>>()
 }

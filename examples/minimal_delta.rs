@@ -9,7 +9,7 @@ pub fn btn(context: &mut WidgetContext) -> Fragment {
         Color::new(0., 1., 0., 1.)
     };
 
-    let callback = move |context: &CallbackContext, is_clicked| {
+    let callback = move |context: &CallbackContext, is_clicked, _, _| {
         context.shout(clicked, is_clicked);
     };
 

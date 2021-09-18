@@ -31,6 +31,7 @@ pub fn reveal_box(
         children,
         layout: Box::new(RevealClipLayout { reveal }),
         is_clipper: true,
+        subpass: None,
     }
 }
 
@@ -44,11 +45,13 @@ pub fn top(context: &mut WidgetContext) -> Fragment {
                     <flexible>
                         <padding padding=EdgeInsets::all(10.)>
                             <reveal_box reveal=context.listen(slider_value)>
-                                <rect fill=Some(Color::new(0., 0.7, 0.7, 1.0)) border_radius=Fraction(1.) do_clipping=true>
-                                    <text size=100.>
-                                        {"some really long text, that gets clipped..."}
-                                    </text>
-                                </rect>
+                                <align alignment=Alignment::center()>
+                                    <rect fill=Some(Color::new(0., 0.7, 0.7, 1.0)) border_radius=Fraction(1.) do_clipping=true>
+                                        <text size=100.>
+                                            {"some really long text, that gets clipped..."}
+                                        </text>
+                                    </rect>
+                                </align>
                             </reveal_box>
                         </padding>
                     </flexible>

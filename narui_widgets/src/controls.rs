@@ -19,7 +19,7 @@ pub fn button(
         color
     };
 
-    let callback = move |context: &CallbackContext, is_clicked| {
+    let callback = move |context: &CallbackContext, is_clicked, _, _| {
         context.shout(clicked, is_clicked);
         if is_clicked {
             on_click(context);
@@ -55,9 +55,10 @@ pub fn slider(
 ) -> Fragment {
     let widget_key = context.widget_local.idx;
     let clicked = context.listenable(false);
-    let on_click = move |context: &CallbackContext, is_clicked| context.shout(clicked, is_clicked);
+    let on_click =
+        move |context: &CallbackContext, is_clicked, _, _| context.shout(clicked, is_clicked);
 
-    let on_move = move |context: &CallbackContext, position: Vec2| {
+    let on_move = move |context: &CallbackContext, position: Vec2, _| {
         let clicked = context.spy(clicked);
         let width = context.measure_size(widget_key).unwrap().x - 20.0;
 

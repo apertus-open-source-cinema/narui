@@ -194,3 +194,23 @@ impl<'a, T: 'static> Deref for ListenableGuard<'a, T> {
         &*self.entry.downcast_ref().expect("ListenableGuard has wrong type")
     }
 }
+
+pub struct MappedListenableGuard<'a, T, MT, FN: Fn(&T) -> &MT> {
+    pub(crate) entry: PatchTreeEntry<'a>,
+    pub(crate) mapping_function: FN,
+    pub(crate) phantom: PhantomData<T>,
+    pub(crate) phantom2: PhantomData<MT>,
+}
+
+impl<'a, T: 'static, FN, MT> Deref for MappedListenableGuard<'a, T, MT, FN>
+where
+    FN: Fn(&T) -> &MT,
+{
+    type Target = MT;
+
+    fn deref(&self) -> &Self::Target {
+        (self.mapping_function)(
+            &*self.entry.downcast_ref().expect("ListenableGuard has wrong type"),
+        )
+    }
+}

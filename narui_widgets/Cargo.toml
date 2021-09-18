@@ -6,3 +6,5 @@ edition = "2018"
 [dependencies]
 narui = { path = "../narui_core", package = "narui_core" }
 narui_macros = { path = "../narui_macros" }
+vulkano = { git = "https://github.com/vulkano-rs/vulkano" }
+vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano" }

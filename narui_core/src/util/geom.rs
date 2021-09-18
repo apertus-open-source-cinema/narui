@@ -25,6 +25,7 @@ impl Vec2 {
     pub fn with_x(&self, x: f32) -> Self { Self { x, ..*self } }
     pub fn with_y(&self, y: f32) -> Self { Self { y, ..*self } }
     pub fn maximum(&self) -> f32 { self.x.max(self.y) }
+    pub fn pixels(&self) -> [u32; 2] { [self.x.round() as u32, self.y.round() as u32] }
 }
 impl Add for Vec2 {
     type Output = Vec2;
@@ -131,6 +132,7 @@ pub struct Rect {
     pub size: Vec2,
 }
 impl Rect {
+    pub fn zero() -> Self { Self { pos: Vec2::zero(), size: Vec2::zero() } }
     pub fn contains(self, point: Vec2) -> bool {
         point.x >= self.pos.x
             && point.y >= self.pos.y
@@ -143,6 +145,18 @@ impl Rect {
     }
     pub fn near_corner(&self) -> Vec2 { self.pos }
     pub fn far_corner(&self) -> Vec2 { self.pos + self.size }
+    pub fn top_left_corner(&self) -> Vec2 {
+        Vec2 {
+            x: self.pos.x.min(self.pos.x + self.size.x),
+            y: self.pos.y.min(self.pos.y + self.size.y),
+        }
+    }
+    pub fn bottom_right_corner(&self) -> Vec2 {
+        Vec2 {
+            x: self.pos.x.max(self.pos.x + self.size.x),
+            y: self.pos.y.max(self.pos.y + self.size.y),
+        }
+    }
     pub fn clip(&self, clipper: Rect) -> Rect {
         Rect::from_corners(
             Vec2::new(
@@ -159,4 +173,5 @@ impl Rect {
     pub fn inset(&self, val: f32) -> Self {
         Self { pos: self.pos + val, size: self.size - 2.0 * val }
     }
+    pub fn minus_position(&self, pos: Vec2) -> Self { Self { pos: self.pos - pos, ..*self } }
 }

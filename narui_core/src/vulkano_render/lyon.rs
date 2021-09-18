@@ -1,5 +1,5 @@
 use crate::{
-    eval::layout::PositionedRenderObject,
+    eval::layout::{PositionedElement, RenderObjectOrSubPass},
     geom::Vec2,
     re_export::lyon::lyon_tessellation::{Count, GeometryBuilderError, VertexId},
     vulkano_render::primitive_renderer::RenderData,
@@ -129,18 +129,16 @@ impl Lyon {
             stroke_tessellator: StrokeTessellator::new(),
         }
     }
-    pub fn render<'a>(
-        &mut self,
-        data: &mut RenderData,
-        render_object: &PositionedRenderObject<'a>,
-    ) {
+    pub fn render<'a>(&mut self, data: &mut RenderData, render_object: &PositionedElement<'a>) {
         let clipping_rect = if let Some(clipping_rect) = render_object.clipping_rect {
             render_object.rect.clip(clipping_rect)
         } else {
             render_object.rect
         };
 
-        if let RenderObject::Path { path_gen } = render_object.render_object {
+        if let RenderObjectOrSubPass::RenderObject(RenderObject::Path { path_gen }) =
+            render_object.element
+        {
             (path_gen)(
                 render_object.rect.size,
                 &mut self.fill_tessellator,

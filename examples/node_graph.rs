@@ -26,7 +26,7 @@ pub fn drag_detector(
     let click_started = context.listenable(false);
     let clicked = context.listenable(false);
     let key = context.widget_local.idx;
-    let on_click = move |context: &CallbackContext, clicked_current| {
+    let on_click = move |context: &CallbackContext, clicked_current, _, _| {
         context.shout(clicked, clicked_current);
         if clicked_current {
             context.shout(click_started, true);
@@ -35,7 +35,7 @@ pub fn drag_detector(
             on_end(context, key)
         }
     };
-    let on_move = move |context: &CallbackContext, position| {
+    let on_move = move |context: &CallbackContext, position, _| {
         if context.spy(click_started) {
             context.shout(click_start_position, position);
             context.shout(click_started, false);
