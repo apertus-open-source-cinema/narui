@@ -11,6 +11,10 @@ use derivative::Derivative;
 use freelist::FreeList;
 use smallvec::SmallVec;
 use std::{any::Any, fmt::Debug, sync::Arc};
+use vulkano::{
+    device::{Device, Queue},
+    render_pass::RenderPass,
+};
 
 
 // Context types
@@ -167,6 +171,13 @@ impl FragmentStore {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct VulkanContext {
+    pub device: Arc<Device>,
+    pub queues: Vec<Arc<Queue>>,
+    pub render_pass: Arc<RenderPass>,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WidgetContext<'a> {
@@ -178,6 +189,7 @@ pub struct WidgetContext<'a> {
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub(crate) after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
     pub key_map: &'a mut KeyMap,
+    pub vulkan_context: VulkanContext,
 }
 
 impl<'a> WidgetContext<'a> {
@@ -206,6 +218,7 @@ impl<'a> WidgetContext<'a> {
     pub fn thread_context(&self) -> ThreadContext { ThreadContext { tree: self.tree.clone() } }
 
     pub fn root(
+        vulkan_context: VulkanContext,
         top: Fragment,
         tree: Arc<PatchedTree>,
         fragment_store: &'a mut FragmentStore,
@@ -219,10 +232,12 @@ impl<'a> WidgetContext<'a> {
             widget_local: WidgetLocalContext::for_key(Default::default(), top),
             key_map,
             local_hook: true,
+            vulkan_context,
         }
     }
 
     pub fn for_fragment(
+        vulkan_context: VulkanContext,
         tree: Arc<PatchedTree>,
         fragment_store: &'a mut FragmentStore,
         key: Key,
@@ -237,6 +252,7 @@ impl<'a> WidgetContext<'a> {
             widget_local: WidgetLocalContext::for_key(key, idx),
             key_map,
             local_hook: true,
+            vulkan_context,
         }
     }
 
@@ -248,6 +264,7 @@ impl<'a> WidgetContext<'a> {
             after_frame_callbacks: self.after_frame_callbacks,
             widget_local: WidgetLocalContext::for_key(key, idx),
             key_map: &mut self.key_map,
+            vulkan_context: self.vulkan_context.clone(),
         }
     }
 }

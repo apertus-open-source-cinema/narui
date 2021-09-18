@@ -1,9 +1,11 @@
-use crate::{eval::layout::PositionedRenderObject, RenderObject};
+/*
+use crate::{eval::layout::PositionedElement, RenderObject};
 use std::sync::Arc;
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
     render_pass::RenderPass,
 };
+use crate::eval::layout::RenderObjectOrSubPass;
 
 pub struct RawRenderer {
     render_pass: Arc<RenderPass>,
@@ -15,9 +17,9 @@ impl RawRenderer {
         buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
         dynamic_state: &DynamicState,
         dimensions: &[u32; 2],
-        render_object: &PositionedRenderObject<'a>,
+        render_object: &PositionedElement<'a>,
     ) {
-        if let RenderObject::Raw { render_fn } = &render_object.render_object {
+        if let RenderObjectOrSubPass::RenderObject(RenderObject::Raw { render_fn }) = &render_object.element {
             render_fn(
                 self.render_pass.clone(),
                 buffer_builder,
@@ -28,3 +30,4 @@ impl RawRenderer {
         }
     }
 }
+*/

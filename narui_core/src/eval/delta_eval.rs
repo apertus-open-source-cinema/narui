@@ -8,6 +8,7 @@ use crate::{
             AfterFrameCallback,
             FragmentStore,
             MaybeEvaluatedFragment::{Evaluated, Unevaluated},
+            VulkanContext,
         },
         key::KeyMap,
         patched_tree::PatchedTree,
@@ -22,7 +23,7 @@ use crate::{
 use derivative::Derivative;
 use freelist::Idx;
 use hashbrown::HashSet;
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 /// EvaluatedEvalObject is analog to a EvalObject but not lazy and additionally
 /// contains the dependencies of Node for allowing partial rebuild.
@@ -41,8 +42,8 @@ pub struct EvaluatedFragment {
     pub children: FragmentChildren,
 }
 
-#[derive(Default)]
 pub struct EvaluatorInner {
+    vulkan_context: VulkanContext,
     pub(crate) tree: Arc<PatchedTree>,
 }
 
@@ -110,10 +111,12 @@ impl EvaluatorInner {
             let mut context = context.with_key_widget(key, fragment_idx);
             let evaluated: FragmentInner = gen(&mut context);
 
-            let (layout, render_object, children, is_clipper) = evaluated.unpack();
-            let layout_idx = layout_tree.add_node(layout, render_object, is_clipper);
+            let (layout, render_object, children, is_clipper, subpass) = evaluated.unpack();
+            let layout_idx =
+                layout_tree.add_node(layout, render_object, is_clipper, subpass, fragment_idx);
 
             for child in &children {
+                log::trace!("evaluating (unconditionally) child {:?} of {:?}", child, fragment_idx);
                 self.evaluate_unconditional(*child, layout_tree, &mut context);
             }
 
@@ -136,6 +139,8 @@ impl EvaluatorInner {
                 children,
             })
         });
+
+        log::trace!("finished evaluating {:?}", fragment_idx);
 
         fragment_idx
     }
@@ -161,6 +166,7 @@ impl EvaluatorInner {
                     frag_idx,
                     layout_tree,
                     &mut WidgetContext::for_fragment(
+                        self.vulkan_context.clone(),
                         self.tree.clone(),
                         fragment_store,
                         key,
@@ -177,6 +183,7 @@ impl EvaluatorInner {
 
                 let evaluated = {
                     let mut context = WidgetContext::for_fragment(
+                        self.vulkan_context.clone(),
                         self.tree.clone(),
                         fragment_store,
                         key,
@@ -188,7 +195,7 @@ impl EvaluatorInner {
                     let evaluated: FragmentInner = (gen)(&mut context);
                     evaluated
                 };
-                let (layout, render_object, children, is_clipper) = evaluated.unpack();
+                let (layout, render_object, children, is_clipper, subpass) = evaluated.unpack();
 
                 let (old_children, layout_idx) = {
                     let frag = &mut fragment_store.get_mut(frag_idx).assert_evaluated_mut();
@@ -204,6 +211,7 @@ impl EvaluatorInner {
                                 *child,
                                 layout_tree,
                                 &mut WidgetContext::for_fragment(
+                                    self.vulkan_context.clone(),
                                     self.tree.clone(),
                                     fragment_store,
                                     key,
@@ -239,7 +247,14 @@ impl EvaluatorInner {
                     frag.gen = Some(gen);
                     frag.children = children;
 
-                    layout_tree.set_node(frag.layout_idx, layout, render_object, is_clipper);
+                    layout_tree.set_node(
+                        frag.layout_idx,
+                        layout,
+                        render_object,
+                        is_clipper,
+                        subpass,
+                        frag_idx,
+                    );
 
                     old_children
                 };
@@ -278,26 +293,29 @@ impl EvaluatorInner {
 
 // The evaluator outputs nothing but rather communicates with the layouter with
 // the LayoutTree trait.
-#[derive(Derivative)]
-#[derivative(Default)]
 pub struct Evaluator {
     pub(crate) key_map: KeyMap,
     pub(crate) after_frame_callbacks: Vec<AfterFrameCallback>,
     fragment_store: FragmentStore,
     inner: EvaluatorInner,
-    #[derivative(Default(value = "std::num::NonZeroUsize::new(12312803).unwrap()"))]
     pub(crate) top_node: Idx,
 }
 
 impl Evaluator {
-    pub fn new(top_node_frag: UnevaluatedFragment, layout_tree: &mut Layouter) -> Self {
-        let mut evaluator = Evaluator::default();
+    pub fn new(
+        vulkan_context: VulkanContext,
+        top_node_frag: UnevaluatedFragment,
+        layout_tree: &mut Layouter,
+    ) -> Self {
+        let mut evaluator =
+            Evaluator::empty(vulkan_context.clone(), unsafe { Idx::new_unchecked(1) }); // random dummy value
         let top_node = evaluator.fragment_store.add_empty_fragment();
         evaluator.fragment_store.add_fragment(top_node, || top_node_frag);
         let _root = evaluator.inner.evaluate_unconditional(
             top_node,
             layout_tree,
             &mut WidgetContext::root(
+                vulkan_context,
                 top_node,
                 evaluator.inner.tree.clone(),
                 &mut evaluator.fragment_store,
@@ -309,6 +327,16 @@ impl Evaluator {
         std::mem::drop(evaluator.fragment_store.dirty_args());
 
         evaluator
+    }
+
+    fn empty(vulkan_context: VulkanContext, top_node: Idx) -> Self {
+        Self {
+            key_map: Default::default(),
+            after_frame_callbacks: vec![],
+            fragment_store: Default::default(),
+            inner: EvaluatorInner { vulkan_context, tree: Arc::new(Default::default()) },
+            top_node,
+        }
     }
 
     pub fn update(&mut self, layout_tree: &mut Layouter) -> bool {

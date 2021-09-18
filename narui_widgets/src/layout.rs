@@ -13,6 +13,7 @@ pub fn column(
         children,
         layout: Box::new(Column { cross_axis_alignment, main_axis_alignment, main_axis_size }),
         is_clipper: false,
+        subpass: None,
     }
 }
 
@@ -28,6 +29,7 @@ pub fn row(
         children,
         layout: Box::new(Row { cross_axis_alignment, main_axis_alignment, main_axis_size }),
         is_clipper: false,
+        subpass: None,
     }
 }
 
@@ -42,6 +44,7 @@ pub fn flexible(
         children: smallvec![children],
         layout: Box::new(Flexible { flex: Flex { flex, fit } }),
         is_clipper: false,
+        subpass: None,
     }
 }
 
@@ -55,6 +58,7 @@ pub fn padding(
         children: smallvec![children],
         layout: Box::new(Padding::new(padding)),
         is_clipper: false,
+        subpass: None,
     }
 }
 
@@ -70,6 +74,7 @@ pub fn align(
         children: smallvec![children],
         layout: Box::new(Align::fractional(alignment, factor_width, factor_height)),
         is_clipper: false,
+        subpass: None,
     }
 }
 
@@ -83,6 +88,7 @@ pub fn sized(
         children: children.into_iter().collect(),
         layout: Box::new(SizedBox::constrained(constraint)),
         is_clipper: false,
+        subpass: None,
     }
 }
 
@@ -94,18 +100,39 @@ pub fn stack(
     #[default] is_clipper: bool,
     context: &mut WidgetContext,
 ) -> FragmentInner {
-    FragmentInner::Node { children, layout: Box::new(Stack { fit, alignment }), is_clipper }
+    FragmentInner::Node {
+        children,
+        layout: Box::new(Stack { fit, alignment }),
+        is_clipper,
+        subpass: None,
+    }
 }
 
 #[widget]
 pub fn positioned(
     children: Fragment,
     #[default] pos: AbsolutePosition,
+    #[default(false)] z_top: bool,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
         children: smallvec![children],
-        layout: Box::new(Positioned::new(pos)),
+        layout: Box::new(if z_top { Positioned::z_top(pos) } else { Positioned::new(pos) }),
         is_clipper: false,
+        subpass: None,
+    }
+}
+
+#[widget]
+pub fn aspect_ratio(
+    children: Option<Fragment>,
+    aspect_ratio: f32,
+    context: &mut WidgetContext,
+) -> FragmentInner {
+    FragmentInner::Node {
+        children: children.into_iter().collect(),
+        layout: Box::new(AspectRatioBox::new(AspectRatio { ratio: aspect_ratio })),
+        is_clipper: false,
+        subpass: None,
     }
 }

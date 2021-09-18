@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
-use lazy_static::lazy_static;
+
 use std::sync::Arc;
 use vulkano::{
     device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
-    instance::{Instance, InstanceExtensions},
+    instance::{debug::*, Instance, InstanceExtensions},
     Version,
 };
 
@@ -13,10 +13,6 @@ pub struct VulkanContext {
     pub device: Arc<Device>,
     pub queues: Vec<Arc<Queue>>,
 }
-lazy_static! {
-    pub static ref VULKAN_CONTEXT: VulkanContext = VulkanContext::create().unwrap();
-}
-
 
 impl VulkanContext {
     pub fn create() -> Result<Self> {
@@ -26,8 +22,13 @@ impl VulkanContext {
             ext_debug_report: true,
             ..required_extensions
         };
-        dbg!(required_extensions);
         let instance = Instance::new(None, Version::V1_2, &extensions, None)?;
+        std::mem::forget(DebugCallback::new(
+            &instance,
+            MessageSeverity { error: true, warning: true, information: true, verbose: true },
+            MessageType::all(),
+            |msg| log::info!("{}: {}", msg.layer_prefix.unwrap_or("unknown"), msg.description),
+        ));
 
         let physical = PhysicalDevice::enumerate(&instance)
             .next()
@@ -45,5 +46,4 @@ impl VulkanContext {
             Device::new(physical, physical.supported_features(), &device_ext, queue_family)?;
         Ok(Self { device, queues: queues.collect() })
     }
-    pub fn get() -> Self { VULKAN_CONTEXT.clone() }
 }

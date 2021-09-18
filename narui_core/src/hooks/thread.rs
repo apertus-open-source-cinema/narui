@@ -50,7 +50,7 @@ impl<'a> ContextThread for WidgetContext<'a> {
         let thread_context = self.thread_context();
         let callback = Arc::new(callback);
         self.effect(
-            move || {
+            move |_| {
                 let thread_context = thread_context.clone();
                 let cloned_callback = callback.clone();
                 let (sender, receiver) = sync_channel(8);

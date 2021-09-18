@@ -335,7 +335,7 @@ impl FractionallySizedBox {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AspectRatio {
     // width / height
-    ratio: f32,
+    pub ratio: f32,
 }
 
 impl AspectRatio {
@@ -344,6 +344,7 @@ impl AspectRatio {
     fn height_for(self, width: f32) -> f32 { width / self.ratio }
 
     fn target_size(self, input_constraint: BoxConstraints) -> Size {
+        log::trace!("got input {:?}, aspect ratio = {}", input_constraint, self.ratio);
         assert!(input_constraint.width_is_bounded() || input_constraint.height_is_bounded());
 
         let width = if input_constraint.width_is_bounded() {
@@ -351,12 +352,15 @@ impl AspectRatio {
         } else {
             self.width_for(input_constraint.max_height).min(input_constraint.max_width)
         };
+        log::trace!("initial guess for width: {}", width);
         let height = self.height_for(width).min(input_constraint.max_height);
+        log::trace!("now got height {}", height);
         // TODO(robin): flutter does these, but I don't think these actually do
         // anything? let width =
         // self.width_for(height).max(input_constraint.min_width); let height =
         // self.height_for(width).max(input_constraint.min_height);
         let width = self.width_for(height);
+        log::trace!("and fixing up width to it {}", width);
 
         Size { width, height }
     }

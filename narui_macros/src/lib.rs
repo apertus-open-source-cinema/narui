@@ -39,6 +39,7 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     children: #narui::smallvec![ #rsx ],
                     layout: Box::new(#narui::Transparent),
                     is_clipper: false,
+                    subpass: None
                 }
             })),
         }

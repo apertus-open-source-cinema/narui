@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 #[widget]
 pub fn input_leaf(
-    #[default] on_click: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
-    #[default] on_hover: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
-    #[default] on_move: impl for<'a> Fn(&'a CallbackContext, Vec2) + Clone + 'static,
+    #[default] on_click: impl for<'a> Fn(&'a CallbackContext, bool, Vec2, Vec2) + Clone + 'static,
+    #[default] on_hover: impl for<'a> Fn(&'a CallbackContext, bool, Vec2, Vec2) + Clone + 'static,
+    #[default] on_move: impl for<'a> Fn(&'a CallbackContext, Vec2, Vec2) + Clone + 'static,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Leaf {
@@ -25,9 +25,9 @@ pub fn input_leaf(
 #[widget]
 pub fn input(
     children: Fragment,
-    #[default] on_click: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
-    #[default] on_hover: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
-    #[default] on_move: impl for<'a> Fn(&'a CallbackContext, Vec2) + Clone + 'static,
+    #[default] on_click: impl for<'a> Fn(&'a CallbackContext, bool, Vec2, Vec2) + Clone + 'static,
+    #[default] on_hover: impl for<'a> Fn(&'a CallbackContext, bool, Vec2, Vec2) + Clone + 'static,
+    #[default] on_move: impl for<'a> Fn(&'a CallbackContext, Vec2, Vec2) + Clone + 'static,
     context: &mut WidgetContext,
 ) -> Fragment {
     rsx! {

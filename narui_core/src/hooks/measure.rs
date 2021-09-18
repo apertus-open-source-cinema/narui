@@ -14,6 +14,7 @@ pub enum MeasureError {
 pub trait ContextMeasure {
     fn measure_size(&self, idx: Fragment) -> Result<Vec2, MeasureError>;
     fn measure_offset(&self, idx1: Fragment, idx2: Fragment) -> Result<Vec2, MeasureError>;
+    fn measure(&self, idx: Fragment) -> Result<Rect, MeasureError>;
 }
 impl ContextMeasure for CallbackContext<'_> {
     fn measure_size(&self, idx: Fragment) -> Result<Vec2, MeasureError> {
@@ -26,6 +27,8 @@ impl ContextMeasure for CallbackContext<'_> {
         let ro2 = get_layout(self, idx2)?;
         Ok(ro2.pos - ro1.pos)
     }
+
+    fn measure(&self, idx: Fragment) -> Result<Rect, MeasureError> { get_layout(self, idx) }
 }
 
 fn get_layout(context: &CallbackContext, idx: Fragment) -> Result<Rect, MeasureError> {

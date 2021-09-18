@@ -1,20 +1,23 @@
-use crate::{eval::layout::PositionedRenderObject, geom::Rect, Dimension, RenderObject, Vec2};
+use crate::{eval::layout::PositionedElement, geom::Rect, Dimension, RenderObject, Vec2};
 use crevice::std430::AsStd430;
 
 
+use crate::eval::layout::RenderObjectOrSubPass;
 use palette::Pixel;
 use std::sync::Arc;
 use vulkano::{
-    buffer::{BufferUsage, ImmutableBuffer},
-    command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
-    descriptor_set::persistent::PersistentDescriptorSet,
+    buffer::{BufferAccess, BufferUsage, ImmutableBuffer, TypedBufferAccess},
+    command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer},
+    descriptor_set::{persistent::PersistentDescriptorSet, DescriptorSet},
     device::{Device, Queue},
     image::{view::ImageView, ImmutableImage},
     pipeline::{
+        blend::{AttachmentBlend, BlendFactor, BlendOp},
         depth_stencil::{Compare, DepthStencil},
         vertex::BuffersDefinition,
+        viewport::Viewport,
         GraphicsPipeline,
-        GraphicsPipelineAbstract,
+        PipelineBindPoint,
     },
     render_pass::{RenderPass, Subpass},
     sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
@@ -30,6 +33,7 @@ mod vertex_shader {
             layout(push_constant) uniform PushConstantData {
                 uint width;
                 uint height;
+                vec2 offset;
             } params;
 
             struct PerPrimitiveData {
@@ -56,30 +60,32 @@ mod vertex_shader {
             layout(location = 6) out float stroke_width;
             layout(location = 7) out vec2 clip_min;
             layout(location = 8) out vec2 clip_max;
+            layout(location = 9) out float for_clipping;
 
             void main() {
                 PerPrimitiveData data = primitive_data.data[primitive_index];
                 color = data.color;
-                ty = data.ty;
-                // debugPrintfEXT(\"pos = %f, %f, %f, color = %f, %f, %f, %f\", pos.x, pos.y, data.z_index, color.x, color.y, color.z, color.w);
+                ty = data.ty & 3;
+                // debugPrintfEXT(\"pos = %f, %f, offset = %f, %f, color = %f, %f, %f, %f\", pos.x, pos.y, params.offset.x, params.offset.y, color.x, color.y, color.z, color.w);
                 border_radius = data.tex_scale_or_border_radius_and_stroke_width.x;
                 stroke_width = data.tex_scale_or_border_radius_and_stroke_width.y;
                 half_size = data.tex_base_or_half_size;
                 tex_or_rel_pos = vec2(0.0);
-                clip_min = data.clip_min;
-                clip_max = data.clip_max;
+                clip_min = data.clip_min - params.offset;
+                clip_max = data.clip_max - params.offset;
                 inverted = float(ty == 3);
+                for_clipping = float((data.ty & 4) > 0);
 
                 // 0 is lyon
                 // 1 is text
-                // 2 is rounded rect
+                // 2 and 3 is rounded rect
                 if (ty == 1) {
                     tex_or_rel_pos = ((pos - data.base_or_center) * data.tex_scale_or_border_radius_and_stroke_width) + data.tex_base_or_half_size;
                 } else if ((ty == 2) || (ty == 3)) {
                     tex_or_rel_pos = (pos - data.base_or_center);
                 }
 
-                gl_Position = vec4((pos / (vec2(params.width, params.height) / 2.) - vec2(1.)), data.z_index, 1.0);
+                gl_Position = vec4(((pos - params.offset) / (vec2(params.width, params.height) / 2.) - vec2(1.)), data.z_index, 1.0);
             }
         "
     }
@@ -100,6 +106,7 @@ mod fragment_shader {
             layout(location = 6) flat in float stroke_width;
             layout(location = 7) flat in vec2 clip_min;
             layout(location = 8) flat in vec2 clip_max;
+            layout(location = 9) flat in float for_clipping;
 
             layout(location = 0) out vec4 f_color;
 
@@ -114,7 +121,7 @@ mod fragment_shader {
                         float alpha = texture(tex, tex_or_rel_pos).r;
                         f_color = color;
                         f_color.a *= alpha;
-                    } else { // rounded rect
+                    } else if ((ty == 2) || (ty == 3)) { // rounded rect
                         vec2 abs_pos = abs(tex_or_rel_pos) - half_size;
                         float inner_radius = max(border_radius - stroke_width, 0.0);
                         vec2 outer_pos = abs_pos + border_radius;
@@ -125,7 +132,7 @@ mod fragment_shader {
                         float from_inner = clamp(0.5 - (inner_radius - inner), 0, 1);
                         float rect_alpha = abs(float(inverted) - from_outer * from_inner);
                         float alpha = color.a * rect_alpha;
-                        if (rect_alpha == 0.0) discard;
+                        if (rect_alpha == 0.0 && (for_clipping > 0.0 || from_outer == 0.0)) discard;
                         f_color = vec4(color.rgb, alpha);
                     }
                 }
@@ -171,11 +178,12 @@ impl RenderData {
         border_radius: f32,
         stroke_width: f32,
         inverted: bool,
+        for_clipping: bool,
     ) {
         let primitive_index = self.primitive_data.len() as u32;
         self.primitive_data.push(
             PrimitiveData {
-                ty: if inverted { 3 } else { 2 },
+                ty: (if inverted { 3 } else { 2 }) | (if for_clipping { 4 } else { 0 }),
                 color: crevice::std430::Vec4 { x: color[0], y: color[1], z: color[2], w: color[3] },
                 z_index,
                 base_or_center: rect.center().into(),
@@ -270,7 +278,7 @@ impl RenderData {
 
 pub struct Renderer {
     queue: Arc<Queue>,
-    pipeline: std::sync::Arc<GraphicsPipeline<BuffersDefinition>>,
+    pipeline: std::sync::Arc<GraphicsPipeline>,
     pub(crate) data: RenderData,
     sampler: Arc<Sampler>,
 }
@@ -286,7 +294,19 @@ impl Renderer {
                 .triangle_list()
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
-                .blend_alpha_blending()
+                .blend_collective(AttachmentBlend {
+                    enabled: true,
+                    color_op: BlendOp::Add,
+                    color_source: BlendFactor::SrcAlpha,
+                    color_destination: BlendFactor::OneMinusSrcAlpha,
+                    alpha_op: BlendOp::Max,
+                    alpha_source: BlendFactor::One,
+                    alpha_destination: BlendFactor::One,
+                    mask_red: true,
+                    mask_green: true,
+                    mask_blue: true,
+                    mask_alpha: true,
+                })
                 .depth_stencil(DepthStencil {
                     depth_compare: Compare::LessOrEqual,
                     ..DepthStencil::simple_depth_test()
@@ -314,16 +334,17 @@ impl Renderer {
 
         Self { queue, pipeline, sampler, data: RenderData::new() }
     }
-    pub fn render(&mut self, render_object: &PositionedRenderObject) {
-        if let PositionedRenderObject {
-            render_object:
-                RenderObject::RoundedRect {
+    pub fn render(&mut self, render_object: &PositionedElement) {
+        if let PositionedElement {
+            element:
+                RenderObjectOrSubPass::RenderObject(RenderObject::RoundedRect {
                     stroke_color,
                     fill_color,
                     stroke_width,
                     border_radius,
                     inverted,
-                },
+                    for_clipping,
+                }),
             clipping_rect,
             rect,
             z_index,
@@ -346,6 +367,7 @@ impl Renderer {
                     border_radius_px,
                     *stroke_width,
                     *inverted,
+                    *for_clipping,
                 );
             }
             if let Some(fill_color) = fill_color {
@@ -358,11 +380,12 @@ impl Renderer {
                     (border_radius_px - *stroke_width).max(0.0),
                     rect.size.maximum() / 2.0,
                     *inverted,
+                    *for_clipping,
                 );
             }
         }
-        if let PositionedRenderObject {
-            render_object: RenderObject::DebugRect,
+        if let PositionedElement {
+            element: RenderObjectOrSubPass::RenderObject(RenderObject::DebugRect),
             clipping_rect,
             rect,
             ..
@@ -376,6 +399,7 @@ impl Renderer {
                 0.0,
                 2.0,
                 false,
+                false,
             );
         }
     }
@@ -384,64 +408,77 @@ impl Renderer {
     pub fn finish(
         &mut self,
         font_texture: Arc<ImmutableImage>,
-        buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-        dynamic_state: &DynamicState,
-        dimensions: &[u32; 2],
-    ) -> (impl GpuFuture, impl GpuFuture, impl GpuFuture) {
-        let push_constants =
-            vertex_shader::ty::PushConstantData { width: dimensions[0], height: dimensions[1] };
-
+    ) -> (
+        impl GpuFuture,
+        impl GpuFuture,
+        impl GpuFuture,
+        Arc<impl DescriptorSet>,
+        Arc<impl BufferAccess>,
+        Arc<impl BufferAccess + TypedBufferAccess<Content = [u32]>>,
+    ) {
         let layout = self.pipeline.layout().descriptor_set_layouts()[0].clone();
 
         let texture = ImageView::new(font_texture).unwrap();
 
-        /*
-        dbg!(&self.data.primitive_data);
-        dbg!(&self.data.vertices);
-        dbg!(&self.data.indices);
-        */
         let (primitive_buffer, primitive_fut) = ImmutableBuffer::from_iter(
             self.data.primitive_data.drain(..),
-            BufferUsage::all(),
+            BufferUsage { storage_buffer: true, ..BufferUsage::none() },
             self.queue.clone(),
         )
         .unwrap();
 
         let (vertex_buffer, vertex_fut) = ImmutableBuffer::from_iter(
             self.data.vertices.drain(..),
-            BufferUsage::all(),
+            BufferUsage { vertex_buffer: true, ..BufferUsage::none() },
             self.queue.clone(),
         )
         .unwrap();
 
         let (index_buffer, index_fut) = ImmutableBuffer::from_iter(
             self.data.indices.drain(..),
-            BufferUsage::all(),
+            BufferUsage { index_buffer: true, ..BufferUsage::none() },
             self.queue.clone(),
         )
         .unwrap();
 
-        let descriptor_set = Arc::new(
-            PersistentDescriptorSet::start(layout)
-                .add_buffer(primitive_buffer)
-                .unwrap()
-                .add_sampled_image(texture, self.sampler.clone())
-                .unwrap()
-                .build()
-                .unwrap(),
-        );
+        let mut set_builder = PersistentDescriptorSet::start(layout);
+        set_builder
+            .add_buffer(primitive_buffer)
+            .unwrap()
+            .add_sampled_image(texture, self.sampler.clone())
+            .unwrap();
+        let descriptor_set = Arc::new(set_builder.build().unwrap());
+
+        (primitive_fut, vertex_fut, index_fut, descriptor_set, vertex_buffer, index_buffer)
+    }
+
+    pub fn render_part<T: DescriptorSet + Send + Sync + 'static>(
+        &self,
+        buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        descriptor_set: Arc<T>,
+        viewport: &Viewport,
+        dimensions: &[u32; 2],
+        offset: Vec2,
+        start: u64,
+        end: u64,
+    ) {
+        let push_constants = vertex_shader::ty::PushConstantData {
+            width: dimensions[0],
+            height: dimensions[1],
+            offset: offset.into(),
+        };
 
         buffer_builder
-            .draw_indexed(
-                self.pipeline.clone(),
-                dynamic_state,
-                vertex_buffer,
-                index_buffer,
+            .bind_pipeline_graphics(self.pipeline.clone())
+            .bind_descriptor_sets(
+                PipelineBindPoint::Graphics,
+                self.pipeline.layout().clone(),
+                0,
                 descriptor_set,
-                push_constants,
             )
+            .push_constants(self.pipeline.layout().clone(), 0, push_constants)
+            .set_viewport(0, std::iter::once(viewport.clone()))
+            .draw_indexed((end - start) as _, 1, start as _, 0, 0)
             .unwrap();
-
-        (primitive_fut, vertex_fut, index_fut)
     }
 }

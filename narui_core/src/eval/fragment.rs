@@ -1,6 +1,6 @@
 use crate::{
     util::geom::{Rect, Vec2},
-    vulkano_render::lyon::ColoredBuffersBuilder,
+    vulkano_render::{lyon::ColoredBuffersBuilder, subpass_stack::AbstractImageView},
     CallbackContext,
     Color,
     Dimension,
@@ -13,7 +13,8 @@ use rutter_layout::Layout;
 use smallvec::{smallvec, SmallVec};
 use std::{rc::Rc, sync::Arc};
 use vulkano::{
-    command_buffer::{AutoCommandBufferBuilder, DynamicState, PrimaryAutoCommandBuffer},
+    command_buffer::SecondaryAutoCommandBuffer,
+    pipeline::viewport::Viewport,
     render_pass::RenderPass,
 };
 
@@ -47,7 +48,9 @@ impl From<Fragment> for Key {
 impl From<Fragment> for FragmentChildren {
     fn from(fragment: Fragment) -> Self { smallvec![fragment] }
 }
-
+impl From<Idx> for Fragment {
+    fn from(idx: Idx) -> Self { Fragment(idx.get() as _) }
+}
 pub type FragmentChildren = SmallVec<[Fragment; 8]>;
 
 
@@ -62,18 +65,55 @@ impl PartialEq for UnevaluatedFragment {
     fn eq(&self, other: &Self) -> bool { self.key == other.key }
 }
 
-#[derive(Debug)]
+pub type SubPassRenderFunction = Rc<
+    dyn Fn(
+        &CallbackContext,
+        AbstractImageView, // color
+        AbstractImageView, // depth
+        Arc<RenderPass>,
+        Viewport, // viewport of target
+        [u32; 2], // dimensions of target
+        Rect,     // absolute layout rect of self
+        Rect,     // layout rect of self relative to next higher subpass
+        f32,      // z_index
+    ) -> SecondaryAutoCommandBuffer,
+>;
+
+#[derive(Clone)]
+pub struct SubPassSetup {
+    pub resolve: SubPassRenderFunction,
+    // finish function, + (optional) subpass key, before whose parent subpass pop we want to
+    // execute the finish function by default executes the finish function before the next
+    // higher subpass pop
+    pub finish: Option<(SubPassRenderFunction, Option<usize>)>,
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub enum FragmentInner {
-    Leaf { render_object: RenderObject, layout: Box<dyn Layout> },
-    Node { children: FragmentChildren, layout: Box<dyn Layout>, is_clipper: bool },
+    Leaf {
+        render_object: RenderObject,
+        layout: Box<dyn Layout>,
+    },
+    Node {
+        children: FragmentChildren,
+        layout: Box<dyn Layout>,
+        is_clipper: bool,
+        #[derivative(Debug = "ignore")]
+        subpass: Option<SubPassSetup>,
+    },
 }
 impl FragmentInner {
-    pub fn unpack(self) -> (Box<dyn Layout>, Option<RenderObject>, FragmentChildren, bool) {
+    pub fn unpack(
+        self,
+    ) -> (Box<dyn Layout>, Option<RenderObject>, FragmentChildren, bool, Option<SubPassSetup>) {
         match self {
             Self::Leaf { render_object, layout } => {
-                (layout, Some(render_object), SmallVec::new(), false)
+                (layout, Some(render_object), SmallVec::new(), false, None)
             }
-            Self::Node { children, layout, is_clipper } => (layout, None, children, is_clipper),
+            Self::Node { children, layout, is_clipper, subpass } => {
+                (layout, None, children, is_clipper, subpass)
+            }
         }
     }
 
@@ -82,6 +122,7 @@ impl FragmentInner {
             children: smallvec![fragment],
             layout: Box::new(rutter_layout::layouts::Transparent),
             is_clipper: false,
+            subpass: None,
         }
     }
 }
@@ -93,12 +134,11 @@ pub type PathGenInner = dyn Fn(
     ColoredBuffersBuilder,
 );
 pub type RenderFnInner = dyn Fn(
-    Arc<RenderPass>,
-    &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-    &DynamicState,
+    &Viewport,
+    f32,  // z_index
     Rect, // target rect
     Vec2, // window dimensions
-);
+) -> SecondaryAutoCommandBuffer;
 /// RenderObject is the data structure that really defines _what_ is rendered
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -110,6 +150,7 @@ pub enum RenderObject {
         fill_color: Option<Color>,
         stroke_width: f32,
         border_radius: Dimension,
+        for_clipping: bool,
     },
     Path {
         #[derivative(Debug = "ignore")]
@@ -126,11 +167,11 @@ pub enum RenderObject {
         // this is nothing that gets rendered but instead it gets interpreted by the input handling
         // logic
         #[derivative(Debug = "ignore")]
-        on_click: Arc<dyn Fn(&CallbackContext, bool)>,
+        on_click: Arc<dyn Fn(&CallbackContext, bool, Vec2, Vec2)>,
         #[derivative(Debug = "ignore")]
-        on_hover: Arc<dyn Fn(&CallbackContext, bool)>,
+        on_hover: Arc<dyn Fn(&CallbackContext, bool, Vec2, Vec2)>,
         #[derivative(Debug = "ignore")]
-        on_move: Arc<dyn Fn(&CallbackContext, Vec2)>,
+        on_move: Arc<dyn Fn(&CallbackContext, Vec2, Vec2)>,
     },
     Raw {
         #[derivative(Debug = "ignore")]
