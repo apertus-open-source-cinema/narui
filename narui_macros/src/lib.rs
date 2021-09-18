@@ -1,3 +1,4 @@
+mod kw_arg_macro;
 mod rsx_macro;
 mod widget_macro;
 
@@ -42,17 +43,40 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     .into()
 }
 
+#[proc_macro_error]
+#[proc_macro]
+pub fn kw_arg_call(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    kw_arg_macro::kw_arg_call(input).into()
+}
+
 
 fn narui_crate() -> TokenStream {
-    let found_crate = crate_name("narui")
-        .or_else(|_| crate_name("narui_core"))
-        .expect("narui is present in `Cargo.toml`");
+    let found_crate = found_crate_to_tokens(
+        crate_name("narui")
+            .or_else(|_| crate_name("narui_core"))
+            .expect("narui is present in `Cargo.toml`"),
+    );
 
-    match found_crate {
-        FoundCrate::Itself => quote!(crate::_macro_api),
+    quote! { #found_crate::_macro_api }
+}
+fn narui_macros() -> TokenStream {
+    crate_name("narui")
+        .map(|x| {
+            let found_crate = found_crate_to_tokens(x);
+            quote! { #found_crate::_macros }
+        })
+        .and_then(|_| {
+            let found_crate = found_crate_to_tokens(crate_name("narui_macros")?);
+            Ok(quote! { #found_crate })
+        })
+        .expect("narui is present in `Cargo.toml`")
+}
+fn found_crate_to_tokens(x: FoundCrate) -> TokenStream {
+    match x {
+        FoundCrate::Itself => quote!(crate),
         FoundCrate::Name(name) => {
             let ident = Ident::new(&name, Span::call_site());
-            quote!( #ident::_macro_api )
+            quote!( #ident )
         }
     }
 }
