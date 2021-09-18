@@ -1,7 +1,7 @@
 use crate::narui_crate;
 use proc_macro2::{Ident, LineColumn, Span, TokenStream};
 use proc_macro_error::{abort, abort_call_site};
-use quote::quote;
+use quote::{quote, quote_spanned};
 use std::collections::BTreeMap;
 use syn::spanned::Spanned;
 use syn_rsx::{Node, NodeType};
@@ -44,20 +44,26 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         };
 
         let args_listenable_ident =
-            Ident::new(&format!("__{}_{}_args", name_str, loc), Span::call_site());
-        let key_ident = Ident::new(&format!("__{}_{}_key", name_str, loc), Span::call_site());
-        let idx_ident = Ident::new(&format!("__{}_{}_idx", name_str, loc), Span::call_site());
+            Ident::new(&format!("__{}_{}_args", name_str, loc), node_span(&x));
+        let key_ident = Ident::new(&format!("__{}_{}_key", name_str, loc), node_span(&x));
+        let idx_ident = Ident::new(&format!("__{}_{}_idx", name_str, loc), node_span(&x));
         let mut key = quote! {#narui::KeyPart::Fragment { widget_id: #name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc }};
+
+        let span_ident = Ident::new("_span_", node_span(&x));
 
         let constructor_path = {
             let constructor_ident = Ident::new(&format!("{}_constructor", name), node_name.span());
-            let mod_ident = Ident::new(&format!("{}", name), Span::call_site());
+            let mod_ident = Ident::new(&format!("{}", name), node_span(&x));
             quote! {#mod_ident::#constructor_ident}
         };
         let mut processed_attributes = BTreeMap::new();
         for attribute in &x.attributes {
             let name = attribute.name.as_ref().unwrap();
             let value = attribute.value.as_ref().unwrap().clone();
+            let span = name.span().join(value.span()).unwrap();
+            let value = quote_spanned! {span=>
+                { #value }
+            };
             if name.to_string() == "key" {
                 key = quote! {#narui::KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value as _ }}
             } else {
@@ -101,6 +107,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
                 #beginning
                 let to_return = #constructor_path!(
                     @shout_args
+                    span=#span_ident,
                     context=context,
                     idx=#idx_ident,
                     #(#processed_attributes,)*
@@ -128,5 +135,18 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             "you shall not give inputs of type '{}' to the rsx macro",
             x.node_type
         );
+    }
+}
+fn node_span(node: &Node) -> Span {
+    match node.node_type {
+        NodeType::Element => {
+            node.attributes.iter().fold(node.name.span(), |acc, v| acc.join(node_span(v)).unwrap())
+        }
+        NodeType::Attribute => node.name.span().join(node.value.span()).unwrap(),
+        NodeType::Text => node.value.span(),
+        NodeType::Comment => node.value.span(),
+        NodeType::Doctype => node.value.span(),
+        NodeType::Fragment => node.value.span(),
+        NodeType::Block => node.value.span(),
     }
 }

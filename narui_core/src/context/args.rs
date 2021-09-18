@@ -33,7 +33,7 @@ pub fn listen_args<'a>(
 /// all args.
 #[macro_export]
 macro_rules! shout_args_ {
-    ($context:expr, $idx:ident, [$($values:ident,)*]) => {{
+    ($context:expr, $idx:ident, $($values:expr,)*) => {{
         let mut arg_refs = ($idx,
             $({
                 let arg_ref = $crate::_macro_api::ArgRef::new();

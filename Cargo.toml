@@ -27,7 +27,7 @@ members = [
     "narui_macros",
     "narui_widgets",
     "rutter_layout",
-    "freelist"
+    "freelist",
 ]
 
 [features]
