@@ -59,11 +59,15 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         let mut processed_attributes = BTreeMap::new();
         for attribute in &x.attributes {
             let name = attribute.name.as_ref().unwrap();
-            let value = attribute.value.as_ref().unwrap().clone();
-            let span = name.span().join(value.span()).unwrap();
-            let value = quote_spanned! {span=>
-                { #value }
+            let value = if let Some(x) = attribute.value.as_ref() {
+                let span = name.span().join(x.span()).unwrap();
+                quote_spanned! {span=> { #x } }
+            } else {
+                let span = name.span();
+                let error_message = format!("All rsx attributes need to have values!");
+                quote_spanned! {span=> { compile_error!(#error_message) } }
             };
+
             if name.to_string() == "key" {
                 key = quote! {#narui::KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value as _ }}
             } else {
