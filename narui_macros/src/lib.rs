@@ -46,7 +46,7 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro_error]
 #[proc_macro]
 pub fn kw_arg_call(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    kw_arg_macro::kw_arg_call(input).into()
+    kw_arg_macro::kw_arg_call(input)
 }
 
 
