@@ -264,8 +264,6 @@ fn check_function(function: &ItemFn) {
     }
 }
 
-// adds the function arguments to the context as a `Listenable` and listen on it
-// for partial re-evaluation.
 fn generate_function(
     function: &ItemFn,
     not_in_mod: &mut Vec<TokenStream>,
@@ -273,7 +271,7 @@ fn generate_function(
 ) {
     let ItemFn { attrs, vis: _, mut sig, block } = function.clone();
     let original_ident = sig.ident;
-    let new_ident = desinfect_ident(&original_ident);
+    let new_ident = Ident::new(&format!("__{}", original_ident), original_ident.span());
     sig.ident = new_ident.clone();
     let stmts = &block.stmts;
     let context_string = get_arg_types(function)
@@ -311,16 +309,11 @@ fn get_arg_names(function: &ItemFn) -> Vec<Ident> {
         .filter(|ident| &ident.to_string() != "context")
         .collect()
 }
-
 fn arg_ident(arg: FnArg) -> Ident {
     let pat_type = bind_match!(arg, FnArg::Typed(x) => x).unwrap();
     let pat_ident = bind_match!(*pat_type.pat, Pat::Ident(x) => x).unwrap();
     pat_ident.ident
 }
-
-// creates a hygienic (kind of) identifier from an unhyginic one
-fn desinfect_ident(ident: &Ident) -> Ident { Ident::new(&format!("__{}", ident), ident.span()) }
-
 fn get_arg_types(function: &ItemFn) -> HashMap<String, Box<Type>> {
     function
         .clone()
@@ -328,10 +321,8 @@ fn get_arg_types(function: &ItemFn) -> HashMap<String, Box<Type>> {
         .inputs
         .into_iter()
         .map(|arg| {
-            let pat_type = bind_match!(arg, FnArg::Typed(x) => x).unwrap();
-            let pat_ident = bind_match!(*pat_type.pat, Pat::Ident(x) => x).unwrap();
-
-            (pat_ident.ident.to_string(), pat_type.ty)
+            let pat_type = bind_match!(arg.clone(), FnArg::Typed(x) => x).unwrap();
+            (arg_ident(arg).to_string(), pat_type.ty)
         })
         .collect()
 }

@@ -60,7 +60,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         for attribute in &x.attributes {
             let name = attribute.name.as_ref().unwrap();
             let value = if let Some(x) = attribute.value.as_ref() {
-                let span = name.span().join(x.span()).unwrap();
+                let span = name.span().join(x.span()).unwrap_or_else(|| name.span());
                 quote_spanned! {span=> { #[allow(unused_braces)] #x } }
             } else {
                 let span = name.span();
@@ -143,9 +143,9 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
 fn node_span(node: &Node) -> Span {
     match node.node_type {
         NodeType::Element => {
-            node.attributes.iter().fold(node.name.span(), |acc, v| acc.join(node_span(v)).unwrap())
+            node.attributes.iter().fold(node.name.span(), |acc, v| acc.join(node_span(v)).unwrap_or_else(|| node.name.span()))
         }
-        NodeType::Attribute => node.name.span().join(node.value.span()).unwrap(),
+        NodeType::Attribute => node.name.span().join(node.value.span()).unwrap_or_else(|| node.name.span()),
         NodeType::Text => node.value.span(),
         NodeType::Comment => node.value.span(),
         NodeType::Doctype => node.value.span(),
