@@ -74,7 +74,7 @@ impl Parse for KwArgCallParse {
 
 /// example: kw_arg_call!(span lol!{a=1, b=@}(b=2))
 pub fn kw_arg_call(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input_clone = input.clone();
+    let input_clone = input;
     let KwArgCallParse {
         span,
         name,
@@ -97,11 +97,7 @@ pub fn kw_arg_call(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .map(|x| {
             let arg_name = x.left.to_token_stream().to_string();
             if let Some(expr) = given_args_map.remove(&arg_name) {
-                if let MaybeExpr::Some(_default) = &x.right {
-                    quote! { #expr }
-                } else {
-                    quote! { #expr }
-                }
+                quote! { #expr }
             } else if let MaybeExpr::Some(default) = &x.right {
                 quote! { #default }
             } else {

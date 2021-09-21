@@ -61,11 +61,10 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             let name = attribute.name.as_ref().unwrap();
             let value = if let Some(x) = attribute.value.as_ref() {
                 let span = name.span().join(x.span()).unwrap();
-                quote_spanned! {span=> { #x } }
+                quote_spanned! {span=> { #[allow(unused_braces)] #x } }
             } else {
                 let span = name.span();
-                let error_message = format!("All rsx attributes need to have values!");
-                quote_spanned! {span=> { compile_error!(#error_message) } }
+                quote_spanned! {span=> { compile_error!("All rsx attributes need to have values!") } }
             };
 
             if name.to_string() == "key" {

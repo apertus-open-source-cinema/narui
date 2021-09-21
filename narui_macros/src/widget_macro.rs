@@ -105,7 +105,7 @@ fn generate_constructor_macro(
     let arg_names = get_arg_names(function);
 
     let shout_args =
-        generate_shout_args_macro_part(&function, defaults, &mod_ident, not_in_mod, in_mod);
+        generate_shout_args_macro_part(function, defaults, mod_ident, not_in_mod, in_mod);
     let arg_numbers: Vec<_> = (0..(arg_names.len())).map(Literal::usize_unsuffixed).collect();
     let arg_numbers_plus_one: Vec<_> =
         (0..(arg_names.len())).map(|i| Literal::usize_unsuffixed(i + 1)).collect();
@@ -174,7 +174,7 @@ fn generate_shout_args_macro_part(
         .map(|x| (x.ident.to_string(), x.expr.clone()))
         .collect();
 
-    let arg_names: Vec<_> = get_arg_names(&function);
+    let arg_names: Vec<_> = get_arg_names(function);
     let arg_types = get_arg_types(function);
 
     let mut initializers = vec![];
@@ -224,9 +224,11 @@ fn generate_shout_args_macro_part(
 
     quote! {
         (@shout_args span=$span:ident, context=$context:expr, idx=$idx:ident, $($args:tt)*) => {{
+            #[allow(clippy::unused_unit)]
             fn constrain_types(#(#inputs,)*) -> (#(#types,)*) {
                 (#(#constrain_fn_input_idents,)*)
             }
+            #[allow(unused_variables)]
             let args_ordered = #narui_macros::kw_arg_call!($span #widget_name
                 constrain_types{#(#initializers,)*}($($args)*)
             );
@@ -252,7 +254,7 @@ fn check_function(function: &ItemFn) {
     if last_name != "context" {
         abort!(last_arg.span(), "widget functions need to the context as the last argument")
     }
-    let last_type = get_arg_types(&function)[&last_name].clone();
+    let last_type = get_arg_types(function)[&last_name].clone();
     if last_type.to_token_stream().to_string() != WIDGET_CONTEXT_TYPE_STRING {
         abort!(
             last_arg.span(),
@@ -274,7 +276,7 @@ fn generate_function(
     let new_ident = desinfect_ident(&original_ident);
     sig.ident = new_ident.clone();
     let stmts = &block.stmts;
-    let context_string = get_arg_types(&function)
+    let context_string = get_arg_types(function)
         .iter()
         .find(|(_, ty)| {
             ty.to_token_stream().to_string().replace("-> ", "") == WIDGET_CONTEXT_TYPE_STRING
