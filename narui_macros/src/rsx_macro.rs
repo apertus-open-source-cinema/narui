@@ -1,5 +1,5 @@
-use crate::narui_crate;
-use proc_macro2::{Ident, LineColumn, Span, TokenStream};
+use crate::{get_span_start_byte, narui_crate};
+use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::{abort, abort_call_site};
 use quote::{quote, quote_spanned};
 use std::collections::BTreeMap;
@@ -32,22 +32,13 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
         let name = x.name.as_ref().unwrap();
         let node_name = name;
         let name_str = name.to_string();
-        let loc = {
-            let LineColumn { line, column } = name.span().start();
-            // only every fourth part of the column is relevant, because the minimum size
-            // for a rsx node is four: <a />
-            let column = (column / 4) & 0b11_1111;
-            // use 6 bits for column (good for up to 256 columns)
-            // use 10 bits for line (good for up to 1024 lines)
-            let line = (line & 0b11_1111_1111) << 6;
-            (column as u16) | (line as u16)
-        };
+        let loc = get_span_start_byte(name.span());
 
         let args_listenable_ident =
             Ident::new(&format!("__{}_{}_args", name_str, loc), node_span(&x));
         let key_ident = Ident::new(&format!("__{}_{}_key", name_str, loc), node_span(&x));
         let idx_ident = Ident::new(&format!("__{}_{}_idx", name_str, loc), node_span(&x));
-        let mut key = quote! {#narui::KeyPart::Fragment { widget_id: #name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc }};
+        let mut key = quote! {#narui::KeyPart::Fragment { widget_id: #name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: (#loc - __widget_loc_start) as u16 }};
 
         let span_ident = Ident::new("_span_", node_span(&x));
 
@@ -68,7 +59,7 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
             };
 
             if name.to_string() == "key" {
-                key = quote! {#narui::KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: #loc, key: #value as _ }}
+                key = quote! {#narui::KeyPart::FragmentKey { widget_id: #node_name::WIDGET_ID.load(std::sync::atomic::Ordering::SeqCst), location_id: (#loc - __widget_loc_start) as u16, key: #value as _ }}
             } else {
                 processed_attributes.insert(name.to_string(), quote! {#name=#value});
             }

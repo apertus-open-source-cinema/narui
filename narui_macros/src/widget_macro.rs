@@ -1,4 +1,4 @@
-use crate::{narui_crate, narui_macros};
+use crate::{get_span_start_byte, narui_crate, narui_macros};
 use bind_match::bind_match;
 use proc_macro2::{Ident, LineColumn, Literal, Span, TokenStream};
 use proc_macro_error::{abort, abort_call_site};
@@ -332,10 +332,10 @@ fn generate_function(
         .0
         .to_string();
     let context_ident = Ident::new(&context_string, Span::call_site());
-    let LineColumn { line, column } = Span::call_site().start();
+    let loc = get_span_start_byte(function.span());
     not_in_mod.push(quote! {
         #(#attrs)* pub #sig {
-            context.widget_loc = (#line, #column);
+            let __widget_loc_start = #loc;
             let to_return = {
                 #(#stmts)*
             };
