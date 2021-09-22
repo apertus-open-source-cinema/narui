@@ -1,16 +1,12 @@
 use narui::{layout::*, re_export::smallvec::smallvec, *};
 use narui_macros::widget;
 
-#[widget(
-    cross_axis_alignment = CrossAxisAlignment::Center,
-    main_axis_alignment = MainAxisAlignment::Center,
-    main_axis_size = MainAxisSize::Max
-)]
+#[widget]
 pub fn column(
     children: FragmentChildren,
-    cross_axis_alignment: CrossAxisAlignment,
-    main_axis_alignment: MainAxisAlignment,
-    main_axis_size: MainAxisSize,
+    #[default(CrossAxisAlignment::Center)] cross_axis_alignment: CrossAxisAlignment,
+    #[default(MainAxisAlignment::Center)] main_axis_alignment: MainAxisAlignment,
+    #[default(MainAxisSize::Max)] main_axis_size: MainAxisSize,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -20,16 +16,12 @@ pub fn column(
     }
 }
 
-#[widget(
-    cross_axis_alignment = CrossAxisAlignment::Center,
-    main_axis_alignment = MainAxisAlignment::Center,
-    main_axis_size = MainAxisSize::Max
-)]
+#[widget]
 pub fn row(
     children: FragmentChildren,
-    cross_axis_alignment: CrossAxisAlignment,
-    main_axis_alignment: MainAxisAlignment,
-    main_axis_size: MainAxisSize,
+    #[default(CrossAxisAlignment::Center)] cross_axis_alignment: CrossAxisAlignment,
+    #[default(MainAxisAlignment::Center)] main_axis_alignment: MainAxisAlignment,
+    #[default(MainAxisSize::Max)] main_axis_size: MainAxisSize,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -39,11 +31,11 @@ pub fn row(
     }
 }
 
-#[widget(flex = 1.0, fit = FlexFit::Loose)]
+#[widget]
 pub fn flexible(
     children: Fragment,
-    flex: f32,
-    fit: FlexFit,
+    #[default(1.0)] flex: f32,
+    #[default(FlexFit::Loose)] fit: FlexFit,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -53,10 +45,10 @@ pub fn flexible(
     }
 }
 
-#[widget(padding = EdgeInsets::all(10.0))]
+#[widget]
 pub fn padding(
     children: Fragment,
-    padding: EdgeInsets,
+    #[default(EdgeInsets::all(10.0))] padding: EdgeInsets,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -66,16 +58,12 @@ pub fn padding(
     }
 }
 
-#[widget(
-    alignment = Alignment::center(),
-    factor_width = None,
-    factor_height = None
-)]
+#[widget]
 pub fn align(
     children: Fragment,
-    alignment: Alignment,
-    factor_width: Option<f32>,
-    factor_height: Option<f32>,
+    #[default(Alignment::center())] alignment: Alignment,
+    #[default] factor_width: Option<f32>,
+    #[default] factor_height: Option<f32>,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {
@@ -98,21 +86,21 @@ pub fn sized(
     }
 }
 
-#[widget(fit = StackFit::Loose, alignment = Alignment::center(), is_clipper = false)]
+#[widget]
 pub fn stack(
     children: FragmentChildren,
-    fit: StackFit,
-    alignment: Alignment,
-    is_clipper: bool,
+    #[default(StackFit::Loose)] fit: StackFit,
+    #[default(Alignment::center())] alignment: Alignment,
+    #[default] is_clipper: bool,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node { children, layout: Box::new(Stack { fit, alignment }), is_clipper }
 }
 
-#[widget(pos = AbsolutePosition::zero())]
+#[widget]
 pub fn positioned(
     children: Fragment,
-    pos: AbsolutePosition,
+    #[default] pos: AbsolutePosition,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Node {

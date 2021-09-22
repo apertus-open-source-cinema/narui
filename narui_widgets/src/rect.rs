@@ -3,11 +3,11 @@ use narui::{layout::Maximal, *};
 use narui_macros::{rsx, widget};
 
 
-#[widget(border_radius = Dimension::default(), fill = None, stroke = None)]
+#[widget]
 pub fn rect_leaf(
-    border_radius: Dimension,
-    fill: Option<Color>,
-    stroke: Option<(Color, f32)>,
+    #[default] border_radius: Dimension,
+    #[default] fill: Option<Color>,
+    #[default] stroke: Option<(Color, f32)>,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Leaf {
@@ -23,10 +23,10 @@ pub fn rect_leaf(
 }
 
 
-#[widget(border_radius = Dimension::default(), fill = None)]
+#[widget]
 pub fn inverse_rect_leaf(
-    border_radius: Dimension,
-    fill: Option<Color>,
+    #[default] border_radius: Dimension,
+    #[default] fill: Option<Color>,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Leaf {
@@ -41,21 +41,14 @@ pub fn inverse_rect_leaf(
     }
 }
 
-#[widget(
-    border_radius = Default::default(),
-    fill = None,
-    stroke = None,
-    do_clipping = false,
-    constraint = Default::default(),
-    children = None,
-)]
+#[widget]
 pub fn rect(
-    border_radius: Dimension,
-    fill: Option<Color>,
-    stroke: Option<(Color, f32)>,
-    do_clipping: bool,
-    constraint: BoxConstraints,
-    children: Option<Fragment>,
+    #[default] border_radius: Dimension,
+    #[default] fill: Option<Color>,
+    #[default] stroke: Option<(Color, f32)>,
+    #[default] do_clipping: bool,
+    #[default] constraint: BoxConstraints,
+    #[default] children: Option<Fragment>,
     context: &mut WidgetContext,
 ) -> Fragment {
     if !do_clipping {

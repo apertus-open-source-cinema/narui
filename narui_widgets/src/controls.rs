@@ -2,17 +2,12 @@ use crate::*;
 use narui::{re_export::palette::Shade, *};
 use narui_macros::{rsx, widget};
 
-#[widget(
-    on_click = (| _context | {}),
-    border_radius = Paxel(10.),
-    color = theme::BG,
-    stroke_color = theme::FG,
-)]
+#[widget]
 pub fn button(
-    on_click: impl for<'a> Fn(&'a CallbackContext) + Clone + 'static,
-    border_radius: Dimension,
-    color: Color,
-    stroke_color: Color,
+    #[default] on_click: impl for<'a> Fn(&'a CallbackContext) + Clone + 'static,
+    #[default(Paxel(10.))] border_radius: Dimension,
+    #[default(theme::BG)] color: Color,
+    #[default(theme::FG)] stroke_color: Color,
     children: Fragment,
     context: &mut WidgetContext,
 ) -> Fragment {
@@ -48,14 +43,14 @@ pub fn button(
     }
 }
 
-#[widget(min = 0.0, max = 1.0, slide_color = theme::BG_LIGHT, knob_color = theme::FG)]
+#[widget]
 pub fn slider(
     val: f32,
     on_change: impl for<'a> Fn(&'a CallbackContext, f32) + Clone + 'static,
-    min: f32,
-    max: f32,
-    slide_color: Color,
-    knob_color: Color,
+    #[default(0.0)] min: f32,
+    #[default(1.0)] max: f32,
+    #[default(theme::BG_LIGHT)] slide_color: Color,
+    #[default(theme::FG)] knob_color: Color,
     context: &mut WidgetContext,
 ) -> Fragment {
     let widget_key = context.widget_local.idx;

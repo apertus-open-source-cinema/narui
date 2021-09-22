@@ -1,7 +1,7 @@
 use narui::*;
 
-#[widget(initial_value = 1)]
-pub fn counter(initial_value: i32, context: &mut WidgetContext) -> Fragment {
+#[widget]
+pub fn counter(#[default] initial_value: i32, context: &mut WidgetContext) -> Fragment {
     let count = context.listenable(initial_value);
     let value = context.listen(count);
 

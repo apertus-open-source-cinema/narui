@@ -13,13 +13,13 @@ use narui::{
 use std::sync::Arc;
 
 
-#[widget(on_drag = (|_context, _pos| {}), on_start = (|_context, _key| {}), on_end = (|_context, _key| {}), relative = false)]
+#[widget]
 pub fn drag_detector(
-    on_drag: impl Fn(&CallbackContext, Vec2) + Clone + Sync + Send + 'static,
-    on_start: impl Fn(&CallbackContext, Fragment) + Clone + Sync + Send + 'static,
-    on_end: impl Fn(&CallbackContext, Fragment) + Clone + Sync + Send + 'static,
+    #[default] on_drag: impl Fn(&CallbackContext, Vec2) + Clone + Sync + Send + 'static,
+    #[default] on_start: impl Fn(&CallbackContext, Fragment) + Clone + Sync + Send + 'static,
+    #[default] on_end: impl Fn(&CallbackContext, Fragment) + Clone + Sync + Send + 'static,
+    #[default] relative: bool,
     children: Fragment,
-    relative: bool,
     context: &mut WidgetContext,
 ) -> Fragment {
     let click_start_position = context.listenable(Vec2::zero());
@@ -68,10 +68,10 @@ pub fn hr(color: Color, context: &mut WidgetContext) -> Fragment {
     }
 }
 
-#[widget(size = 20.0)]
+#[widget]
 pub fn handle(
     color: Color,
-    size: f32,
+    #[default(20.0)] size: f32,
     graph_root: Fragment,
     parent_node: Fragment,
     on_drag: impl Fn(&CallbackContext, Vec2, Vec2, Color) + Clone + Sync + Send + 'static,

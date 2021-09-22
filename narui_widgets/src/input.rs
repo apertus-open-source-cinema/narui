@@ -3,11 +3,11 @@ use narui::{layout::Maximal, *};
 use narui_macros::{rsx, widget};
 use std::sync::Arc;
 
-#[widget(on_click = (| _context, _clicked | {}), on_hover = (|_context, _hovered| {}), on_move = (|_context, _position| {}))]
+#[widget]
 pub fn input_leaf(
-    on_click: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
-    on_hover: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
-    on_move: impl for<'a> Fn(&'a CallbackContext, Vec2) + Clone + 'static,
+    #[default] on_click: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
+    #[default] on_hover: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
+    #[default] on_move: impl for<'a> Fn(&'a CallbackContext, Vec2) + Clone + 'static,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     FragmentInner::Leaf {
@@ -22,12 +22,12 @@ pub fn input_leaf(
 }
 
 
-#[widget(on_click = (| _context, _clicked | {}), on_hover = (|_context, _hovered| {}), on_move = (|_context, _position| {}))]
+#[widget]
 pub fn input(
     children: Fragment,
-    on_click: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
-    on_hover: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
-    on_move: impl for<'a> Fn(&'a CallbackContext, Vec2) + Clone + 'static,
+    #[default] on_click: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
+    #[default] on_hover: impl for<'a> Fn(&'a CallbackContext, bool) + Clone + 'static,
+    #[default] on_move: impl for<'a> Fn(&'a CallbackContext, Vec2) + Clone + 'static,
     context: &mut WidgetContext,
 ) -> Fragment {
     rsx! {

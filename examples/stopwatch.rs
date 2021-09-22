@@ -10,8 +10,8 @@ enum Message {
     ButtonClick,
 }
 
-#[widget(font_size = 100.)]
-pub fn stopwatch(font_size: f32, context: &mut WidgetContext) -> Fragment {
+#[widget]
+pub fn stopwatch(#[default(100.)] font_size: f32, context: &mut WidgetContext) -> Fragment {
     let time = context.listenable(0.0);
     let button_text = context.listenable("start");
 
