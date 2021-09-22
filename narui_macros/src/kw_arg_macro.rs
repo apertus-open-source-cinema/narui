@@ -32,6 +32,7 @@ impl Parse for MaybeExpr {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct ExprAssignMaybe {
     left: Ident,
@@ -44,6 +45,7 @@ impl Parse for ExprAssignMaybe {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct KwArgCallParse {
     span: Ident,

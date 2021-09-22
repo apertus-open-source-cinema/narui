@@ -218,19 +218,25 @@ fn generate_shout_args_macro_part(
             quote! { #x: #ty }
         })
         .collect();
+    let constrain_types_ident =
+        Ident::new(&format!("__{}_constrain_types", function.sig.ident), function.sig.span());
+    let constrain_types_ident_pub = Ident::new("constrain_types", function.sig.span());
+    not_in_mod.push(quote! {
+        #[allow(clippy::unused_unit)]
+        pub fn #constrain_types_ident(#(#inputs,)*) -> (#(#types,)*) {
+            (#(#constrain_fn_input_idents,)*)
+        }
+    });
+    in_mod.push(quote! { pub use super::#constrain_types_ident as #constrain_types_ident_pub; });
 
     let arg_numbers: Vec<_> = (0..(arg_names.len())).map(Literal::usize_unsuffixed).collect();
     let widget_name = function.sig.ident.to_string();
 
     quote! {
         (@shout_args span=$span:ident, context=$context:expr, idx=$idx:ident, $($args:tt)*) => {{
-            #[allow(clippy::unused_unit)]
-            fn constrain_types(#(#inputs,)*) -> (#(#types,)*) {
-                (#(#constrain_fn_input_idents,)*)
-            }
             #[allow(unused_variables)]
             let args_ordered = #narui_macros::kw_arg_call!($span #widget_name
-                constrain_types{#(#initializers,)*}($($args)*)
+                #mod_ident::#constrain_types_ident_pub{#(#initializers,)*}($($args)*)
             );
             #narui::shout_args!($context, $idx, #(args_ordered.#arg_numbers,)*)
         }};

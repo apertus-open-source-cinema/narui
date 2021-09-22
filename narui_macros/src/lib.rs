@@ -29,10 +29,10 @@ pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let narui = narui_crate();
 
     (quote! {
-        UnevaluatedFragment {
+        #narui::UnevaluatedFragment {
             key: Default::default(),
-            gen: std::rc::Rc::new(|context: &mut WidgetContext| {
-                FragmentInner::Node {
+            gen: std::rc::Rc::new(|context: &mut #narui::WidgetContext| {
+                #narui::FragmentInner::Node {
                     children: #narui::smallvec![ #rsx ],
                     layout: Box::new(#narui::Transparent),
                     is_clipper: false,
