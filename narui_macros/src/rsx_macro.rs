@@ -142,10 +142,12 @@ fn handle_rsx_node(x: Node) -> (TokenStream, TokenStream) {
 }
 fn node_span(node: &Node) -> Span {
     match node.node_type {
-        NodeType::Element => {
-            node.attributes.iter().fold(node.name.span(), |acc, v| acc.join(node_span(v)).unwrap_or_else(|| node.name.span()))
+        NodeType::Element => node.attributes.iter().fold(node.name.span(), |acc, v| {
+            acc.join(node_span(v)).unwrap_or_else(|| node.name.span())
+        }),
+        NodeType::Attribute => {
+            node.name.span().join(node.value.span()).unwrap_or_else(|| node.name.span())
         }
-        NodeType::Attribute => node.name.span().join(node.value.span()).unwrap_or_else(|| node.name.span()),
         NodeType::Text => node.value.span(),
         NodeType::Comment => node.value.span(),
         NodeType::Doctype => node.value.span(),
