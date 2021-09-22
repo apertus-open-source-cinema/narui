@@ -6,6 +6,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use proc_macro_error::proc_macro_error;
 use quote::quote;
+use regex::Regex;
 
 #[proc_macro_error]
 #[proc_macro_attribute]
@@ -27,11 +28,13 @@ pub fn rsx(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 pub fn rsx_toplevel(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let rsx = rsx_macro::rsx(input);
     let narui = narui_crate();
+    let loc = get_span_start_byte(Span::call_site());
 
     (quote! {
         #narui::UnevaluatedFragment {
             key: Default::default(),
             gen: std::rc::Rc::new(|context: &mut #narui::WidgetContext| {
+                let __widget_loc_start = #loc;
                 #narui::FragmentInner::Node {
                     children: #narui::smallvec![ #rsx ],
                     layout: Box::new(#narui::Transparent),
@@ -79,4 +82,17 @@ fn found_crate_to_tokens(x: FoundCrate) -> TokenStream {
             quote!( #ident )
         }
     }
+}
+
+
+fn get_span_start_byte(span: Span) -> usize {
+    let re = Regex::new(r"#\d+ bytes\((\d+)..(\d+)\)").unwrap();
+    let span_str = &format!("{:?}", span);
+    let start = re
+        .captures(span_str)
+        .expect(&format!("span format changed ('{}')", span_str))
+        .get(1)
+        .unwrap()
+        .as_str();
+    start.parse().unwrap()
 }

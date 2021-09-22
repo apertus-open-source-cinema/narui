@@ -175,7 +175,6 @@ pub struct WidgetContext<'a> {
     pub tree: Arc<PatchedTree>,
     pub local_hook: bool,
     pub fragment_store: &'a mut FragmentStore,
-    pub widget_loc: (usize, usize),
     #[derivative(Debug(format_with = "crate::util::format_helpers::print_vec_len"))]
     pub(crate) after_frame_callbacks: &'a mut Vec<AfterFrameCallback>,
     pub key_map: &'a mut KeyMap,
@@ -218,7 +217,6 @@ impl<'a> WidgetContext<'a> {
             after_frame_callbacks,
             fragment_store,
             widget_local: WidgetLocalContext::for_key(Default::default(), top),
-            widget_loc: (0, 0),
             key_map,
             local_hook: true,
         }
@@ -237,7 +235,6 @@ impl<'a> WidgetContext<'a> {
             after_frame_callbacks,
             fragment_store,
             widget_local: WidgetLocalContext::for_key(key, idx),
-            widget_loc: (0, 0),
             key_map,
             local_hook: true,
         }
@@ -248,7 +245,6 @@ impl<'a> WidgetContext<'a> {
             tree: self.tree.clone(),
             local_hook: true,
             fragment_store: self.fragment_store,
-            widget_loc: (0, 0),
             after_frame_callbacks: self.after_frame_callbacks,
             widget_local: WidgetLocalContext::for_key(key, idx),
             key_map: &mut self.key_map,
