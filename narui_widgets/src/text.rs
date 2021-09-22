@@ -49,11 +49,11 @@ impl Layout for TextLayout {
 
 // this text primitive is a bit special, because it emits both a layout box and
 // a primitive
-#[widget(size = 24.0, color = theme::TEXT_WHITE)]
+#[widget]
 pub fn text(
-    size: f32,
+    #[default(24.0)] size: f32,
     children: impl ToString + Clone,
-    color: Color,
+    #[default(theme::TEXT_WHITE)] color: Color,
     context: &mut WidgetContext,
 ) -> FragmentInner {
     let text = Rc::new(children.to_string());

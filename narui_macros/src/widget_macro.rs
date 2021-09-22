@@ -1,39 +1,10 @@
 use crate::{narui_crate, narui_macros};
 use bind_match::bind_match;
-use core::result::Result::Ok;
 use proc_macro2::{Ident, LineColumn, Literal, Span, TokenStream};
 use proc_macro_error::{abort, abort_call_site};
-use quote::{quote, ToTokens};
-use std::collections::HashMap;
-use syn::{
-    parse::{Parse, ParseStream, Parser},
-    punctuated::Punctuated,
-    spanned::Spanned,
-    Expr,
-    FnArg,
-    ItemFn,
-    Pat,
-    Token,
-    Type,
-};
-
-// a helper to parse the parameters to the widget proc macro attribute
-// we cant use the syn AttributeArgs here because it can only handle literals
-// and we want expressions (e.g. for closures)
-#[derive(Debug, Clone)]
-struct AttributeParameter {
-    ident: Ident,
-    expr: Expr,
-}
-impl Parse for AttributeParameter {
-    fn parse(input: ParseStream<'_>) -> syn::parse::Result<Self> {
-        let ident = input.parse::<Ident>()?;
-        input.parse::<Token![=]>()?;
-        let expr = input.parse::<Expr>()?;
-
-        Ok(AttributeParameter { ident, expr })
-    }
-}
+use quote::{quote, quote_spanned, ToTokens};
+use std::{collections::HashMap, mem};
+use syn::{spanned::Spanned, FnArg, ItemFn, Pat, PathArguments, Type, TypeParamBound};
 
 // TODO(anujen): this breaks when it is not imported
 const WIDGET_CONTEXT_TYPE_STRING: &str = "& mut WidgetContext";
@@ -42,6 +13,8 @@ pub fn widget(
     defaults: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
+    assert!(defaults.is_empty(), "supplying default arguments via attribute args is unsupported!");
+
     let function: ItemFn = syn::parse2(item.into()).unwrap();
     let function_ident = function.sig.ident.clone();
     let mod_ident = Ident::new(&format!("{}", function_ident), function_ident.span());
@@ -51,7 +24,7 @@ pub fn widget(
 
     check_function(&function);
     generate_function(&function, &mut not_in_mod, &mut in_mod);
-    generate_constructor_macro(&function, defaults, &mod_ident, &mut not_in_mod, &mut in_mod);
+    generate_constructor_macro(&function, &mod_ident, &mut not_in_mod, &mut in_mod);
     generate_data_constructor_function(&function, &mod_ident, &mut in_mod);
 
     let function_vis = function.vis;
@@ -96,7 +69,6 @@ fn generate_data_constructor_function(
 
 fn generate_constructor_macro(
     function: &ItemFn,
-    defaults: proc_macro::TokenStream,
     mod_ident: &Ident,
     not_in_mod: &mut Vec<TokenStream>,
     in_mod: &mut Vec<TokenStream>,
@@ -104,8 +76,7 @@ fn generate_constructor_macro(
     let narui = narui_crate();
     let arg_names = get_arg_names(function);
 
-    let shout_args =
-        generate_shout_args_macro_part(function, defaults, mod_ident, not_in_mod, in_mod);
+    let shout_args = generate_shout_args_macro_part(function, mod_ident, not_in_mod, in_mod);
     let arg_numbers: Vec<_> = (0..(arg_names.len())).map(Literal::usize_unsuffixed).collect();
     let arg_numbers_plus_one: Vec<_> =
         (0..(arg_names.len())).map(|i| Literal::usize_unsuffixed(i + 1)).collect();
@@ -158,7 +129,6 @@ fn generate_constructor_macro(
 
 fn generate_shout_args_macro_part(
     function: &ItemFn,
-    defaults: proc_macro::TokenStream,
     mod_ident: &Ident,
     not_in_mod: &mut Vec<TokenStream>,
     in_mod: &mut Vec<TokenStream>,
@@ -166,12 +136,35 @@ fn generate_shout_args_macro_part(
     let narui = narui_crate();
     let narui_macros = narui_macros();
 
-    let parser = Punctuated::<AttributeParameter, Token![,]>::parse_terminated;
-    let parsed_defaults: HashMap<_, _> = parser
-        .parse(defaults)
-        .unwrap()
+    let parsed_defaults: HashMap<_, _> = function
+        .sig
+        .inputs
         .iter()
-        .map(|x| (x.ident.to_string(), x.expr.clone()))
+        .filter_map(|input| {
+            let input = bind_match!(input, FnArg::Typed(x) => x).unwrap();
+            let name = input.pat.to_token_stream().to_string();
+
+            let default =
+                input.attrs.iter().find(|x| x.path.to_token_stream().to_string() == "default");
+            if default.is_none() {
+                return None;
+            }
+            let default = default.unwrap();
+            let expr = if default.tokens.is_empty() {
+                if let Some(default_fn) = generate_default_function(&input.ty) {
+                    default_fn
+                } else {
+                    quote_spanned! {input.span()=>
+                        Default::default()
+                    }
+                }
+            } else {
+                let tokens = &default.tokens;
+                quote! { #tokens }
+            };
+
+            Some((name, quote! { #expr }))
+        })
         .collect();
 
     let arg_names: Vec<_> = get_arg_names(function);
@@ -243,6 +236,43 @@ fn generate_shout_args_macro_part(
     }
 }
 
+fn generate_default_function(ty: &Type) -> Option<TokenStream> {
+    fn generate_closure(arg_count: usize, span: Span) -> TokenStream {
+        let args: Vec<_> =
+            (0..arg_count).map(|i| Ident::new(&*format!("arg_{}", i), span)).collect();
+        quote_spanned! {span=>
+            (|#(#args,)*| {})
+        }
+    }
+    match ty {
+        Type::BareFn(bare_fn) => {
+            if !bare_fn.output.to_token_stream().is_empty() {
+                None
+            } else {
+                Some(generate_closure(bare_fn.inputs.len(), bare_fn.span()))
+            }
+        }
+        Type::Paren(paren) => generate_default_function(paren.elem.as_ref()),
+        Type::ImplTrait(impl_trait) => {
+            for bound in impl_trait.bounds.iter() {
+                if let TypeParamBound::Trait(trait_bound) = bound {
+                    for segment in trait_bound.path.segments.iter() {
+                        if let PathArguments::Parenthesized(args) = &segment.arguments {
+                            return if !args.output.to_token_stream().is_empty() {
+                                None
+                            } else {
+                                Some(generate_closure(args.inputs.len(), impl_trait.span()))
+                            };
+                        }
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 fn check_function(function: &ItemFn) {
     let last_arg = arg_ident(
         function
@@ -279,6 +309,19 @@ fn generate_function(
     let original_ident = sig.ident;
     let new_ident = Ident::new(&format!("__{}", original_ident), original_ident.span());
     sig.ident = new_ident.clone();
+    for input in sig.inputs.iter_mut() {
+        match input {
+            FnArg::Receiver(_) => {}
+            FnArg::Typed(t) => {
+                let attrs = mem::take(&mut t.attrs);
+                t.attrs = attrs
+                    .into_iter()
+                    .filter(|attr| attr.path.to_token_stream().to_string() != "default")
+                    .collect()
+            }
+        }
+    }
+
     let stmts = &block.stmts;
     let context_string = get_arg_types(function)
         .iter()
