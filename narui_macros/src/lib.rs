@@ -69,7 +69,7 @@ fn narui_macros() -> TokenStream {
             let found_crate = found_crate_to_tokens(x);
             quote! { #found_crate::_macros }
         })
-        .and_then(|_| {
+        .or_else::<proc_macro_crate::Error, _>(|_| {
             let found_crate = found_crate_to_tokens(crate_name("narui_macros")?);
             Ok(quote! { #found_crate })
         })
@@ -77,7 +77,7 @@ fn narui_macros() -> TokenStream {
 }
 fn found_crate_to_tokens(x: FoundCrate) -> TokenStream {
     match x {
-        FoundCrate::Itself => quote!(crate),
+        FoundCrate::Itself => quote!(narui),
         FoundCrate::Name(name) => {
             let ident = Ident::new(&name, Span::call_site());
             quote!( #ident )

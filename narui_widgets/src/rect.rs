@@ -1,5 +1,5 @@
 use crate::layout::{positioned, sized, stack};
-use narui::{layout::Maximal, *};
+use narui_core::{layout::Maximal, *};
 use narui_macros::{rsx, widget};
 
 

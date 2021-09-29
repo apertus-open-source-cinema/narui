@@ -1,5 +1,5 @@
 use crate::theme;
-use narui::{
+use narui_core::{
     layout::{layout_trait::LayoutableChildren, BoxConstraints, Layout, Size},
     re_export::glyph_brush::{
         ab_glyph::{Font, ScaleFont},

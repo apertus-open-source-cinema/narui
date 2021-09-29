@@ -32,21 +32,19 @@ pub fn draggable_rect(initial_pos: Vec2, context: &mut WidgetContext) -> Fragmen
 #[widget]
 pub fn top(context: &mut WidgetContext) -> Fragment {
     rsx! {
-        <blur sigma=1.>
-            <stack>
-                <backdrop_blur sigma=10.>
-                    <stack>
-                        <positioned><rect fill=Some(Color::new(1.0, 0.0, 0.0, 1.0))/></positioned>
-                        <text size=200.>{"test text"}</text>
-                    </stack>
-                </backdrop_blur>
-                <draggable_rect initial_pos=Vec2::zero() />
-                <draggable_rect initial_pos=Vec2::new(100.0, 0.0) />
-                <draggable_rect initial_pos=Vec2::new(200.0, 0.0) />
-                <draggable_rect initial_pos=Vec2::new(300.0, 0.0) />
-                <draggable_rect initial_pos=Vec2::new(400.0, 0.0) />
-            </stack>
-        </blur>
+        <stack>
+            <backdrop_blur sigma=10.>
+                <stack>
+                    <positioned><rect fill=Some(Color::new(1.0, 0.0, 0.0, 1.0))/></positioned>
+                    <text size=200.>{"test text"}</text>
+                </stack>
+            </backdrop_blur>
+            <draggable_rect initial_pos=Vec2::zero() />
+            <draggable_rect initial_pos=Vec2::new(100.0, 0.0) />
+            <draggable_rect initial_pos=Vec2::new(200.0, 0.0) />
+            <draggable_rect initial_pos=Vec2::new(300.0, 0.0) />
+            <draggable_rect initial_pos=Vec2::new(400.0, 0.0) />
+        </stack>
     }
 }
 

@@ -1,4 +1,4 @@
-use narui::{layout::Transparent, *};
+use narui_core::{layout::Transparent, *};
 use narui_macros::widget;
 
 #[widget]

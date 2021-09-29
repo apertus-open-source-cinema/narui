@@ -19,17 +19,15 @@ pub fn widget(
     let function_ident = function.sig.ident.clone();
     let mod_ident = Ident::new(&format!("{}", function_ident), function_ident.span());
 
-    let mut not_in_mod = Vec::new();
     let mut in_mod = Vec::new();
 
     check_function(&function);
-    generate_function(&function, &mut not_in_mod, &mut in_mod);
-    generate_constructor_macro(&function, &mod_ident, &mut not_in_mod, &mut in_mod);
+    generate_function(&function, &mut in_mod);
+    generate_constructor_macro(&function, &mod_ident, &mut in_mod);
     generate_data_constructor_function(&function, &mod_ident, &mut in_mod);
 
     let function_vis = function.vis;
     let transformed = quote! {
-        #(#not_in_mod)*
         #function_vis mod #mod_ident {
             #(#in_mod)*
         }
@@ -67,27 +65,19 @@ fn generate_data_constructor_function(
     })
 }
 
-fn generate_constructor_macro(
-    function: &ItemFn,
-    mod_ident: &Ident,
-    not_in_mod: &mut Vec<TokenStream>,
-    in_mod: &mut Vec<TokenStream>,
-) {
+fn generate_constructor_macro(function: &ItemFn, mod_ident: &Ident, in_mod: &mut Vec<TokenStream>) {
     let narui = narui_crate();
     let arg_names = get_arg_names(function);
 
-    let shout_args = generate_shout_args_macro_part(function, mod_ident, not_in_mod, in_mod);
+    let shout_args = generate_shout_args_macro_part(function, mod_ident, in_mod);
     let arg_numbers: Vec<_> = (0..(arg_names.len())).map(Literal::usize_unsuffixed).collect();
-    let arg_numbers_plus_one: Vec<_> =
-        (0..(arg_names.len())).map(|i| Literal::usize_unsuffixed(i + 1)).collect();
-
     let function_ident = &function.sig.ident;
 
     let function_call = quote! {{
         #[allow(unused_unsafe)]
         unsafe {
             #mod_ident::#function_ident(
-                #($listenables.#arg_numbers_plus_one.parse(&*args[#arg_numbers]).clone(),)*
+                #($listenables.1.#arg_numbers.parse(&*args[#arg_numbers]).clone(),)*
                 $context
             )
         }
@@ -97,7 +87,7 @@ fn generate_constructor_macro(
     let function_call = if return_type == "FragmentInner" {
         function_call
     } else if return_type == "Fragment" {
-        quote! { #narui::FragmentInner::from_fragment(#function_call) }
+        quote! { #mod_ident::FragmentInner::from_fragment(#function_call) }
     } else {
         abort!(
             function.sig.output.to_token_stream().span(),
@@ -116,10 +106,13 @@ fn generate_constructor_macro(
 
             (@construct listenable=$listenables:ident, context=$context:expr) => {{
                 #[allow(unused)]
-                let args = #narui::listen_args($context, &$listenables.0);
+                let args = #mod_ident::listen_args($context, &$listenables.0);
                 #function_call
             }}
         }
+
+        pub use #narui::listen_args as listen_args;
+        pub use #narui::FragmentInner as FragmentInner;
 
         // we do this to have correct scoping of the macro. It should not just be placed at the
         // crate root but rather at the path of the original function.
@@ -130,7 +123,6 @@ fn generate_constructor_macro(
 fn generate_shout_args_macro_part(
     function: &ItemFn,
     mod_ident: &Ident,
-    not_in_mod: &mut Vec<TokenStream>,
     in_mod: &mut Vec<TokenStream>,
 ) -> TokenStream {
     let narui = narui_crate();
@@ -174,18 +166,13 @@ fn generate_shout_args_macro_part(
     for arg in &arg_names {
         let ty = arg_types.get(&arg.to_string()).unwrap().as_ref();
         if let Some(default) = parsed_defaults.get(&arg.to_string()) {
-            let default_fn_ident =
-                Ident::new(&format!("__{}_{}_default_arg", function.sig.ident, arg), arg.span());
             let default_fn_ident_pub = Ident::new(&format!("{}_default_arg", arg), arg.span());
 
-            not_in_mod.push(quote! {
+            in_mod.push(quote! {
                 #[allow(unused)]
-                pub fn #default_fn_ident() -> #ty {
+                pub fn #default_fn_ident_pub() -> #ty {
                     #default
                 }
-            });
-            in_mod.push(quote! {
-                pub use super::#default_fn_ident as #default_fn_ident_pub;
             });
             initializers.push(quote! {
                 #arg = #mod_ident::#default_fn_ident_pub()
@@ -211,16 +198,18 @@ fn generate_shout_args_macro_part(
             quote! { #x: #ty }
         })
         .collect();
-    let constrain_types_ident =
-        Ident::new(&format!("__{}_constrain_types", function.sig.ident), function.sig.span());
     let constrain_types_ident_pub = Ident::new("constrain_types", function.sig.span());
-    not_in_mod.push(quote! {
+    in_mod.push(quote! {
+        use super::*;
         #[allow(clippy::unused_unit)]
-        pub fn #constrain_types_ident(#(#inputs,)*) -> (#(#types,)*) {
-            (#(#constrain_fn_input_idents,)*)
+        pub fn #constrain_types_ident_pub(#(#inputs,)*) -> ((#(#types,)*), (#(#narui::ArgRef<#types>,)*)) {
+            let arg_refs = (#(#narui::ArgRef::for_value(&#constrain_fn_input_idents),)*);
+            ((#(#constrain_fn_input_idents,)*), arg_refs)
         }
+
+        pub use #narui::shout_args as shout_args;
+        pub use #narui_macros::kw_arg_call as kw_arg_call;
     });
-    in_mod.push(quote! { pub use super::#constrain_types_ident as #constrain_types_ident_pub; });
 
     let arg_numbers: Vec<_> = (0..(arg_names.len())).map(Literal::usize_unsuffixed).collect();
     let widget_name = function.sig.ident.to_string();
@@ -228,10 +217,11 @@ fn generate_shout_args_macro_part(
     quote! {
         (@shout_args span=$span:ident, context=$context:expr, idx=$idx:ident, $($args:tt)*) => {{
             #[allow(unused_variables)]
-            let args_ordered = #narui_macros::kw_arg_call!($span #widget_name
+            let (args_ordered, arg_refs) = #mod_ident::kw_arg_call!($span #widget_name
                 #mod_ident::#constrain_types_ident_pub{#(#initializers,)*}($($args)*)
             );
-            #narui::shout_args!($context, $idx, #(args_ordered.#arg_numbers,)*)
+            #mod_ident::shout_args!($context, $idx, #(args_ordered.#arg_numbers,)*);
+            ($idx, arg_refs)
         }};
     }
 }
@@ -300,15 +290,8 @@ fn check_function(function: &ItemFn) {
     }
 }
 
-fn generate_function(
-    function: &ItemFn,
-    not_in_mod: &mut Vec<TokenStream>,
-    in_mod: &mut Vec<TokenStream>,
-) {
+fn generate_function(function: &ItemFn, in_mod: &mut Vec<TokenStream>) {
     let ItemFn { attrs, vis: _, mut sig, block } = function.clone();
-    let original_ident = sig.ident;
-    let new_ident = Ident::new(&format!("__{}", original_ident), original_ident.span());
-    sig.ident = new_ident.clone();
     for input in sig.inputs.iter_mut() {
         match input {
             FnArg::Receiver(_) => {}
@@ -333,7 +316,7 @@ fn generate_function(
         .to_string();
     let context_ident = Ident::new(&context_string, Span::call_site());
     let loc = get_span_start_byte(function.span());
-    not_in_mod.push(quote! {
+    in_mod.push(quote! {
         #(#attrs)* pub #sig {
             let __widget_loc_start = #loc;
             let to_return = {
@@ -345,7 +328,6 @@ fn generate_function(
             to_return
         }
     });
-    in_mod.push(quote! { pub use super::#new_ident as #original_ident; });
 }
 
 fn get_arg_names(function: &ItemFn) -> Vec<Ident> {

@@ -1,4 +1,4 @@
-use narui::{re_export::palette::rgb::Rgb, Color};
+use narui_core::{re_export::palette::rgb::Rgb, Color};
 use std::marker::PhantomData;
 
 const fn rgb(red: f32, green: f32, blue: f32) -> Color {

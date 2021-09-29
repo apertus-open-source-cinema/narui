@@ -1,5 +1,5 @@
 use crate::*;
-use narui::{re_export::palette::Shade, *};
+use narui_core::{re_export::palette::Shade, *};
 use narui_macros::{rsx, widget};
 
 #[widget]
