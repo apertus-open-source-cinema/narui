@@ -1,5 +1,5 @@
 use crate::{fragment, positioned, stack};
-use narui::{layout::Maximal, *};
+use narui_core::{layout::Maximal, *};
 use narui_macros::{rsx, widget};
 use std::sync::Arc;
 
@@ -20,7 +20,6 @@ pub fn input_leaf(
         },
     }
 }
-
 
 #[widget]
 pub fn input(

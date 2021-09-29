@@ -1,4 +1,4 @@
-use narui::{layout::*, re_export::smallvec::smallvec, *};
+use narui_core::{layout::*, re_export::smallvec::smallvec, *};
 use narui_macros::widget;
 
 #[widget]

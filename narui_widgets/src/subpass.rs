@@ -1,11 +1,10 @@
-use narui::{
+use narui_core::{
     layout::Transparent,
     re_export::smallvec::smallvec,
     CallbackContext,
     ContextEffect,
     ContextMeasure,
     Fragment,
-    FragmentInner,
     Rect,
     SubPassRenderFunction,
     SubPassSetup,

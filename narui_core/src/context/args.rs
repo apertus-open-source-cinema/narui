@@ -20,6 +20,8 @@ impl<T> ArgRef<T> {
     {
         any.downcast_ref().expect("wrong type for argument")
     }
+
+    pub fn for_value(_: &T) -> Self { Default::default() }
 }
 
 pub fn listen_args<'a>(
@@ -33,38 +35,22 @@ pub fn listen_args<'a>(
 /// all args.
 #[macro_export]
 macro_rules! shout_args_ {
-    ($context:expr, $idx:ident, $($values:expr,)*) => {{
-        let mut arg_refs = ($idx,
-            $({
-                let arg_ref = $crate::_macro_api::ArgRef::new();
-                #[allow(unused)]
-                pub fn constrain_type<T>(_arg_ref: $crate::_macro_api::ArgRef<T>, _value: &T) {};
-                constrain_type(arg_ref, &$values);
-                arg_ref
-            }),*
-        );
-
+    ($context:expr, $idx:ident, $($values:expr,)*) => {
         match $context.fragment_store.get_args_mut($idx) {
             None => $context.fragment_store.set_args($idx, $crate::_macro_api::smallvec![$(Box::new($values) as _,)*]),
             Some(old_values) => {
                 let mut idx = 0;
                 let mut any_changed = false;
                 #[allow(unused)]
-                fn constrain_type<T>(_a: &T, _b: &T) {}
+                fn constrain_type<T>(a: &mut T, b: &T) {}
                 $({
                     let old_value = &mut old_values[idx];
-                    let old = (&mut **old_value).downcast_mut().expect(
-                        "old value of arg has wrong type; this is likely an internal narui bug :(",
-                    );
+                    let old = old_value.downcast_mut().expect("wrong type for argument");
                     constrain_type(old, &$values);
-                    let changed = !$crate::_macro_api::all_eq!(&*old, &$values);
-
-                    if changed {
+                    if !$crate::_macro_api::all_eq!(&*old, &$values) {
                         *old = $values;
+                        any_changed = true;
                     }
-
-                    any_changed = any_changed || changed;
-
                     idx += 1;
                 })*
                 if any_changed {
@@ -72,8 +58,6 @@ macro_rules! shout_args_ {
                 }
             }
         };
-
-        arg_refs
-    }};
+    };
 }
 pub use shout_args_ as shout_args;
