@@ -19,7 +19,7 @@ use vulkano::{
     device::{DeviceOwned, Queue},
     pipeline::{
         blend::{AttachmentBlend, BlendFactor, BlendOp},
-        depth_stencil::{Compare, DepthStencil},
+        depth_stencil::{CompareOp, DepthStencil},
         GraphicsPipeline,
         PipelineBindPoint,
     },
@@ -147,7 +147,7 @@ pub fn raw_blur(
                         mask_alpha: true,
                     })
                     .depth_stencil(DepthStencil {
-                        depth_compare: Compare::LessOrEqual,
+                        depth_compare: CompareOp::LessOrEqual,
                         ..DepthStencil::simple_depth_test()
                     })
                     .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
