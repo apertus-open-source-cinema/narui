@@ -13,7 +13,7 @@ use vulkano::{
     image::{view::ImageView, ImmutableImage},
     pipeline::{
         blend::{AttachmentBlend, BlendFactor, BlendOp},
-        depth_stencil::{Compare, DepthStencil},
+        depth_stencil::{CompareOp, DepthStencil},
         vertex::BuffersDefinition,
         viewport::Viewport,
         GraphicsPipeline,
@@ -308,7 +308,7 @@ impl Renderer {
                     mask_alpha: true,
                 })
                 .depth_stencil(DepthStencil {
-                    depth_compare: Compare::LessOrEqual,
+                    depth_compare: CompareOp::LessOrEqual,
                     ..DepthStencil::simple_depth_test()
                 })
                 .render_pass(Subpass::from(render_pass, 0).unwrap())

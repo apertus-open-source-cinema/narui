@@ -19,9 +19,9 @@ lyon = "0.17.5"
 winit = "0.25.0"
 anyhow = "1.0.43"
 lazy_static = "1.4.0"
-vulkano = { git = "https://github.com/vulkano-rs/vulkano" }
-vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano" }
-vulkano-win = { git = "https://github.com/vulkano-rs/vulkano" }
+vulkano = "0.26.0"
+vulkano-shaders = "0.26.0"
+vulkano-win = "0.26.0"
 derivative = "2.2.0"
 glyph_brush = "0.7.2"
 notosans = "0.1.0"

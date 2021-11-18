@@ -355,9 +355,8 @@ impl SubPassStack {
         )
         .unwrap();
 
-        let mut viewport =
-            Viewport { origin: [0.0, 0.0], dimensions: [1.0, 1.0], depth_range: 0.0..1.0 };
-        let mut dimensions = [0, 0];
+        let mut viewport;
+        let mut dimensions;
 
         macro_rules! push_render_pass {
             ($builder:ident, $target:ident, $viewport:ident, $dimensions:ident, $to_clear:ident $(, $secondary:expr)?) => {
