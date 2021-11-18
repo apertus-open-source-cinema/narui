@@ -30,20 +30,20 @@ impl VulkanContext {
             |msg| log::info!("{}: {}", msg.layer_prefix.unwrap_or("unknown"), msg.description),
         ));
 
-        let physical = PhysicalDevice::enumerate(&instance)
-            .next()
+        let (device, queues) = PhysicalDevice::enumerate(&instance)
+            .find_map(|physical| {
+                let queue_family = physical.queue_families().map(|qf| (qf, 0.5)); // All queues have the same priority
+                let device_ext = DeviceExtensions {
+                    khr_swapchain: true,
+                    khr_storage_buffer_storage_class: true,
+                    khr_8bit_storage: true,
+                    khr_shader_non_semantic_info: true,
+                    ..(*physical.required_extensions())
+                };
+                Device::new(physical, physical.supported_features(), &device_ext, queue_family).ok()
+            })
             .ok_or_else(|| anyhow!("No physical device found"))?;
 
-        let queue_family = physical.queue_families().map(|qf| (qf, 0.5)); // All queues have the same priority
-        let device_ext = DeviceExtensions {
-            khr_swapchain: true,
-            khr_storage_buffer_storage_class: true,
-            khr_8bit_storage: true,
-            khr_shader_non_semantic_info: true,
-            ..(*physical.required_extensions())
-        };
-        let (device, queues) =
-            Device::new(physical, physical.supported_features(), &device_ext, queue_family)?;
         Ok(Self { device, queues: queues.collect() })
     }
 }

@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [dependencies]
-freelist = { path = "../freelist" }
+freelist = { path = "../freelist", version = "0.1.0" }
 
 derivative = "2.2.0"
-log = "*"
+log = "0.4.14"

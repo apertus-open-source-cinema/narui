@@ -163,7 +163,7 @@ pub struct PrimitiveData {
 pub struct RenderData {
     pub(crate) vertices: Vec<Vertex>,
     pub(crate) indices: Vec<u32>,
-    primitive_data: Vec<<PrimitiveData as AsStd430>::Std430Type>,
+    primitive_data: Vec<<PrimitiveData as AsStd430>::Output>,
 }
 
 impl RenderData {

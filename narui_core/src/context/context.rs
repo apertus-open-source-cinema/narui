@@ -51,6 +51,7 @@ impl MaybeEvaluatedFragment {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn assert_unevaluated(&self) -> &UnevaluatedFragment {
         match self {
             MaybeEvaluatedFragment::Unevaluated(frag) => frag,

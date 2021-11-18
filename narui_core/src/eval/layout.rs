@@ -71,8 +71,6 @@ impl Deref for LayoutWithData {
 #[derivative(Default(new = "true"))]
 pub struct Layouter {
     layouter: rutter_layout::layouter::Layouter<LayoutWithData>,
-    #[derivative(Default(value = "RenderObject::DebugRect"))]
-    debug_render_object: RenderObject,
 }
 
 impl Layouter {
