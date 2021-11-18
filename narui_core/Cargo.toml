@@ -1,7 +1,10 @@
 [package]
 name = "narui_core"
+description = "unwrapped core crate of the narui gui framework"
 version = "0.1.0"
-authors = ["Jaro Habiger <jarohabiger@googlemail.com>"]
+authors = ["Jaro Habiger <jarohabiger@googlemail.com>", "Robin Ole Heinemann <robin.ole.heinemann@gmail.com>"]
+repository = "https://github.com/apertus-open-source-cinema/narui/"
+license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [lib]
