@@ -15,8 +15,8 @@ default = []
 debug_bounds = []
 
 [dependencies]
-rutter_layout = { path = "../rutter_layout" }
-freelist = { path = "../freelist" }
+rutter_layout = { path = "../rutter_layout", version = "0.1.0" }
+freelist = { path = "../freelist", version = "0.1.0" }
 
 lyon = "0.17.10"
 winit = "0.25.0"

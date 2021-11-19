@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [dependencies]
-narui_core = { path = "../narui_core" }
-narui_macros = { path = "../narui_macros" }
+narui_core = { path = "../narui_core", version ="^0.1.0"}
+narui_macros = { path = "../narui_macros", version ="^0.1.0"}
 vulkano = "0.26.0"
 vulkano-shaders = "0.26.0"
