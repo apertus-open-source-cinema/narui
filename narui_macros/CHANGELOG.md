@@ -10,7 +10,7 @@ Initial release!
 
 <csr-read-only-do-not-edit/>
 
- - 54 commits contributed to the release over the course of 139 calendar days.
+ - 55 commits contributed to the release over the course of 139 calendar days.
  - 2 commits where understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' where seen in commit messages
 
@@ -21,6 +21,7 @@ Initial release!
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release freelist v0.1.0, rutter_layout v0.1.0, narui_core v0.1.0, narui_macros v0.1.0, narui_widgets v0.1.0, narui v0.1.0 ([`5b90685`](https://github.comgit//apertus-open-source-cinema/narui/commit/5b9068543940621cf046f0dbd8d84cad0b9bfa3d))
     - Release freelist v0.1.0, rutter_layout v0.1.0, narui_core v0.1.0, narui_macros v0.1.0, narui_widgets v0.1.0, narui v0.1.0 ([`974b403`](https://github.comgit//apertus-open-source-cinema/narui/commit/974b40366ec6bcd43a6c32883f117b7ca45753d8))
     - Release freelist v0.1.0, rutter_layout v0.1.0, narui_core v0.1.0, narui_macros v0.1.0, narui_widgets v0.1.0, narui v0.1.0 ([`86eb164`](https://github.comgit//apertus-open-source-cinema/narui/commit/86eb1640fe543d25e0e8842181aac6e9b392fe63))
     - use best device for our requirements ([`deb6ae7`](https://github.comgit//apertus-open-source-cinema/narui/commit/deb6ae780b4a97258f4dc521d7280b7baff33090))
