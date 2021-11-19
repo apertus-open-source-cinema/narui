@@ -10,7 +10,7 @@ Initial release!
 
 <csr-read-only-do-not-edit/>
 
- - 21 commits contributed to the release over the course of 83 calendar days.
+ - 22 commits contributed to the release over the course of 83 calendar days.
  - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' where seen in commit messages
 
@@ -21,6 +21,7 @@ Initial release!
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release freelist v0.1.0, rutter_layout v0.1.0, narui_core v0.1.0, narui_macros v0.1.0, narui_widgets v0.1.0, narui v0.1.0 ([`86eb164`](https://github.comgit//apertus-open-source-cinema/narui/commit/86eb1640fe543d25e0e8842181aac6e9b392fe63))
     - use best device for our requirements ([`deb6ae7`](https://github.comgit//apertus-open-source-cinema/narui/commit/deb6ae780b4a97258f4dc521d7280b7baff33090))
     - add metadata to Cargo.toml files ([`23cb406`](https://github.comgit//apertus-open-source-cinema/narui/commit/23cb406809d31613caa3457eaa983e81b349eab6))
     - Implement subpasses ([`a60d2d6`](https://github.comgit//apertus-open-source-cinema/narui/commit/a60d2d66b18ce49a05ec3e6491592f04de2e6e39))
