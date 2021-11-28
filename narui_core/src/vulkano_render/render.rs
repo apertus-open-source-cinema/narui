@@ -21,7 +21,6 @@ use crate::{
     },
 };
 use std::{
-    collections::VecDeque,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -132,7 +131,6 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
     );
 
     let mut recreate_swapchain = false;
-    let mut acquired_images = VecDeque::with_capacity(caps.min_image_count as usize);
     let mut has_update = true;
     let mut input_render_objects: Vec<(Idx, Option<Rect>)> = Vec::new();
 
@@ -144,6 +142,7 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
             }
             Event::WindowEvent { event: WindowEvent::Resized(_), .. } => {
                 recreate_swapchain = true;
+                surface.window().request_redraw();
             }
             Event::WindowEvent { event, .. } => {
                 input_handler.enqueue_input(event);
@@ -157,15 +156,49 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                     evaluator.callback_context(&layouter),
                 );
                 has_update |= evaluator.update(&mut layouter);
-                if has_update && (acquired_images.len() >= (caps.min_image_count) as usize - 1) {
+                if has_update {
                     surface.window().request_redraw();
                 }
             }
             Event::RedrawRequested(_) => {
-                has_update = false;
-                let (image_num, acquire_future) = acquired_images.pop_front().unwrap();
-
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+                if recreate_swapchain {
+                    dimensions = surface.window().inner_size().into();
+                    let (new_swapchain, new_images) =
+                        match swapchain.recreate().dimensions(dimensions).build() {
+                            Ok(r) => r,
+                            Err(SwapchainCreationError::UnsupportedDimensions) => {
+                                return;
+                            }
+                            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                        };
+
+                    swapchain = new_swapchain;
+                    framebuffers = window_size_dependent_setup(&new_images, render_pass.clone());
+                    recreate_swapchain = false;
+                }
+
+                let (image_num, acquire_fut) = match swapchain::acquire_next_image(
+                    swapchain.clone(),
+                    Some(Duration::from_millis(0)),
+                ) {
+                    Ok((image_num, suboptimal, acquire_future)) => {
+                        if suboptimal {
+                            println!("swapchain suboptimal, need to recreate it");
+                            recreate_swapchain = true;
+                        }
+                        (image_num, acquire_future)
+                    }
+                    Err(AcquireError::OutOfDate) => {
+                        println!("swapchain suboptimal, need to recreate it");
+                        recreate_swapchain = true;
+                        return;
+                    }
+                    Err(e) => panic!("Failed to acquire next image: {:?}", e),
+                };
+
+                has_update = false;
 
                 let (framebuffer, intermediary_image, depth_image): &(
                     AbstractFramebuffer,
@@ -245,7 +278,7 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                     .join(index_fut)
                     .join(vertex_fut)
                     .join(primitive_fut)
-                    .join(acquire_future)
+                    .join(acquire_fut)
                     .then_execute(queue.clone(), command_buffer)
                     .unwrap()
                     .then_swapchain_present(queue.clone(), swapchain.clone(), image_num)
@@ -271,38 +304,6 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
             }
             _e => {}
         }
-
-        if recreate_swapchain {
-            dimensions = surface.window().inner_size().into();
-            let (new_swapchain, new_images) =
-                match swapchain.recreate().dimensions(dimensions).build() {
-                    Ok(r) => r,
-                    Err(SwapchainCreationError::UnsupportedDimensions) => return,
-                    Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-                };
-
-            swapchain = new_swapchain;
-            framebuffers = window_size_dependent_setup(&new_images, render_pass.clone());
-            recreate_swapchain = false;
-            acquired_images.clear();
-        }
-
-
-        // here we fill our FIFO of surfaces we can draw to - as eagerly as we can
-        match swapchain::acquire_next_image(swapchain.clone(), Some(Duration::from_millis(0))) {
-            Ok((image_num, suboptimal, acquire_future)) => {
-                if suboptimal {
-                    recreate_swapchain = true;
-                    return;
-                }
-                acquired_images.push_back((image_num, acquire_future));
-            }
-            Err(AcquireError::OutOfDate) => {
-                recreate_swapchain = true;
-            }
-            Err(AcquireError::Timeout) => {}
-            Err(e) => panic!("Failed to acquire next image: {:?}", e),
-        };
     });
 }
 
