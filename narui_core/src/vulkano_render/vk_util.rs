@@ -37,7 +37,8 @@ impl VulkanContext {
                     khr_swapchain: true,
                     khr_storage_buffer_storage_class: true,
                     khr_8bit_storage: true,
-                    khr_shader_non_semantic_info: true,
+                    // Comment in if you need shader printf
+                    // khr_shader_non_semantic_info: true,
                     ..(*physical.required_extensions())
                 };
                 Device::new(physical, physical.supported_features(), &device_ext, queue_family).ok()
