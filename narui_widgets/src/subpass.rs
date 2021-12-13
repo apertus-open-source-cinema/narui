@@ -18,10 +18,23 @@ use vulkano::{
     descriptor_set::PersistentDescriptorSet,
     device::{DeviceOwned, Queue},
     pipeline::{
-        blend::{AttachmentBlend, BlendFactor, BlendOp},
-        depth_stencil::{CompareOp, DepthStencil},
+        graphics::{
+            color_blend::{
+                AttachmentBlend,
+                BlendFactor,
+                BlendOp,
+                ColorBlendAttachmentState,
+                ColorBlendState,
+                ColorComponents,
+            },
+            depth_stencil::{CompareOp, DepthState, DepthStencilState},
+            input_assembly::{InputAssemblyState, PrimitiveTopology},
+            viewport::ViewportState,
+        },
         GraphicsPipeline,
+        Pipeline,
         PipelineBindPoint,
+        StateMode,
     },
     render_pass::Subpass,
     sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
@@ -125,35 +138,41 @@ pub fn raw_blur(
     let pipeline_and_sampler = context.effect(
         |context| {
             let render_pass = context.vulkan_context.render_pass.clone();
-            let vs = vertex_shader::Shader::load(render_pass.device().clone()).unwrap();
-            let fs = fragment_shader::Shader::load(render_pass.device().clone()).unwrap();
-            let pipeline = Arc::new(
-                GraphicsPipeline::start()
-                    .vertex_shader(vs.main_entry_point(), ())
-                    .triangle_strip()
-                    .viewports_dynamic_scissors_irrelevant(1)
-                    .fragment_shader(fs.main_entry_point(), ())
-                    .blend_collective(AttachmentBlend {
-                        enabled: true,
-                        color_op: BlendOp::Add,
-                        color_source: BlendFactor::SrcAlpha,
-                        color_destination: BlendFactor::OneMinusSrcAlpha,
-                        alpha_op: BlendOp::Max,
-                        alpha_source: BlendFactor::One,
-                        alpha_destination: BlendFactor::One,
-                        mask_red: true,
-                        mask_green: true,
-                        mask_blue: true,
-                        mask_alpha: true,
-                    })
-                    .depth_stencil(DepthStencil {
-                        depth_compare: CompareOp::LessOrEqual,
-                        ..DepthStencil::simple_depth_test()
-                    })
-                    .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                    .build(render_pass.device().clone())
-                    .unwrap(),
-            );
+            let vs = vertex_shader::load(render_pass.device().clone()).unwrap();
+            let fs = fragment_shader::load(render_pass.device().clone()).unwrap();
+            let pipeline = GraphicsPipeline::start()
+                .vertex_shader(vs.entry_point("main").unwrap(), ())
+                .input_assembly_state(
+                    InputAssemblyState::new().topology(PrimitiveTopology::TriangleStrip),
+                )
+                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+                .fragment_shader(fs.entry_point("main").unwrap(), ())
+                .color_blend_state(ColorBlendState {
+                    logic_op: None,
+                    attachments: vec![ColorBlendAttachmentState {
+                        blend: Some(AttachmentBlend {
+                            color_op: BlendOp::Add,
+                            color_source: BlendFactor::SrcAlpha,
+                            color_destination: BlendFactor::OneMinusSrcAlpha,
+                            alpha_op: BlendOp::Max,
+                            alpha_source: BlendFactor::One,
+                            alpha_destination: BlendFactor::One,
+                        }),
+                        color_write_mask: ColorComponents::all(),
+                        color_write_enable: StateMode::Fixed(true),
+                    }],
+                    blend_constants: StateMode::Fixed([1.0, 1.0, 1.0, 1.0]),
+                })
+                .depth_stencil_state(DepthStencilState {
+                    depth: Some(DepthState {
+                        compare_op: StateMode::Fixed(CompareOp::LessOrEqual),
+                        ..Default::default()
+                    }),
+                    ..DepthStencilState::simple_depth_test()
+                })
+                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+                .build(render_pass.device().clone())
+                .unwrap();
 
             let sampler = Sampler::new(
                 render_pass.device().clone(),
@@ -213,7 +232,7 @@ pub fn raw_blur(
                     .unwrap()
                     .add_sampled_image(color, sampler.clone())
                     .unwrap();
-                let descriptor_set = Arc::new(set_builder.build().unwrap());
+                let descriptor_set = set_builder.build().unwrap();
 
                 let coeff_a = 1.0 / ((2.0f32 * 3.151_592_3).sqrt() * sigma);
                 let coeff_b = (-0.5 / (sigma * sigma)).exp();

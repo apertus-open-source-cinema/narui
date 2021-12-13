@@ -28,8 +28,8 @@ use vulkano::{
         ImageViewAbstract,
         SampleCount::Sample2,
     },
-    pipeline::viewport::Viewport,
-    render_pass::{Framebuffer, FramebufferAbstract, RenderPass},
+    pipeline::graphics::viewport::Viewport,
+    render_pass::{Framebuffer, RenderPass},
 };
 
 // render function, color, depth, absolute layout rect, z_index
@@ -97,7 +97,7 @@ pub enum SubPassRenderCommand {
 }
 
 pub type AbstractImageView = Arc<dyn ImageViewAbstract + Send + Sync>;
-pub type AbstractFramebuffer = Arc<dyn FramebufferAbstract + Send + Sync>;
+pub type AbstractFramebuffer = Arc<Framebuffer>;
 pub type AbstractImage = Arc<dyn ImageAccess + Send + Sync>;
 
 pub struct SubPassStack {
@@ -136,7 +136,7 @@ pub fn create_framebuffer<I: ImageAccess + Send + Sync + 'static>(
     size: [u32; 2],
     render_pass: Arc<RenderPass>,
     format: Format,
-    target_image: Option<I>,
+    target_image: Option<Arc<I>>,
 ) -> (AbstractFramebuffer, AbstractImageView, AbstractImageView, AbstractImage, AbstractImage) {
     let intermediary_image = AttachmentImage::multisampled_with_usage(
         render_pass.device().clone(),
@@ -184,17 +184,15 @@ pub fn create_framebuffer<I: ImageAccess + Send + Sync + 'static>(
     let depth = ImageView::new(depth_image.clone()).unwrap();
 
     (
-        Arc::new(
-            Framebuffer::start(render_pass)
-                .add(intermediary)
-                .unwrap()
-                .add(depth.clone())
-                .unwrap()
-                .add(target.clone())
-                .unwrap()
-                .build()
-                .unwrap(),
-        ) as AbstractFramebuffer,
+        Framebuffer::start(render_pass)
+            .add(intermediary)
+            .unwrap()
+            .add(depth.clone())
+            .unwrap()
+            .add(target.clone())
+            .unwrap()
+            .build()
+            .unwrap() as AbstractFramebuffer,
         depth,
         target,
         intermediary_image,
@@ -333,8 +331,8 @@ impl SubPassStack {
         &mut self,
         callback_context: &CallbackContext,
         primitive_renderer: F,
-        vertex_buffer: impl BufferAccess + Clone + 'static,
-        index_buffer: impl BufferAccess + TypedBufferAccess<Content = [u32]> + Clone + 'static,
+        vertex_buffer: Arc<impl BufferAccess + 'static>,
+        index_buffer: Arc<impl BufferAccess + TypedBufferAccess<Content = [u32]> + 'static>,
     ) -> PrimaryAutoCommandBuffer
     where
         F: Fn(

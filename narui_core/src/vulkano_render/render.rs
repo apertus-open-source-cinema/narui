@@ -81,36 +81,34 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
             .expect("cant create swapchain")
     };
 
-    let render_pass = Arc::new(
-        vulkano::single_pass_renderpass!(device.clone(),
-            attachments: {
-                intermediary: {
-                    load: Load,
-                    store: Store,
-                    format: swapchain.format(),
-                    samples: 2,
-                },
-                depth: {
-                    load: Load,
-                    store: Store,
-                    format: Format::D16_UNORM,
-                    samples: 2,
-                },
-                color: {
-                    load: DontCare,
-                    store: Store,
-                    format: swapchain.format(),
-                    samples: 1,
-                }
+    let render_pass = vulkano::single_pass_renderpass!(device.clone(),
+        attachments: {
+            intermediary: {
+                load: Load,
+                store: Store,
+                format: swapchain.format(),
+                samples: 2,
             },
-            pass: {
-                color: [intermediary],
-                depth_stencil: {depth},
-                resolve: [color],
+            depth: {
+                load: Load,
+                store: Store,
+                format: Format::D16_UNORM,
+                samples: 2,
+            },
+            color: {
+                load: DontCare,
+                store: Store,
+                format: swapchain.format(),
+                samples: 1,
             }
-        )
-        .unwrap(),
-    );
+        },
+        pass: {
+            color: [intermediary],
+            depth_stencil: {depth},
+            resolve: [color],
+        }
+    )
+    .unwrap();
 
     let mut framebuffers = window_size_dependent_setup(&images, render_pass.clone());
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());

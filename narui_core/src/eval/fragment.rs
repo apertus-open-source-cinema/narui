@@ -14,7 +14,7 @@ use smallvec::{smallvec, SmallVec};
 use std::{rc::Rc, sync::Arc};
 use vulkano::{
     command_buffer::SecondaryAutoCommandBuffer,
-    pipeline::viewport::Viewport,
+    pipeline::graphics::viewport::Viewport,
     render_pass::RenderPass,
 };
 
