@@ -10,8 +10,8 @@ minor fixes for better compatibility
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
- - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 1 commit contributed to the release.
+ - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' where seen in commit messages
 
 ### Commit Details
@@ -21,9 +21,7 @@ minor fixes for better compatibility
 <details><summary>view details</summary>
 
  * **Uncategorized**
-    - Release narui_core v0.1.1, narui_widgets v0.1.1 ([`d0eb5a7`](https://github.comgit//apertus-open-source-cinema/narui/commit/d0eb5a7b0448750c848ae6e382048fb60c1790f6))
-    - Adjusting changelogs prior to release of narui_core v0.1.1, narui_widgets v0.1.1 ([`7e51058`](https://github.comgit//apertus-open-source-cinema/narui/commit/7e51058be8960873da3d46b53d7ed99d5840d438))
-    - upgrade vulcano-rs to 0.27.0 ([`a4ec9f9`](https://github.comgit//apertus-open-source-cinema/narui/commit/a4ec9f992b405a6b832045f581e06d9b41f80c71))
+    - use TriangleList again ([`e9147ed`](https://github.comgit//apertus-open-source-cinema/narui/commit/e9147edccd11b53baae8bbe5173d04f21f4c545a))
 </details>
 
 ## 0.1.0 (2021-11-19)
