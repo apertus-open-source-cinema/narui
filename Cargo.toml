@@ -1,6 +1,6 @@
 [package]
 name = "narui"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jaro Habiger <jarohabiger@googlemail.com>", "Robin Ole Heinemann <robin.ole.heinemann@gmail.com>"]
 description = "A react-inspired UI library for building multimedia desktop apps with rust and vulkan."
 repository = "https://github.com/apertus-open-source-cinema/narui/"

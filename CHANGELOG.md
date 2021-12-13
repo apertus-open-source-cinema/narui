@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## 0.1.1 (2021-12-13)
+
+minor fixes for better compatibility
+
 ## 0.1.0 (2021-11-19)
 
 Initial release!

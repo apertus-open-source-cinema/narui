@@ -2,13 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.1.2 (2021-12-13)
+## Unreleased
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' where seen in commit messages
 
@@ -19,9 +19,12 @@ All notable changes to this project will be documented in this file.
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release narui_core v0.1.2, narui_widgets v0.1.2 ([`99efe3f`](https://github.comgit//apertus-open-source-cinema/narui/commit/99efe3f870757352aedb01f38cbd4d02eaa5ca52))
     - Release narui_core v0.1.1, narui_widgets v0.1.1 ([`5fe495b`](https://github.comgit//apertus-open-source-cinema/narui/commit/5fe495ba8510e689da4d21f631d390abfa111a8d))
     - use TriangleList again ([`e9147ed`](https://github.comgit//apertus-open-source-cinema/narui/commit/e9147edccd11b53baae8bbe5173d04f21f4c545a))
 </details>
+
+## 0.1.2 (2021-12-13)
 
 ## 0.1.1 (2021-12-13)
 
