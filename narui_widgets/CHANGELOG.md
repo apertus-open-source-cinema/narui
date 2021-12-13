@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.1 (2021-12-13)
+
+minor fixes for better compatibility
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' where seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - upgrade vulcano-rs to 0.27.0 ([`a4ec9f9`](https://github.comgit//apertus-open-source-cinema/narui/commit/a4ec9f992b405a6b832045f581e06d9b41f80c71))
+</details>
+
 ## 0.1.0 (2021-11-19)
 
 Initial release!
@@ -10,7 +32,7 @@ Initial release!
 
 <csr-read-only-do-not-edit/>
 
- - 30 commits contributed to the release over the course of 83 calendar days.
+ - 31 commits contributed to the release over the course of 83 calendar days.
  - 1 commit where understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' where seen in commit messages
 
@@ -21,6 +43,7 @@ Initial release!
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release narui_core v0.1.0, narui_macros v0.1.0, narui_widgets v0.1.0, narui v0.1.0 ([`ded0884`](https://github.comgit//apertus-open-source-cinema/narui/commit/ded08846593b06955d2413823f439a7436189eae))
     - Release rutter_layout v0.1.0, narui_core v0.1.0, narui_macros v0.1.0, narui_widgets v0.1.0, narui v0.1.0 ([`dc18edd`](https://github.comgit//apertus-open-source-cinema/narui/commit/dc18edd7b636abfd9815716d9a3b0d297f2179e9))
     - Release freelist v0.1.0, rutter_layout v0.1.0, narui_core v0.1.0, narui_macros v0.1.0, narui_widgets v0.1.0, narui v0.1.0 ([`5b90685`](https://github.comgit//apertus-open-source-cinema/narui/commit/5b9068543940621cf046f0dbd8d84cad0b9bfa3d))
     - Release freelist v0.1.0, rutter_layout v0.1.0, narui_core v0.1.0, narui_macros v0.1.0, narui_widgets v0.1.0, narui v0.1.0 ([`974b403`](https://github.comgit//apertus-open-source-cinema/narui/commit/974b40366ec6bcd43a6c32883f117b7ca45753d8))

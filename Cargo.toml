@@ -14,10 +14,10 @@ edition = "2018"
 name = "narui"
 
 [dependencies]
-narui_core = { path = "narui_core", version ="^0.1.0"}
+narui_core = { path = "narui_core", version ="^0.1.1"}
 narui_macros = { path = "narui_macros", version ="^0.1.0"}
 rutter_layout = { path = "rutter_layout", version ="^0.1.0"}
-narui_widgets = { path = "narui_widgets", version ="^0.1.0"}
+narui_widgets = { path = "narui_widgets", version ="^0.1.1"}
 
 [dev-dependencies]
 log = "0.4.14"
