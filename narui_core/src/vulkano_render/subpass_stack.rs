@@ -26,7 +26,7 @@ use vulkano::{
         ImageAccess,
         ImageUsage,
         ImageViewAbstract,
-        SampleCount::Sample2,
+        SampleCount,
     },
     pipeline::graphics::viewport::Viewport,
     render_pass::{Framebuffer, RenderPass},
@@ -141,7 +141,7 @@ pub fn create_framebuffer<I: ImageAccess + Send + Sync + 'static>(
     let intermediary_image = AttachmentImage::multisampled_with_usage(
         render_pass.device().clone(),
         size,
-        Sample2,
+        SampleCount::Sample4,
         format,
         ImageUsage { color_attachment: true, transfer_destination: true, ..ImageUsage::none() },
     )
@@ -170,7 +170,7 @@ pub fn create_framebuffer<I: ImageAccess + Send + Sync + 'static>(
     let depth_image = AttachmentImage::multisampled_with_usage(
         render_pass.device().clone(),
         size,
-        Sample2,
+        SampleCount::Sample4,
         Format::D16_UNORM,
         ImageUsage {
             depth_stencil_attachment: true,

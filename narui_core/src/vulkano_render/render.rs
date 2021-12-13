@@ -87,13 +87,13 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 load: Load,
                 store: Store,
                 format: swapchain.format(),
-                samples: 2,
+                samples: 4,
             },
             depth: {
                 load: Load,
                 store: Store,
                 format: Format::D16_UNORM,
-                samples: 2,
+                samples: 4,
             },
             color: {
                 load: DontCare,
