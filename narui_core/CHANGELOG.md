@@ -10,7 +10,7 @@ minor fixes for better compatibility
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release over the course of 14 calendar days.
+ - 4 commits contributed to the release over the course of 14 calendar days.
  - 0 commits where understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' where seen in commit messages
 
@@ -21,6 +21,7 @@ minor fixes for better compatibility
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Adjusting changelogs prior to release of narui_core v0.1.1, narui_widgets v0.1.1 ([`7e51058`](https://github.comgit//apertus-open-source-cinema/narui/commit/7e51058be8960873da3d46b53d7ed99d5840d438))
     - switch to 4 sample anti-aliasing ([`cdcc471`](https://github.comgit//apertus-open-source-cinema/narui/commit/cdcc471f2c0952dbe5bce789bfae72f1bf3897a6))
     - upgrade vulcano-rs to 0.27.0 ([`a4ec9f9`](https://github.comgit//apertus-open-source-cinema/narui/commit/a4ec9f992b405a6b832045f581e06d9b41f80c71))
     - do not eagerly acquire new swapchain images ([`6b78d9b`](https://github.comgit//apertus-open-source-cinema/narui/commit/6b78d9b28b59cd563fe6d2b351ddeff47c23359c))
