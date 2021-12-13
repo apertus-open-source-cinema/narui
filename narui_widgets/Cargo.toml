@@ -1,14 +1,14 @@
 [package]
 name = "narui_widgets"
 description = "core widgets for the narui gui framework"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jaro Habiger <jarohabiger@googlemail.com>", "Robin Ole Heinemann <robin.ole.heinemann@gmail.com>"]
 repository = "https://github.com/apertus-open-source-cinema/narui/"
 license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [dependencies]
-narui_core = { path = "../narui_core", version ="^0.1.1"}
+narui_core = { path = "../narui_core", version ="^0.1.2"}
 narui_macros = { path = "../narui_macros", version ="^0.1.0"}
 vulkano = "0.27.0"
 vulkano-shaders = "0.27.0"

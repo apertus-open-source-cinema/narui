@@ -900,7 +900,7 @@ dependencies = [
 
 [[package]]
 name = "narui_core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ahash",
  "anyhow",
@@ -944,7 +944,7 @@ dependencies = [
 
 [[package]]
 name = "narui_widgets"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "narui_core",
  "narui_macros",
