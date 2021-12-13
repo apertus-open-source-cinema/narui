@@ -303,7 +303,7 @@ impl Renderer {
             .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
             .vertex_shader(vs.entry_point("main").unwrap(), ())
             .input_assembly_state(
-                InputAssemblyState::new().topology(PrimitiveTopology::TriangleStrip),
+                InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
             )
             .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
             .fragment_shader(fs.entry_point("main").unwrap(), ())
