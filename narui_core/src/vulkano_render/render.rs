@@ -193,6 +193,9 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                         recreate_swapchain = true;
                         return;
                     }
+                    Err(AcquireError::Timeout) => {
+                        return;
+                    }
                     Err(e) => panic!("Failed to acquire next image: {:?}", e),
                 };
 
