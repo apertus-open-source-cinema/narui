@@ -2,7 +2,12 @@ use anyhow::{anyhow, Result};
 
 use std::sync::Arc;
 use vulkano::{
-    device::{physical::PhysicalDevice, Device, DeviceExtensions, Queue},
+    device::{
+        physical::{PhysicalDevice, PhysicalDeviceType},
+        Device,
+        DeviceExtensions,
+        Queue,
+    },
     instance::{debug::*, Instance, InstanceExtensions},
     Version,
 };
@@ -30,7 +35,16 @@ impl VulkanContext {
             |msg| log::info!("{}: {}", msg.layer_prefix.unwrap_or("unknown"), msg.description),
         ));
 
-        let (device, queues) = PhysicalDevice::enumerate(&instance)
+        let mut devices_vec: Vec<_> = PhysicalDevice::enumerate(&instance).collect();
+        devices_vec.sort_unstable_by_key(|dev| {
+            if dev.properties().device_type == PhysicalDeviceType::Cpu {
+                1
+            } else {
+                0
+            }
+        });
+        let (device, queues) = devices_vec
+            .into_iter()
             .find_map(|physical| {
                 let queue_family = physical.queue_families().map(|qf| (qf, 0.5)); // All queues have the same priority
                 let device_ext = DeviceExtensions {
