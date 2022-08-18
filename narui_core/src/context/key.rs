@@ -48,6 +48,7 @@ pub struct KeyMap {
     keys: Vec<KeyMapEntry>,
 }
 
+#[cfg(target_arch = "x86_64")]
 fn find_avx2(data: &[i32], needle: i32) -> Option<usize> {
     use std::arch::x86_64::*;
     let trunc = (data.len() / 8) * 8;
@@ -93,7 +94,7 @@ impl KeyMap {
 
                     #[cfg(not(target_arch = "x86_64"))]
                     {
-                        entry.children_tails.iter().find(|v| *v == tail_packed)
+                        entry.children_tails.iter().position(|v| *v == tail_packed)
                     }
                 }
             };
