@@ -10,5 +10,5 @@ edition = "2018"
 [dependencies]
 narui_core = { path = "../narui_core", version ="^0.1.2"}
 narui_macros = { path = "../narui_macros", version ="^0.1.0"}
-vulkano = "0.27.0"
-vulkano-shaders = "0.27.0"
+vulkano = "0.30.0"
+vulkano-shaders = "0.30.0"

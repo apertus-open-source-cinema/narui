@@ -91,7 +91,7 @@ fn get_span_start_byte(span: Span) -> usize {
     let span_str = &format!("{:?}", span);
     let start = re
         .captures(span_str)
-        .expect(&format!("span format changed ('{}')", span_str))
+        .unwrap_or_else(|| panic!("span format changed ('{}')", span_str))
         .get(1)
         .unwrap()
         .as_str();

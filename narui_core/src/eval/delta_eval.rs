@@ -58,7 +58,7 @@ impl EvaluatorInner {
         let mut to_update: HashSet<Fragment, ahash::RandomState> = HashSet::default();
 
         let touched_keys = self.tree.update_tree(key_map);
-        for key in touched_keys.into_iter() {
+        for key in touched_keys {
             // println!("touched key ({:?}, {})", key_map.key_debug(key.0), key.1);
             for frag in self.tree.dependents(key) {
                 to_update.insert(frag);

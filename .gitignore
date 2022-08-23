@@ -11,3 +11,4 @@ narui_core/src/vulkano_render/blur.rs
 *.cap
 blur.sh
 .cargo
+*.swp

@@ -1,7 +1,7 @@
 use crate::{
     eval::layout::{PositionedElement, RenderObjectOrSubPass},
     geom::Vec2,
-    re_export::lyon::lyon_tessellation::{Count, GeometryBuilderError, VertexId},
+    re_export::lyon::lyon_tessellation::{GeometryBuilderError, VertexId},
     vulkano_render::primitive_renderer::RenderData,
     Color,
     RenderObject,
@@ -72,12 +72,7 @@ impl<'a> GeometryBuilder for NaruiGeometryBuilder<'a> {
         self.index_offset = self.data.indices.len() as _;
     }
 
-    fn end_geometry(&mut self) -> Count {
-        Count {
-            vertices: self.data.vertices.len() as u32 - self.vertex_offset,
-            indices: self.data.indices.len() as u32 - self.index_offset,
-        }
-    }
+    fn end_geometry(&mut self) {}
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
         self.data.indices.push(a.0);

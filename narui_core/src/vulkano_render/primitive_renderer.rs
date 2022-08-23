@@ -1,4 +1,5 @@
 use crate::{eval::layout::PositionedElement, geom::Rect, Dimension, RenderObject, Vec2};
+
 use crevice::std430::AsStd430;
 
 
@@ -8,9 +9,9 @@ use std::sync::Arc;
 use vulkano::{
     buffer::{BufferAccess, BufferUsage, ImmutableBuffer, TypedBufferAccess},
     command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer},
-    descriptor_set::{persistent::PersistentDescriptorSet, DescriptorSet},
+    descriptor_set::{persistent::PersistentDescriptorSet, DescriptorSet, WriteDescriptorSet},
     device::{Device, Queue},
-    image::{view::ImageView, ImmutableImage},
+    image::{view::ImageView, ImmutableImage, SampleCount},
     pipeline::{
         graphics::{
             color_blend::{
@@ -32,7 +33,7 @@ use vulkano::{
         StateMode,
     },
     render_pass::{RenderPass, Subpass},
-    sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
+    sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo},
     sync::GpuFuture,
 };
 
@@ -153,7 +154,8 @@ mod fragment_shader {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+#[repr(C)]
 pub struct Vertex {
     pos: [f32; 2],
     primitive_index: u32,
@@ -331,21 +333,21 @@ impl Renderer {
                 ..DepthStencilState::simple_depth_test()
             })
             .render_pass(Subpass::from(render_pass, 0).unwrap())
+            .multisample_state(vulkano::pipeline::graphics::multisample::MultisampleState {
+                rasterization_samples: SampleCount::Sample4,
+                ..Default::default()
+            })
             .build(device.clone())
             .unwrap();
 
         let sampler = Sampler::new(
             device,
-            Filter::Linear,
-            Filter::Linear,
-            MipmapMode::Nearest,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
+            SamplerCreateInfo {
+                mag_filter: Filter::Linear,
+                min_filter: Filter::Linear,
+                address_mode: [SamplerAddressMode::Repeat; 3],
+                ..Default::default()
+            },
         )
         .unwrap();
 
@@ -431,12 +433,12 @@ impl Renderer {
         impl GpuFuture,
         impl GpuFuture,
         Arc<impl DescriptorSet>,
-        Arc<impl BufferAccess>,
+        Arc<ImmutableBuffer<[Vertex]>>,
         Arc<impl BufferAccess + TypedBufferAccess<Content = [u32]>>,
     ) {
-        let layout = self.pipeline.layout().descriptor_set_layouts()[0].clone();
+        let layout = self.pipeline.layout().set_layouts()[0].clone();
 
-        let texture = ImageView::new(font_texture).unwrap();
+        let texture = ImageView::new_default(font_texture).unwrap();
 
         let (primitive_buffer, primitive_fut) = ImmutableBuffer::from_iter(
             self.data.primitive_data.drain(..),
@@ -459,13 +461,14 @@ impl Renderer {
         )
         .unwrap();
 
-        let mut set_builder = PersistentDescriptorSet::start(layout);
-        set_builder
-            .add_buffer(primitive_buffer)
-            .unwrap()
-            .add_sampled_image(texture, self.sampler.clone())
-            .unwrap();
-        let descriptor_set = set_builder.build().unwrap();
+        let descriptor_set = PersistentDescriptorSet::new(
+            layout,
+            [
+                WriteDescriptorSet::buffer(0, primitive_buffer),
+                WriteDescriptorSet::image_view_sampler(1, texture, self.sampler.clone()),
+            ],
+        )
+        .unwrap();
 
         (primitive_fut, vertex_fut, index_fut, descriptor_set, vertex_buffer, index_buffer)
     }

@@ -18,28 +18,29 @@ debug_bounds = []
 rutter_layout = { path = "../rutter_layout", version = "0.1.0" }
 freelist = { path = "../freelist", version = "0.1.0" }
 
-lyon = "0.17.10"
-winit = "0.25.0"
+bytemuck = "1.12.1"
+lyon = "1.0.0"
+winit = "0.26.1"
 anyhow = "1.0.45"
 lazy_static = "1.4.0"
-vulkano = "0.27.0"
-vulkano-shaders = "0.27.0"
-vulkano-win = "0.27.0"
+vulkano = "0.30.0"
+vulkano-shaders = "0.30.0"
+vulkano-win = "0.30.0"
 derivative = "2.2.0"
 glyph_brush = "0.7.3"
 notosans = "0.1.0"
 palette = "0.6.0"
-hashbrown = "0.11.2"
-parking_lot = "0.11.2"
-dashmap = "4.0.2"
+hashbrown = "0.12.3"
+parking_lot = "0.12.1"
+dashmap = "5.3.4"
 ctor = "0.1.21"
-ahash = "0.7.6"
+ahash = "0.8.0"
 log = "0.4.14"
-ordered-float = "2.8.0"
+ordered-float = "3.0.0"
 smallvec = "1.7.0"
 take_mut = "0.2.2"
 tinyset = { version = "0.4.6", default-features = false }
-crevice = "0.8.0"
+crevice = "0.11.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 ash-molten = { version = "0.13.0+1.1.10", features = ["pre-built"] }
