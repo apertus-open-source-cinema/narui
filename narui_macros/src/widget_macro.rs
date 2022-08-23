@@ -138,9 +138,7 @@ fn generate_shout_args_macro_part(
 
             let default =
                 input.attrs.iter().find(|x| x.path.to_token_stream().to_string() == "default");
-            if default.is_none() {
-                return None;
-            }
+            default?;
             let default = default.unwrap();
             let expr = if default.tokens.is_empty() {
                 if let Some(default_fn) = generate_default_function(&input.ty) {

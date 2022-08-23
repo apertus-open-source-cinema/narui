@@ -11,15 +11,18 @@ use crate::{
 use derivative::Derivative;
 use std::{fmt::Formatter, sync::Arc};
 use vulkano::{
-    buffer::{BufferAccess, TypedBufferAccess},
+    buffer::{BufferAccess, BufferAccessObject, TypedBufferAccess},
     command_buffer::{
         AutoCommandBufferBuilder,
+        ClearColorImageInfo,
+        ClearDepthStencilImageInfo,
         CommandBufferUsage::OneTimeSubmit,
         PrimaryAutoCommandBuffer,
+        RenderPassBeginInfo,
         SubpassContents,
     },
     device::{DeviceOwned, Queue},
-    format::{ClearValue, Format},
+    format::Format,
     image::{
         view::ImageView,
         AttachmentImage,
@@ -29,7 +32,7 @@ use vulkano::{
         SampleCount,
     },
     pipeline::graphics::viewport::Viewport,
-    render_pass::{Framebuffer, RenderPass},
+    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass},
 };
 
 // render function, color, depth, absolute layout rect, z_index
@@ -132,7 +135,7 @@ impl SubPassStack {
     }
 }
 
-pub fn create_framebuffer<I: ImageAccess + Send + Sync + 'static>(
+pub fn create_framebuffer<I: ImageAccess + Send + Sync + std::fmt::Debug + 'static>(
     size: [u32; 2],
     render_pass: Arc<RenderPass>,
     format: Format,
@@ -143,14 +146,14 @@ pub fn create_framebuffer<I: ImageAccess + Send + Sync + 'static>(
         size,
         SampleCount::Sample4,
         format,
-        ImageUsage { color_attachment: true, transfer_destination: true, ..ImageUsage::none() },
+        ImageUsage { color_attachment: true, transfer_dst: true, ..ImageUsage::none() },
     )
     .unwrap();
-    let intermediary = ImageView::new(intermediary_image.clone()).unwrap();
+    let intermediary = ImageView::new_default(intermediary_image.clone()).unwrap();
 
     let target = match target_image {
-        Some(i) => ImageView::new(i).unwrap() as AbstractImageView,
-        None => ImageView::new(
+        Some(i) => ImageView::new_default(i).unwrap() as AbstractImageView,
+        None => ImageView::new_default(
             AttachmentImage::with_usage(
                 render_pass.device().clone(),
                 size,
@@ -158,7 +161,7 @@ pub fn create_framebuffer<I: ImageAccess + Send + Sync + 'static>(
                 ImageUsage {
                     color_attachment: true,
                     sampled: true,
-                    transfer_destination: true,
+                    transfer_dst: true,
                     ..ImageUsage::none()
                 },
             )
@@ -175,24 +178,23 @@ pub fn create_framebuffer<I: ImageAccess + Send + Sync + 'static>(
         ImageUsage {
             depth_stencil_attachment: true,
             sampled: true,
-            transfer_destination: true,
+            transfer_dst: true,
             ..ImageUsage::none()
         },
     )
     .unwrap();
 
-    let depth = ImageView::new(depth_image.clone()).unwrap();
+    let depth = ImageView::new_default(depth_image.clone()).unwrap();
 
     (
-        Framebuffer::start(render_pass)
-            .add(intermediary)
-            .unwrap()
-            .add(depth.clone())
-            .unwrap()
-            .add(target.clone())
-            .unwrap()
-            .build()
-            .unwrap() as AbstractFramebuffer,
+        Framebuffer::new(
+            render_pass,
+            FramebufferCreateInfo {
+                attachments: vec![intermediary, depth.clone(), target.clone()],
+                ..Default::default()
+            },
+        )
+        .unwrap() as AbstractFramebuffer,
         depth,
         target,
         intermediary_image,
@@ -327,14 +329,15 @@ impl SubPassStack {
         let finishers = std::mem::take(&mut self.stack.last_mut().unwrap().finishers);
         self.push_finishers(data, Vec2::zero(), &finishers[..]);
     }
-    pub fn render<F>(
+    pub fn render<F, B: BufferAccess + 'static>(
         &mut self,
         callback_context: &CallbackContext,
         primitive_renderer: F,
-        vertex_buffer: Arc<impl BufferAccess + 'static>,
+        vertex_buffer: Arc<B>,
         index_buffer: Arc<impl BufferAccess + TypedBufferAccess<Content = [u32]> + 'static>,
     ) -> PrimaryAutoCommandBuffer
     where
+        Arc<B>: BufferAccessObject,
         F: Fn(
             &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
             &Viewport,
@@ -358,9 +361,9 @@ impl SubPassStack {
 
         macro_rules! push_render_pass {
             ($builder:ident, $target:ident, $viewport:ident, $dimensions:ident, $to_clear:ident $(, $secondary:expr)?) => {
-                let clear_values = vec![ClearValue::None, ClearValue::None, ClearValue::None];
+                let clear_values = vec![None, None, None, None];
                 // let clear_values = vec![[0., 0., 1., 1.].into(), 1f32.into(), ClearValue::None];
-                let dims = $target.attached_image_view(0).unwrap().image().dimensions();
+                let dims = $target.attachments()[0].image().dimensions();
                 $dimensions = [dims.width(), dims.height()];
                 $viewport = Viewport {
                     origin: [0.0, 0.0],
@@ -369,15 +372,24 @@ impl SubPassStack {
                 };
 
                 if let Some((color, depth)) = $to_clear {
-                    $builder.clear_color_image(color, [0., 0., 0., 0.].into()).unwrap();
-                    $builder.clear_depth_stencil_image(depth, 1.0.into()).unwrap();
+                    $builder.clear_color_image(ClearColorImageInfo {
+                        clear_value: [0., 0., 0., 0.].into(), ..ClearColorImageInfo::image(color)
+                    }).unwrap();
+                    $builder.clear_depth_stencil_image(ClearDepthStencilImageInfo {
+                        clear_value: 1.0.into(),
+                        ..ClearDepthStencilImageInfo::image(depth)
+
+                    }).unwrap();
                 }
 
                 push_render_pass!(@finish clear_values, $builder, $target $(, $secondary)?);
             };
             (@finish $clear_values:ident, $builder:ident, $target:ident, $secondary:expr) => {
                 $builder
-                    .begin_render_pass($target.clone(), SubpassContents::SecondaryCommandBuffers, $clear_values.clone())
+                    .begin_render_pass(RenderPassBeginInfo {
+                        clear_values: $clear_values.clone(),
+                        ..RenderPassBeginInfo::framebuffer($target.clone())
+                    }, SubpassContents::SecondaryCommandBuffers)
                     .unwrap();
 
                 $builder.execute_commands($secondary).unwrap();
@@ -386,7 +398,10 @@ impl SubPassStack {
             };
             (@finish $clear_values:ident, $builder:ident, $target:ident) => {
                 $builder
-                    .begin_render_pass($target.clone(), SubpassContents::Inline, $clear_values).unwrap()
+                    .begin_render_pass(RenderPassBeginInfo {
+                        clear_values: $clear_values,
+                        ..RenderPassBeginInfo::framebuffer($target.clone())
+                    }, SubpassContents::Inline).unwrap()
                     .bind_vertex_buffers(0, (vertex_buffer.clone()))
                     .bind_index_buffer(index_buffer.clone());
             };

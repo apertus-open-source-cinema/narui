@@ -21,15 +21,22 @@ use crate::{
     },
 };
 use std::{
+    convert::TryFrom,
     sync::Arc,
     time::{Duration, Instant},
 };
 use vulkano::{
     format::Format,
-    image::{ImageAccess, ImageUsage, SwapchainImage},
+    image::{ImageAccess, ImageUsage, SampleCount, SwapchainImage},
     render_pass::RenderPass,
-    swapchain,
-    swapchain::{AcquireError, PresentMode, Swapchain, SwapchainCreationError},
+    swapchain::{
+        self,
+        AcquireError,
+        PresentMode,
+        Swapchain,
+        SwapchainCreateInfo,
+        SwapchainCreationError,
+    },
     sync,
     sync::{FlushError, GpuFuture},
 };
@@ -48,37 +55,41 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
     let queue = queues
         .iter()
         .find(|&q| {
-            q.family().supports_graphics() && surface.is_supported(q.family()).unwrap_or(false)
+            let fam = q.family();
+            fam.supports_graphics() && fam.supports_surface(&surface).unwrap_or(false)
         })
         .unwrap()
         .clone();
 
     let mut dimensions;
 
-    let caps = surface.capabilities(device.physical_device()).unwrap();
+    let caps = device.physical_device().surface_capabilities(&surface, Default::default()).unwrap();
     let format = Format::B8G8R8A8_SRGB;
     let (mut swapchain, images) = {
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         dimensions = surface.window().inner_size().into();
-        Swapchain::start(device.clone(), surface.clone())
-            .usage(ImageUsage {
-                color_attachment: true,
-                transfer_destination: true,
-                ..ImageUsage::none()
-            })
-            .num_images(caps.min_image_count)
-            .composite_alpha(alpha)
-            .dimensions(dimensions)
-            .present_mode(
-                if std::env::var("NARUI_PRESENT_MODE_MAILBOX").is_ok() {
+        Swapchain::new(
+            device.clone(),
+            surface.clone(),
+            SwapchainCreateInfo {
+                image_usage: ImageUsage {
+                    color_attachment: true,
+                    transfer_dst: true,
+                    ..ImageUsage::none()
+                },
+                min_image_count: caps.min_image_count,
+                composite_alpha: alpha,
+                image_extent: dimensions,
+                image_format: Some(format),
+                present_mode: if std::env::var("NARUI_PRESENT_MODE_MAILBOX").is_ok() {
                     PresentMode::Mailbox
                 } else {
                     PresentMode::Fifo
                 },
-            )
-            .format(format)
-            .build()
-            .expect("cant create swapchain")
+                ..Default::default()
+            },
+        )
+        .expect("cant create swapchain")
     };
 
     let render_pass = vulkano::single_pass_renderpass!(device.clone(),
@@ -86,20 +97,20 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
             intermediary: {
                 load: Load,
                 store: Store,
-                format: swapchain.format(),
-                samples: 4,
+                format: swapchain.image_format(),
+                samples: SampleCount::Sample4,
             },
             depth: {
                 load: Load,
                 store: Store,
                 format: Format::D16_UNORM,
-                samples: 4,
+                samples: SampleCount::Sample4,
             },
             color: {
                 load: DontCare,
                 store: Store,
-                format: swapchain.format(),
-                samples: 1,
+                format: swapchain.image_format(),
+                samples: SampleCount::Sample1,
             }
         },
         pass: {
@@ -145,7 +156,6 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
             Event::WindowEvent { event, .. } => {
                 input_handler.enqueue_input(event);
                 *control_flow = ControlFlow::Poll;
-                return;
             }
             Event::MainEventsCleared => {
                 input_handler.handle_input(
@@ -164,9 +174,12 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 if recreate_swapchain {
                     dimensions = surface.window().inner_size().into();
                     let (new_swapchain, new_images) =
-                        match swapchain.recreate().dimensions(dimensions).build() {
+                        match swapchain.recreate(SwapchainCreateInfo {
+                            image_extent: dimensions,
+                            ..swapchain.create_info()
+                        }) {
                             Ok(r) => r,
-                            Err(SwapchainCreationError::UnsupportedDimensions) => {
+                            Err(SwapchainCreationError::ImageExtentNotSupported { .. }) => {
                                 return;
                             }
                             Err(e) => panic!("Failed to recreate swapchain: {:?}", e),

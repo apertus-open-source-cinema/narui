@@ -14,9 +14,16 @@ use narui_core::{
 use narui_macros::{rsx, widget};
 use std::sync::Arc;
 use vulkano::{
-    command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage},
-    descriptor_set::PersistentDescriptorSet,
+    command_buffer::{
+        AutoCommandBufferBuilder,
+        CommandBufferInheritanceInfo,
+        CommandBufferInheritanceRenderPassInfo,
+        CommandBufferInheritanceRenderPassType,
+        CommandBufferUsage,
+    },
+    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     device::{DeviceOwned, Queue},
+    image::SampleCount,
     pipeline::{
         graphics::{
             color_blend::{
@@ -37,7 +44,7 @@ use vulkano::{
         StateMode,
     },
     render_pass::Subpass,
-    sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
+    sampler::Sampler,
 };
 
 mod vertex_shader {
@@ -171,23 +178,14 @@ pub fn raw_blur(
                     ..DepthStencilState::simple_depth_test()
                 })
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+                .multisample_state(vulkano::pipeline::graphics::multisample::MultisampleState {
+                    rasterization_samples: SampleCount::Sample4,
+                    ..Default::default()
+                })
                 .build(render_pass.device().clone())
                 .unwrap();
 
-            let sampler = Sampler::new(
-                render_pass.device().clone(),
-                Filter::Nearest,
-                Filter::Nearest,
-                MipmapMode::Nearest,
-                SamplerAddressMode::ClampToEdge,
-                SamplerAddressMode::ClampToEdge,
-                SamplerAddressMode::ClampToEdge,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-            )
-            .unwrap();
+            let sampler = Sampler::new(render_pass.device().clone(), Default::default()).unwrap();
 
             (pipeline, sampler)
         },
@@ -215,7 +213,7 @@ pub fn raw_blur(
         std::rc::Rc::new(
             move |context,
                   color,
-                  depth,
+                  _depth,
                   render_pass,
                   viewport,
                   dimensions,
@@ -224,15 +222,15 @@ pub fn raw_blur(
                   z_index| {
                 let window = window_function(context, abs_pos, rect);
 
-                let mut set_builder = PersistentDescriptorSet::start(
-                    pipeline.layout().descriptor_set_layouts()[0].clone(),
-                );
-                set_builder
-                    .add_sampled_image(depth, sampler.clone())
-                    .unwrap()
-                    .add_sampled_image(color, sampler.clone())
-                    .unwrap();
-                let descriptor_set = set_builder.build().unwrap();
+                let descriptor_set = PersistentDescriptorSet::new(
+                    pipeline.layout().set_layouts()[0].clone(),
+                    [
+                        // TODO(robin): comment in if depth is used in the shader
+                        // WriteDescriptorSet::image_view_sampler(0, depth, sampler.clone())
+                        WriteDescriptorSet::image_view_sampler(1, color, sampler.clone()),
+                    ],
+                )
+                .unwrap();
 
                 let coeff_a = 1.0 / ((2.0f32 * 3.151_592_3).sqrt() * sigma);
                 let coeff_b = (-0.5 / (sigma * sigma)).exp();
@@ -253,13 +251,21 @@ pub fn raw_blur(
                     _dummy2: Default::default(),
                 };
 
-                let mut builder = AutoCommandBufferBuilder::secondary_graphics(
+                let mut builder = AutoCommandBufferBuilder::secondary(
                     render_pass.device().clone(),
                     queue.family(),
                     CommandBufferUsage::MultipleSubmit,
-                    pipeline.subpass().clone(),
+                    CommandBufferInheritanceInfo {
+                        render_pass: Some(CommandBufferInheritanceRenderPassType::BeginRenderPass(
+                            CommandBufferInheritanceRenderPassInfo::subpass(
+                                Subpass::from(render_pass, 0).unwrap(),
+                            ),
+                        )),
+                        ..Default::default()
+                    },
                 )
                 .unwrap();
+
                 builder
                     .bind_descriptor_sets(
                         PipelineBindPoint::Graphics,
