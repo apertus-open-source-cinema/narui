@@ -46,7 +46,7 @@ pub fn drag_detector(
                     - if relative {
                         context.spy(click_start_position)
                     } else {
-                        context.measure_size(key).unwrap() / 2.
+                        context.measure_size(key).unwrap().logical / 2.
                     },
             )
         }
@@ -81,8 +81,8 @@ pub fn handle(
 ) -> Fragment {
     let this_key = context.widget_local.idx;
     let on_drag = move |context: &CallbackContext, pos: Vec2| {
-        let size = context.measure_size(this_key).unwrap();
-        let position = context.measure_offset(graph_root, this_key).unwrap();
+        let size = context.measure_size(this_key).unwrap().logical;
+        let position = context.measure_offset(graph_root, this_key).unwrap().logical;
         let start = position + (size / 2.);
         let end = start + pos;
         on_drag(context, start, end, color);
@@ -150,7 +150,7 @@ fn get_handle_offset(
     handle: Fragment,
     node: Fragment,
 ) -> Result<Vec2, MeasureError> {
-    Ok(context.measure_offset(node, handle)? + (context.measure_size(handle)? / 2.))
+    Ok(context.measure_offset(node, handle)?.logical + (context.measure_size(handle)?.logical / 2.))
 }
 
 #[widget]

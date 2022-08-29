@@ -1,6 +1,12 @@
 use crate::{
-    eval::layout::{PositionedElement, RenderObjectOrSubPass},
-    geom::Vec2,
+    eval::layout::{
+        Physical,
+        PhysicalPositionedElement,
+        RenderObjectOrSubPass,
+        ScaleFactor,
+        ToPhysical,
+    },
+    geom::{Rect, Vec2},
     re_export::lyon::lyon_tessellation::{GeometryBuilderError, VertexId},
     vulkano_render::primitive_renderer::RenderData,
     Color,
@@ -23,8 +29,8 @@ pub struct ColoredBuffersBuilder<'a> {
     data: &'a mut RenderData,
     pos: Vec2,
     z_index: f32,
-    clip_min: [f32; 2],
-    clip_max: [f32; 2],
+    clipping_rect: Physical<Rect>,
+    scale_factor: ScaleFactor,
 }
 impl<'a> ColoredBuffersBuilder<'a> {
     pub fn with_color(&mut self, color: Color) -> NaruiGeometryBuilder {
@@ -33,8 +39,8 @@ impl<'a> ColoredBuffersBuilder<'a> {
             self.pos,
             self.z_index,
             color.into_raw::<[f32; 4]>(),
-            self.clip_min,
-            self.clip_max,
+            self.clipping_rect,
+            self.scale_factor,
         )
     }
 }
@@ -45,6 +51,7 @@ pub struct NaruiGeometryBuilder<'a> {
     data: &'a mut RenderData,
     vertex_offset: u32,
     index_offset: u32,
+    scale_factor: ScaleFactor,
 }
 
 impl<'a> NaruiGeometryBuilder<'a> {
@@ -53,15 +60,21 @@ impl<'a> NaruiGeometryBuilder<'a> {
         position: Vec2,
         z_index: f32,
         color: [f32; 4],
-        clip_min: [f32; 2],
-        clip_max: [f32; 2],
+        clipping_rect: Physical<Rect>,
+        scale_factor: ScaleFactor,
     ) -> Self {
         Self {
-            primitive_index: data.add_lyon_data(color, z_index, clip_min, clip_max),
+            primitive_index: data.add_lyon_data(
+                color,
+                z_index,
+                clipping_rect.map(|r| r.near_corner()),
+                clipping_rect.map(|r| r.far_corner()),
+            ),
             position,
             data,
             vertex_offset: 0,
             index_offset: 0,
+            scale_factor,
         }
     }
 }
@@ -92,7 +105,7 @@ impl<'a> FillGeometryBuilder for NaruiGeometryBuilder<'a> {
             .data
             .add_lyon_vertex(
                 self.primitive_index,
-                [self.position.x + vertex.position().x, self.position.y + vertex.position().y],
+                (self.position + Vec2::from(vertex.position())).to_physical(self.scale_factor),
             )
             .into())
     }
@@ -107,7 +120,7 @@ impl<'a> StrokeGeometryBuilder for NaruiGeometryBuilder<'a> {
             .data
             .add_lyon_vertex(
                 self.primitive_index,
-                [self.position.x + vertex.position().x, self.position.y + vertex.position().y],
+                (self.position + Vec2::from(vertex.position())).to_physical(self.scale_factor),
             )
             .into())
     }
@@ -124,9 +137,17 @@ impl Lyon {
             stroke_tessellator: StrokeTessellator::new(),
         }
     }
-    pub fn render<'a>(&mut self, data: &mut RenderData, render_object: &PositionedElement<'a>) {
+    pub fn render<'a>(
+        &mut self,
+        data: &mut RenderData,
+        render_object: &PhysicalPositionedElement<'a>,
+        scale_factor: ScaleFactor,
+    ) {
         let clipping_rect = if let Some(clipping_rect) = render_object.clipping_rect {
-            render_object.rect.clip(clipping_rect)
+            render_object
+                .rect
+                .map(|rect| clipping_rect.map(|clipping_rect| rect.clip(clipping_rect)))
+                .into()
         } else {
             render_object.rect
         };
@@ -135,15 +156,15 @@ impl Lyon {
             render_object.element
         {
             (path_gen)(
-                render_object.rect.size,
+                render_object.rect.to_logical(scale_factor).size,
                 &mut self.fill_tessellator,
                 &mut self.stroke_tessellator,
                 ColoredBuffersBuilder {
                     data,
-                    pos: render_object.rect.pos,
+                    pos: render_object.rect.map(|r| r.pos).to_logical(scale_factor),
                     z_index: 1.0 - render_object.z_index as f32 / 65535.0,
-                    clip_min: clipping_rect.near_corner().into(),
-                    clip_max: clipping_rect.far_corner().into(),
+                    clipping_rect,
+                    scale_factor,
                 },
             );
         };

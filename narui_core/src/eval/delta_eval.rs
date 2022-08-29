@@ -1,7 +1,3 @@
-use super::{
-    fragment::UnevaluatedFragment,
-    layout::{LayoutTree, Layouter},
-};
 use crate::{
     context::{
         context::{
@@ -12,6 +8,10 @@ use crate::{
         },
         key::KeyMap,
         patched_tree::PatchedTree,
+    },
+    eval::{
+        fragment::UnevaluatedFragment,
+        layout::{LayoutTree, Layouter, ScaleFactor},
     },
     CallbackContext,
     Fragment,
@@ -36,7 +36,7 @@ pub struct EvaluatedFragment {
     pub gen: Option<Box<dyn Fn(&mut WidgetContext) -> FragmentInner>>,
 
     // this field is information that is gathered by the delta evaluator
-    pub layout_idx: freelist::Idx,
+    pub layout_idx: Idx,
     pub store_idx: Fragment,
 
     pub children: FragmentChildren,
@@ -348,12 +348,17 @@ impl Evaluator {
         )
     }
 
-    pub fn callback_context<'a>(&'a self, layout: &'a Layouter) -> CallbackContext<'a> {
+    pub fn callback_context<'a>(
+        &'a self,
+        layout: &'a Layouter,
+        scale_factor: &'a ScaleFactor,
+    ) -> CallbackContext<'a> {
         CallbackContext {
             tree: self.inner.tree.clone(),
             layout,
             key_map: &self.key_map,
             fragment_store: &self.fragment_store,
+            scale_factor,
         }
     }
 }

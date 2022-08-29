@@ -1,5 +1,5 @@
 use crate::{
-    eval::layout::{PositionedElement, RenderObjectOrSubPass},
+    eval::layout::{Physical, PhysicalPositionedElement, RenderObjectOrSubPass, ScaleFactor},
     geom::Rect,
     vulkano_render::primitive_renderer::RenderData,
     Key,
@@ -38,21 +38,22 @@ lazy_static! {
 struct Extra {
     pub color: [f32; 4],
     pub z: f32,
-    pub clipping_rect: Rect,
+    pub clipping_rect: Physical<Rect>,
     pub key: Key,
 }
 impl Extra {
     fn as_arr(&self) -> [OrderedFloat<f32>; 9] {
+        let clipping_rect = self.clipping_rect.inner();
         [
             OrderedFloat::from(self.color[0]),
             OrderedFloat::from(self.color[1]),
             OrderedFloat::from(self.color[2]),
             OrderedFloat::from(self.color[3]),
             OrderedFloat::from(self.z),
-            OrderedFloat::from(self.clipping_rect.pos.x),
-            OrderedFloat::from(self.clipping_rect.pos.y),
-            OrderedFloat::from(self.clipping_rect.size.x),
-            OrderedFloat::from(self.clipping_rect.size.y),
+            OrderedFloat::from(clipping_rect.pos.x),
+            OrderedFloat::from(clipping_rect.pos.y),
+            OrderedFloat::from(clipping_rect.size.x),
+            OrderedFloat::from(clipping_rect.size.y),
         ]
     }
 }
@@ -63,12 +64,12 @@ impl PartialEq for Extra {
     fn eq(&self, other: &Self) -> bool { self.as_arr() == other.as_arr() }
 }
 
-type VertexData = (Key, [f32; 4], f32, Rect, Vec2, Vec2);
+type VertexData = (Key, [f32; 4], f32, Physical<Rect>, Vec2, Vec2);
 
 pub struct GlyphBrush {
     queue: Arc<Queue>,
     glyph_brush: glyph_brush::GlyphBrush<VertexData, Extra>,
-    old_data: Vec<(Key, [f32; 4], f32, Rect, Vec2, Vec2)>,
+    old_data: Vec<VertexData>,
     texture_bytes: Vec<u8>,
     texture: Arc<ImmutableImage>,
     texture_fut: Option<CommandBufferExecFuture<NowFuture, PrimaryAutoCommandBuffer>>,
@@ -113,9 +114,16 @@ impl GlyphBrush {
         }
     }
 
-    pub fn prerender<'a>(&mut self, render_object: &PositionedElement<'a>) {
+    pub fn prerender<'a>(
+        &mut self,
+        render_object: &PhysicalPositionedElement<'a>,
+        scale_factor: ScaleFactor,
+    ) {
         let clipping_rect = if let Some(clipping_rect) = render_object.clipping_rect {
-            render_object.rect.clip(clipping_rect)
+            render_object
+                .rect
+                .map(|rect| clipping_rect.map(|clipping_rect| rect.clip(clipping_rect)))
+                .into()
         } else {
             render_object.rect
         };
@@ -127,7 +135,7 @@ impl GlyphBrush {
                 Section::new()
                     .add_text(Text {
                         text: &*text,
-                        scale: PxScale::from(*size),
+                        scale: PxScale::from(*size * scale_factor.0),
                         font_id: Default::default(),
                         extra: Extra {
                             color: color.into_linear().into_raw::<[f32; 4]>(),
@@ -136,8 +144,8 @@ impl GlyphBrush {
                             key: *key,
                         },
                     })
-                    .with_screen_position(Into::<(f32, f32)>::into(render_object.rect.pos))
-                    .with_bounds(Into::<(f32, f32)>::into(render_object.rect.size)),
+                    .with_screen_position(render_object.rect.unwrap_physical().pos)
+                    .with_bounds(render_object.rect.unwrap_physical().size),
             );
         }
     }
@@ -166,18 +174,20 @@ impl GlyphBrush {
                 },
                 |vertex_data| {
                     let clipping_rect = vertex_data.extra.clipping_rect;
+
                     let original_rect = Rect::from_corners(
                         vertex_data.pixel_coords.min.into(),
                         vertex_data.pixel_coords.max.into(),
                     );
-                    let clipped = original_rect.clip(clipping_rect);
+                    let clipped =
+                        clipping_rect.map(|clipping_rect| original_rect.clip(clipping_rect));
 
                     let original_tex_rect = Rect::from_corners(
                         vertex_data.tex_coords.min.into(),
                         vertex_data.tex_coords.max.into(),
                     );
-                    let clipped_tex_size =
-                        (clipped.size / original_rect.size) * original_tex_rect.size;
+                    let clipped_tex_size = (clipped.unwrap_physical().size / original_rect.size)
+                        * original_tex_rect.size;
                     let clipped_tex_rect =
                         Rect { pos: original_tex_rect.pos, size: clipped_tex_size };
 
@@ -187,7 +197,7 @@ impl GlyphBrush {
                         vertex_data.extra.z,
                         clipped,
                         clipped_tex_rect.near_corner(),
-                        clipped_tex_rect.size / clipped.size,
+                        clipped_tex_rect.size / clipped.unwrap_physical().size,
                     )
                 },
             ),
@@ -225,7 +235,7 @@ impl GlyphBrush {
 
     pub fn render<'a>(
         &mut self,
-        render_object: &PositionedElement<'a>,
+        render_object: &PhysicalPositionedElement<'a>,
         data: &mut RenderData,
         state: &mut GlyphBrushState,
     ) {

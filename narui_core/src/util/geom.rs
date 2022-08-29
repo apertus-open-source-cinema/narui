@@ -1,6 +1,6 @@
+use crate::eval::layout::{Physical, ScaleFactor};
 use glyph_brush::ab_glyph;
 use std::ops::{Add, Div, Mul, Sub};
-use winit::dpi::PhysicalPosition;
 
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
@@ -114,14 +114,6 @@ implement_convert!(
     rutter_layout::Size { width: v.x, height: v.y }
 );
 
-implement_convert!(
-    PhysicalPosition<f64>,
-    v,
-    v.x as f32,
-    v.y as f32,
-    PhysicalPosition { x: v.x as f64, y: v.y as f64 }
-);
-
 implement_convert!(lyon::math::Point, v, v.x, v.y, lyon::math::point(v.x, v.y));
 implement_convert!(ab_glyph::Point, v, v.x, v.y, ab_glyph::Point { x: v.x, y: v.y });
 
@@ -174,4 +166,14 @@ impl Rect {
         Self { pos: self.pos + val, size: self.size - 2.0 * val }
     }
     pub fn minus_position(&self, pos: Vec2) -> Self { Self { pos: self.pos - pos, ..*self } }
+
+    pub(crate) fn to_physical(self, scale_factor: ScaleFactor) -> Physical<Rect> {
+        let Self { pos, size } = self;
+        Physical::new(Rect { pos: pos * scale_factor.0, size: size * scale_factor.0 })
+    }
+
+    pub(crate) fn to_logical(self, scale_factor: ScaleFactor) -> Rect {
+        let Self { pos, size } = self;
+        Rect { pos: pos / scale_factor.0, size: size / scale_factor.0 }
+    }
 }

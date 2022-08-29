@@ -2,12 +2,13 @@ use super::{glyph_brush::GlyphBrush, input_handler::InputHandler, lyon::Lyon};
 use crate::{
     eval::{
         delta_eval::Evaluator,
-        layout::{Layouter, PositionedElement},
+        layout::{Layouter, Physical, PhysicalPositionedElement, ScaleFactor},
     },
     geom::Rect,
     util::fps_report::FPSReporter,
     RenderObject,
     UnevaluatedFragment,
+    Vec2,
 };
 use freelist::Idx;
 
@@ -141,10 +142,11 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
 
     let mut recreate_swapchain = false;
     let mut has_update = true;
-    let mut input_render_objects: Vec<(Idx, Option<Rect>)> = Vec::new();
-
+    let mut input_render_objects: Vec<(Idx, Option<Physical<Rect>>)> = Vec::new();
     event_loop.run_return(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(1000 / 70));
+        let scale_factor = ScaleFactor(surface.window().scale_factor() as f32);
+
         match event {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 *control_flow = ControlFlow::Exit;
@@ -161,7 +163,8 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 input_handler.handle_input(
                     &input_render_objects[..],
                     &layouter,
-                    evaluator.callback_context(&layouter),
+                    evaluator.callback_context(&layouter, &scale_factor),
+                    scale_factor,
                 );
                 has_update |= evaluator.update(&mut layouter);
                 if has_update {
@@ -222,7 +225,7 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
 
                 input_render_objects.clear();
 
-                layouter.do_layout(evaluator.top_node, dimensions.into());
+                layouter.do_layout(evaluator.top_node, Vec2::from(dimensions) / scale_factor.0);
 
                 let mut subpass_stack = SubPassStack::new(
                     format,
@@ -233,17 +236,18 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                     depth_image.clone(),
                 );
 
-                for (_, obj) in layouter.iter_layouted(evaluator.top_node) {
-                    text_render.prerender(&obj);
+                for (_, obj) in layouter.iter_layouted_physical(evaluator.top_node, scale_factor) {
+                    text_render.prerender(&obj, scale_factor);
                 }
                 let (mut text_state, texture, texture_fut) = text_render.finish(&mut renderer.data);
 
-                for (idx, obj) in layouter.iter_layouted(evaluator.top_node) {
+                for (idx, obj) in layouter.iter_layouted_physical(evaluator.top_node, scale_factor)
+                {
                     subpass_stack.handle(&renderer.data, &obj);
-                    lyon_renderer.render(&mut renderer.data, &obj);
+                    lyon_renderer.render(&mut renderer.data, &obj, scale_factor);
                     text_render.render(&obj, &mut renderer.data, &mut text_state);
-                    renderer.render(&obj);
-                    if let PositionedElement {
+                    renderer.render(&obj, scale_factor);
+                    if let PhysicalPositionedElement {
                         element: RenderObjectOrSubPass::RenderObject(RenderObject::Input { .. }),
                         ..
                     } = &obj
@@ -262,7 +266,7 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 ) = renderer.finish(texture);
 
                 let after_frame_callbacks = std::mem::take(&mut evaluator.after_frame_callbacks);
-                let callback_context = evaluator.callback_context(&layouter);
+                let callback_context = evaluator.callback_context(&layouter, &scale_factor);
                 let command_buffer = subpass_stack.render(
                     &callback_context,
                     |builder, viewport, dimensions, offset, start, end| {

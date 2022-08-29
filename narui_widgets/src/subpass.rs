@@ -5,6 +5,7 @@ use narui_core::{
     ContextEffect,
     ContextMeasure,
     Fragment,
+    Physical,
     Rect,
     SubPassRenderFunction,
     SubPassSetup,
@@ -209,7 +210,8 @@ pub fn raw_blur(
         pipeline: Arc<GraphicsPipeline>,
         sampler: Arc<Sampler>,
         queue: Arc<Queue>,
-        window_function: impl Fn(&CallbackContext, Rect, Rect) -> Rect + 'static,
+        window_function: impl Fn(&CallbackContext, Physical<Rect>, Physical<Rect>) -> Physical<Rect>
+            + 'static,
     ) -> SubPassRenderFunction {
         std::rc::Rc::new(
             move |context,
@@ -241,12 +243,12 @@ pub fn raw_blur(
                     width: dimensions[0],
                     height: dimensions[1],
                     z_index,
-                    origin: rect.pos.into(),
-                    size: rect.size.into(),
+                    origin: rect.unwrap_physical().pos.into(),
+                    size: rect.unwrap_physical().size.into(),
                     coeffs: [coeff_a, coeff_b, coeff_c],
                     direction: if in_x { [1, 0] } else { [0, 1] },
-                    window_min: window.top_left_corner().into(),
-                    window_max: window.bottom_right_corner().into(),
+                    window_min: window.unwrap_physical().top_left_corner().into(),
+                    window_max: window.unwrap_physical().bottom_right_corner().into(),
                     _dummy0: Default::default(),
                     _dummy1: Default::default(),
                     _dummy2: Default::default(),
@@ -293,15 +295,17 @@ pub fn raw_blur(
         queue.clone(),
         move |context, abs_pos, rect| match window {
             Some(frag) => {
-                let window_rect = context.measure(frag).unwrap();
-                window_rect.minus_position(abs_pos.pos)
+                let window_rect = context.measure(frag).unwrap().physical;
+                window_rect
+                    .map(|window_rect| window_rect.minus_position(abs_pos.unwrap_physical().pos))
             }
-            None => Rect::from_corners(Vec2::zero(), rect.size),
+            None => rect.map(|rect| Rect::from_corners(Vec2::zero(), rect.size)),
         },
     );
 
-    let finish =
-        generate_resolve(in_x, sigma, pipeline, sampler, queue, move |_, _, _| Rect::zero());
+    let finish = generate_resolve(in_x, sigma, pipeline, sampler, queue, move |_, _, _| {
+        Physical::new(Rect::zero())
+    });
 
     FragmentInner::Node {
         children: smallvec![children],
