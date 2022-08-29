@@ -1,5 +1,9 @@
-use crate::{eval::layout::PositionedElement, geom::Rect, Dimension, RenderObject, Vec2};
-
+use crate::{
+    eval::layout::{Physical, PhysicalPositionedElement, ScaleFactor, ToPhysical},
+    geom::{Rect, Vec2},
+    Dimension,
+    RenderObject,
+};
 use crevice::std430::AsStd430;
 
 
@@ -187,13 +191,17 @@ impl RenderData {
         &mut self,
         color: [f32; 4],
         z_index: f32,
-        rect: Rect,
-        clip: Rect,
-        border_radius: f32,
-        stroke_width: f32,
+        rect: Physical<Rect>,
+        clip: Physical<Rect>,
+        border_radius: Physical<f32>,
+        stroke_width: Physical<f32>,
         inverted: bool,
         for_clipping: bool,
     ) {
+        let rect = rect.unwrap_physical();
+        let clip = clip.unwrap_physical();
+        let border_radius = border_radius.unwrap_physical();
+        let stroke_width = stroke_width.unwrap_physical();
         let primitive_index = self.primitive_data.len() as u32;
         self.primitive_data.push(
             PrimitiveData {
@@ -223,10 +231,11 @@ impl RenderData {
         &mut self,
         color: [f32; 4],
         z_index: f32,
-        rect: Rect,
+        rect: Physical<Rect>,
         tex_base: Vec2,
         tex_scale: Vec2,
     ) -> u32 {
+        let rect = rect.unwrap_physical();
         let primitive_index = self.primitive_data.len() as u32;
         self.primitive_data.push(
             PrimitiveData {
@@ -263,9 +272,11 @@ impl RenderData {
         &mut self,
         color: [f32; 4],
         z_index: f32,
-        clip_min: [f32; 2],
-        clip_max: [f32; 2],
+        clip_min: Physical<Vec2>,
+        clip_max: Physical<Vec2>,
     ) -> u32 {
+        let clip_min = clip_min.unwrap_physical();
+        let clip_max = clip_max.unwrap_physical();
         let idx = self.primitive_data.len() as u32;
         self.primitive_data.push(
             PrimitiveData {
@@ -275,15 +286,16 @@ impl RenderData {
                 base_or_center: Vec2::zero().into(),
                 tex_base_or_half_size: Vec2::zero().into(),
                 tex_scale_or_border_radius_and_stroke_width: Vec2::zero().into(),
-                clip_min: crevice::std430::Vec2 { x: clip_min[0], y: clip_min[1] },
-                clip_max: crevice::std430::Vec2 { x: clip_max[0], y: clip_max[1] },
+                clip_min: crevice::std430::Vec2 { x: clip_min.x, y: clip_min.y },
+                clip_max: crevice::std430::Vec2 { x: clip_max.x, y: clip_max.y },
             }
             .as_std430(),
         );
         idx
     }
 
-    pub fn add_lyon_vertex(&mut self, primitive_index: u32, pos: [f32; 2]) -> u32 {
+    pub fn add_lyon_vertex(&mut self, primitive_index: u32, pos: Physical<Vec2>) -> u32 {
+        let pos = pos.unwrap_physical().into();
         let idx = self.vertices.len() as u32;
         self.vertices.push(Vertex { pos, primitive_index });
         idx
@@ -355,8 +367,8 @@ impl Renderer {
 
         Self { queue, pipeline, sampler, data: RenderData::new() }
     }
-    pub fn render(&mut self, render_object: &PositionedElement) {
-        if let PositionedElement {
+    pub fn render(&mut self, render_object: &PhysicalPositionedElement, scale_factor: ScaleFactor) {
+        if let PhysicalPositionedElement {
             element:
                 RenderObjectOrSubPass::RenderObject(RenderObject::RoundedRect {
                     stroke_color,
@@ -371,54 +383,59 @@ impl Renderer {
             z_index,
         } = render_object
         {
+            let rect = *rect;
+            let stroke_width = stroke_width.to_physical(scale_factor);
             let border_radius_px = match border_radius {
-                Dimension::Paxel(px) => *px,
-                Dimension::Fraction(percent) => {
+                Dimension::Paxel(px) => px.to_physical(scale_factor),
+                Dimension::Fraction(percent) => rect.map(|rect| {
                     (if rect.size.x > rect.size.y { rect.size.y } else { rect.size.x })
                         * percent
                         * 0.5
-                }
+                }),
             };
             if let Some(stroke_color) = stroke_color {
                 self.data.add_rounded_rect(
                     stroke_color.into_raw(),
                     1.0 - *z_index as f32 / 65535.0,
-                    *rect,
-                    clipping_rect.unwrap_or(*rect),
+                    rect,
+                    clipping_rect.unwrap_or(rect),
                     border_radius_px,
-                    *stroke_width,
+                    stroke_width,
                     *inverted,
                     *for_clipping,
                 );
             }
             if let Some(fill_color) = fill_color {
-                let rect = rect.inset(*stroke_width);
+                let rect = rect.map(|rect| rect.inset(stroke_width.unwrap_physical()));
                 self.data.add_rounded_rect(
                     fill_color.into_raw(),
                     1.0 - *z_index as f32 / 65535.0,
                     rect,
                     clipping_rect.unwrap_or(rect),
-                    (border_radius_px - *stroke_width).max(0.0),
-                    rect.size.maximum() / 2.0,
+                    border_radius_px.map(|border_radius_px| {
+                        (border_radius_px - stroke_width.unwrap_physical()).max(0.0)
+                    }),
+                    rect.map(|rect| rect.size.maximum() / 2.0),
                     *inverted,
                     *for_clipping,
                 );
             }
         }
-        if let PositionedElement {
+        if let PhysicalPositionedElement {
             element: RenderObjectOrSubPass::RenderObject(RenderObject::DebugRect),
             clipping_rect,
             rect,
             ..
         } = render_object
         {
+            let rect = *rect;
             self.data.add_rounded_rect(
                 [1.0, 0.0, 0.0, 0.5],
                 0.0,
-                *rect,
-                clipping_rect.unwrap_or(*rect),
-                0.0,
-                2.0,
+                rect,
+                clipping_rect.unwrap_or(rect),
+                0.0_f32.to_physical(scale_factor),
+                2.0_f32.to_physical(scale_factor),
                 false,
                 false,
             );
@@ -480,14 +497,14 @@ impl Renderer {
         descriptor_set: Arc<T>,
         viewport: &Viewport,
         dimensions: &[u32; 2],
-        offset: Vec2,
+        offset: Physical<Vec2>,
         start: u64,
         end: u64,
     ) {
         let push_constants = vertex_shader::ty::PushConstantData {
             width: dimensions[0],
             height: dimensions[1],
-            offset: offset.into(),
+            offset: offset.unwrap_physical().into(),
         };
 
         buffer_builder

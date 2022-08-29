@@ -1,4 +1,5 @@
 use crate::{
+    eval::layout::Physical,
     util::geom::{Rect, Vec2},
     vulkano_render::{lyon::ColoredBuffersBuilder, subpass_stack::AbstractImageView},
     CallbackContext,
@@ -71,11 +72,11 @@ pub type SubPassRenderFunction = Rc<
         AbstractImageView, // color
         AbstractImageView, // depth
         Arc<RenderPass>,
-        Viewport, // viewport of target
-        [u32; 2], // dimensions of target
-        Rect,     // absolute layout rect of self
-        Rect,     // layout rect of self relative to next higher subpass
-        f32,      // z_index
+        Viewport,       // viewport of target
+        [u32; 2],       // dimensions of target
+        Physical<Rect>, // absolute layout rect of self
+        Physical<Rect>, // layout rect of self relative to next higher subpass
+        f32,            // z_index
     ) -> SecondaryAutoCommandBuffer,
 >;
 
@@ -135,9 +136,9 @@ pub type PathGenInner = dyn Fn(
 );
 pub type RenderFnInner = dyn Fn(
     &Viewport,
-    f32,  // z_index
-    Rect, // target rect
-    Vec2, // window dimensions
+    f32,            // z_index
+    Physical<Rect>, // target rect
+    Physical<Vec2>, // window dimensions
 ) -> SecondaryAutoCommandBuffer;
 /// RenderObject is the data structure that really defines _what_ is rendered
 #[derive(Derivative, Clone)]

@@ -58,6 +58,6 @@ pub use rutter_layout::{
 
 
 pub use context::{CallbackContext, Key, ThreadContext, WidgetContext};
-pub use eval::fragment::*;
+pub use eval::{fragment::*, layout::Physical};
 pub use re_export::Color;
 pub use util::geom;

@@ -8,14 +8,81 @@ use derivative::Derivative;
 use freelist::Idx;
 use rutter_layout::{layouter::LayoutIterDirection, BoxConstraints, Layout, Offset};
 use std::ops::Deref;
+use winit::dpi::PhysicalPosition;
 
-/// PositionedRenderObject is the main output data structure of the Layouting
+// type to create a seperation between logical and physical pixels
+#[derive(Debug, Copy, Clone, Default)]
+#[repr(transparent)]
+pub struct Physical<T>(T);
+
+impl<T> Physical<T> {
+    pub fn new(v: T) -> Self { Self(v) }
+
+    pub fn inner(&self) -> &T { &self.0 }
+
+    pub fn map<R>(self, func: impl FnOnce(T) -> R) -> Physical<R> { Physical(func(self.0)) }
+
+    // try to avoid using this function as much as possible
+    pub fn unwrap_physical(self) -> T { self.0 }
+}
+
+pub trait ToPhysical {
+    fn to_physical(self, scale_factor: ScaleFactor) -> Physical<Self>
+    where
+        Self: Sized;
+}
+
+impl ToPhysical for f32 {
+    fn to_physical(self, scale_factor: ScaleFactor) -> Physical<Self> {
+        Physical::new(self * scale_factor.0)
+    }
+}
+
+impl ToPhysical for Vec2 {
+    fn to_physical(self, scale_factor: ScaleFactor) -> Physical<Self> {
+        Physical::new(self * scale_factor.0)
+    }
+}
+
+impl Physical<Rect> {
+    pub fn to_logical(self, scale_factor: ScaleFactor) -> Rect { self.0.to_logical(scale_factor) }
+}
+
+impl<T> Into<Physical<T>> for Physical<Physical<T>> {
+    fn into(self) -> Physical<T> { self.unwrap_physical() }
+}
+
+impl Physical<Vec2> {
+    pub fn to_logical(self, scale_factor: ScaleFactor) -> Vec2 { self.0 / scale_factor.0 }
+}
+
+impl From<PhysicalPosition<f64>> for Physical<Vec2> {
+    fn from(v: PhysicalPosition<f64>) -> Physical<Vec2> {
+        Physical::new((v.x as f32, v.y as f32).into())
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+#[repr(transparent)]
+pub struct ScaleFactor(pub f32);
+
+/// PositionedElement is the main output data structure of the Layouting
 /// pass. It attaches Position & other information to the RenderObject.
 #[derive(Debug)]
 pub struct PositionedElement<'a> {
     pub element: RenderObjectOrSubPass<'a>,
     pub clipping_rect: Option<Rect>,
     pub rect: Rect,
+    pub z_index: u32,
+}
+
+/// PhysicalPositionedElement is the same as a PositionedElement but with
+/// physical instead of logical coordinates.
+#[derive(Debug)]
+pub struct PhysicalPositionedElement<'a> {
+    pub element: RenderObjectOrSubPass<'a>,
+    pub clipping_rect: Option<Physical<Rect>>,
+    pub rect: Physical<Rect>,
     pub z_index: u32,
 }
 
@@ -49,7 +116,16 @@ pub trait LayoutTree {
     );
     fn remove_node(&mut self, key: Idx);
     fn set_children(&mut self, parent: Idx, children: impl Iterator<Item = Idx>);
-    fn get_positioned(&self, key: Idx) -> (Rect, Option<&RenderObject>);
+
+    // in logical / scaled pixels
+    fn get_positioned_logical(&self, key: Idx) -> (Rect, Option<&RenderObject>);
+
+    // in real / physical pixels
+    fn get_positioned_physical(
+        &self,
+        key: Idx,
+        scale_factor: ScaleFactor,
+    ) -> (Physical<Rect>, Option<&RenderObject>);
 }
 
 #[derive(Derivative)]
@@ -76,6 +152,24 @@ pub struct Layouter {
 impl Layouter {
     pub fn do_layout(&mut self, top: Idx, size: Vec2) {
         self.layouter.do_layout(BoxConstraints::tight_for(size.into()), Offset::zero(), top);
+    }
+
+    pub fn iter_layouted_physical(
+        &self,
+        top: Idx,
+        scale_factor: ScaleFactor,
+    ) -> impl Iterator<Item = (Idx, PhysicalPositionedElement)> {
+        self.iter_layouted(top).map(move |(idx, elem)| {
+            (
+                idx,
+                PhysicalPositionedElement {
+                    rect: elem.rect.to_physical(scale_factor),
+                    clipping_rect: elem.clipping_rect.map(|r| r.to_physical(scale_factor)),
+                    element: elem.element,
+                    z_index: elem.z_index,
+                },
+            )
+        })
     }
 
     #[cfg(not(feature = "debug_bounds"))]
@@ -210,8 +304,17 @@ impl LayoutTree for Layouter {
         self.layouter.set_children(parent, children)
     }
 
-    fn get_positioned(&self, idx: Idx) -> (Rect, Option<&RenderObject>) {
+    fn get_positioned_logical(&self, idx: Idx) -> (Rect, Option<&RenderObject>) {
         let (offset, size, obj) = self.layouter.get_layout(idx);
         (Rect { pos: offset.into(), size: size.into() }, obj.render_object.as_ref())
+    }
+
+    fn get_positioned_physical(
+        &self,
+        idx: Idx,
+        scale_factor: ScaleFactor,
+    ) -> (Physical<Rect>, Option<&RenderObject>) {
+        let (rect, obj) = self.get_positioned_logical(idx);
+        (rect.to_physical(scale_factor), obj)
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    eval::layout::{PositionedElement, RenderObjectOrSubPass},
+    eval::layout::{Physical, PhysicalPositionedElement, RenderObjectOrSubPass},
     vulkano_render::primitive_renderer::RenderData,
     CallbackContext,
     Rect,
@@ -36,7 +36,7 @@ use vulkano::{
 };
 
 // render function, color, depth, absolute layout rect, z_index
-type Finisher = (SubPassRenderFunction, AbstractImageView, AbstractImageView, Rect, u32);
+type Finisher = (SubPassRenderFunction, AbstractImageView, AbstractImageView, Physical<Rect>, u32);
 
 struct SubPassData {
     fb: AbstractFramebuffer,
@@ -45,7 +45,7 @@ struct SubPassData {
     // only None at the first "virtual" (toplevel) subpass
     depth: Option<AbstractImageView>,
     color: Option<AbstractImageView>,
-    rect: Rect,
+    rect: Physical<Rect>,
     first: usize,
     first_use: bool,
     finishers: Vec<Finisher>,
@@ -65,7 +65,7 @@ pub enum SubPassRenderCommand {
     RenderPrimitive {
         #[derivative(Debug = "ignore")]
         target: AbstractFramebuffer,
-        offset: Vec2,
+        offset: Physical<Vec2>,
         start: usize,
         end: usize, // exclusive
         #[derivative(Debug(format_with = "opaque_fmt"))]
@@ -77,8 +77,8 @@ pub enum SubPassRenderCommand {
         #[derivative(Debug = "ignore")]
         fun: Arc<RenderFnInner>,
         z_index: u32,
-        rect: Rect,
-        clipping_rect: Option<Rect>,
+        rect: Physical<Rect>,
+        clipping_rect: Option<Physical<Rect>>,
         #[derivative(Debug(format_with = "opaque_fmt"))]
         to_clear: Option<(AbstractImage, AbstractImage)>,
     },
@@ -91,8 +91,8 @@ pub enum SubPassRenderCommand {
         color: AbstractImageView,
         #[derivative(Debug = "ignore")]
         to: AbstractFramebuffer,
-        abs_rect: Rect,
-        rect: Rect,
+        abs_rect: Physical<Rect>,
+        rect: Physical<Rect>,
         z_index: u32,
         #[derivative(Debug(format_with = "opaque_fmt"))]
         to_clear: Option<(AbstractImage, AbstractImage)>,
@@ -126,7 +126,7 @@ impl SubPassStack {
             depth_image: toplevel_depth,
             depth: None,
             color: None,
-            rect: Rect::zero(),
+            rect: Physical::new(Rect::zero()),
             first: 0,
             first_use: true,
             finishers: vec![],
@@ -209,7 +209,7 @@ impl SubPassStack {
         let first = pass.first;
         if pass.first != data.indices.len() {
             self.push_command(data, |target, to_clear| SubPassRenderCommand::RenderPrimitive {
-                offset: rect.pos,
+                offset: rect.map(|rect| rect.pos),
                 target,
                 start: first,
                 end: data.indices.len(),
@@ -240,7 +240,12 @@ impl SubPassStack {
         self.render_commands.push(fun(target, to_clear));
     }
 
-    fn push_finishers(&mut self, data: &RenderData, offset: Vec2, finishers: &[Finisher]) {
+    fn push_finishers(
+        &mut self,
+        data: &RenderData,
+        offset: Physical<Vec2>,
+        finishers: &[Finisher],
+    ) {
         for (finish, color, depth, rect, z_index) in finishers {
             self.push_command(data, |target, to_clear| SubPassRenderCommand::ResolveOrFinish {
                 resolve: finish.clone(),
@@ -248,20 +253,20 @@ impl SubPassStack {
                 depth: depth.clone(),
                 to: target,
                 abs_rect: *rect,
-                rect: rect.minus_position(offset),
+                rect: rect.map(|rect| rect.minus_position(offset.unwrap_physical())),
                 z_index: *z_index,
                 to_clear,
             });
         }
     }
 
-    pub fn handle(&mut self, data: &RenderData, obj: &PositionedElement) {
+    pub fn handle(&mut self, data: &RenderData, obj: &PhysicalPositionedElement) {
         match &obj.element {
             RenderObjectOrSubPass::SubPassPush => {
                 self.push_render_primitive(data);
                 let (fb, depth, color, intermediary, depth_image) =
                     create_framebuffer::<AttachmentImage>(
-                        obj.rect.size.pixels(),
+                        obj.rect.unwrap_physical().size.pixels(),
                         self.render_pass.clone(),
                         self.format,
                         None,
@@ -282,7 +287,7 @@ impl SubPassStack {
                 self.push_render_primitive(data);
                 let pass = self.stack.pop().unwrap();
 
-                let offset = self.stack.last().unwrap().rect.pos;
+                let offset = self.stack.last().unwrap().rect.map(|rect| rect.pos);
                 self.push_finishers(data, offset, &pass.finishers[..]);
 
                 let color = pass.color.unwrap().clone();
@@ -293,7 +298,7 @@ impl SubPassStack {
                     depth: depth.clone(),
                     to: target,
                     abs_rect: obj.rect,
-                    rect: obj.rect.minus_position(offset),
+                    rect: obj.rect.map(|rect| rect.minus_position(offset.unwrap_physical())),
                     z_index: obj.z_index,
                     to_clear,
                 });
@@ -327,7 +332,7 @@ impl SubPassStack {
     pub fn finish(&mut self, data: &RenderData) {
         self.push_render_primitive(data);
         let finishers = std::mem::take(&mut self.stack.last_mut().unwrap().finishers);
-        self.push_finishers(data, Vec2::zero(), &finishers[..]);
+        self.push_finishers(data, Physical::new(Vec2::zero()), &finishers[..]);
     }
     pub fn render<F, B: BufferAccess + 'static>(
         &mut self,
@@ -342,7 +347,7 @@ impl SubPassStack {
             &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
             &Viewport,
             &[u32; 2],
-            Vec2,
+            Physical<Vec2>,
             u64,
             u64,
         ),
@@ -435,7 +440,12 @@ impl SubPassStack {
                         viewport,
                         dimensions,
                         to_clear,
-                        fun(&viewport, 1.0 - z_index as f32 / 65535.0, rect, dimensions.into(),)
+                        fun(
+                            &viewport,
+                            1.0 - z_index as f32 / 65535.0,
+                            rect,
+                            Physical::new(dimensions.into()),
+                        )
                     );
                 }
                 SubPassRenderCommand::ResolveOrFinish {

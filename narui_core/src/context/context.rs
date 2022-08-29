@@ -5,7 +5,7 @@ use super::{
 use crate::eval::{
     delta_eval::EvaluatedFragment,
     fragment::{Fragment, UnevaluatedFragment},
-    layout::Layouter,
+    layout::{Layouter, ScaleFactor},
 };
 use derivative::Derivative;
 use freelist::FreeList;
@@ -280,6 +280,7 @@ pub struct CallbackContext<'a> {
     pub key_map: &'a KeyMap,
     pub(crate) layout: &'a Layouter,
     pub(crate) fragment_store: &'a FragmentStore,
+    pub(crate) scale_factor: &'a ScaleFactor,
 }
 
 

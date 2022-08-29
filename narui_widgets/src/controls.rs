@@ -60,7 +60,7 @@ pub fn slider(
 
     let on_move = move |context: &CallbackContext, position: Vec2, _| {
         let clicked = context.spy(clicked);
-        let width = context.measure_size(widget_key).unwrap().x - 20.0;
+        let width = context.measure_size(widget_key).unwrap().logical.x - 20.0;
 
         if clicked {
             let new_val = ((position.x - 10.0) / width * (max - min) + min).clamp(min, max);
