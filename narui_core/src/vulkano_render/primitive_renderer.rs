@@ -328,6 +328,7 @@ impl Renderer {
             .depth_stencil_state(DepthStencilState {
                 depth: Some(DepthState {
                     compare_op: StateMode::Fixed(CompareOp::LessOrEqual),
+                    write_enable: StateMode::Fixed(true),
                     ..Default::default()
                 }),
                 ..DepthStencilState::simple_depth_test()
