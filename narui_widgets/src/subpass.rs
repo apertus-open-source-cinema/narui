@@ -150,7 +150,7 @@ pub fn raw_blur(
             let pipeline = GraphicsPipeline::start()
                 .vertex_shader(vs.entry_point("main").unwrap(), ())
                 .input_assembly_state(
-                    InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
+                    InputAssemblyState::new().topology(PrimitiveTopology::TriangleStrip),
                 )
                 .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
                 .fragment_shader(fs.entry_point("main").unwrap(), ())
@@ -173,6 +173,7 @@ pub fn raw_blur(
                 .depth_stencil_state(DepthStencilState {
                     depth: Some(DepthState {
                         compare_op: StateMode::Fixed(CompareOp::LessOrEqual),
+                        write_enable: StateMode::Fixed(true),
                         ..Default::default()
                     }),
                     ..DepthStencilState::simple_depth_test()
