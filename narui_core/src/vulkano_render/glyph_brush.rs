@@ -153,7 +153,7 @@ impl GlyphBrush {
     pub fn finish(
         &mut self,
         data: &mut RenderData,
-    ) -> (GlyphBrushState, Arc<ImmutableImage>, Option<impl GpuFuture>) {
+    ) -> (GlyphBrushState, Arc<ImmutableImage>, Option<impl GpuFuture + Sync + Send>) {
         let (width, height) = self.glyph_brush.texture_dimensions();
         let texture_bytes = &mut self.texture_bytes;
         let mut texture_upload = false;

@@ -919,6 +919,7 @@ dependencies = [
  "glyph_brush",
  "hashbrown",
  "lazy_static",
+ "libc",
  "log",
  "lyon",
  "notosans",
@@ -932,6 +933,8 @@ dependencies = [
  "vulkano",
  "vulkano-shaders",
  "vulkano-win",
+ "wayland-client",
+ "wayland-protocols",
  "winit",
 ]
 

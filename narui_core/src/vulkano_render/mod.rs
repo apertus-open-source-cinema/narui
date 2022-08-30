@@ -1,5 +1,6 @@
 pub(crate) mod glyph_brush;
 mod input_handler;
+pub(crate) mod frame_pacing;
 pub(crate) mod lyon;
 pub(crate) mod primitive_renderer;
 pub mod raw_render;

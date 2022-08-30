@@ -447,9 +447,9 @@ impl Renderer {
         &mut self,
         font_texture: Arc<ImmutableImage>,
     ) -> (
-        impl GpuFuture,
-        impl GpuFuture,
-        impl GpuFuture,
+        impl GpuFuture + Send + Sync,
+        impl GpuFuture + Send + Sync,
+        impl GpuFuture + Send + Sync,
         Arc<impl DescriptorSet>,
         Arc<ImmutableBuffer<[Vertex]>>,
         Arc<impl BufferAccess + TypedBufferAccess<Content = [u32]>>,
