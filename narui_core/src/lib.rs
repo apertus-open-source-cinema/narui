@@ -27,10 +27,7 @@ pub mod renderer {
     pub use super::vulkano_render::{glyph_brush::FONT, lyon::ColoredBuffersBuilder};
 }
 pub mod app {
-    pub use super::{
-        re_export::winit::{platform::unix::WindowBuilderExtUnix, window::WindowBuilder},
-        vulkano_render::render::render,
-    };
+    pub use super::{re_export::winit::window::WindowBuilder, vulkano_render::render::render};
 }
 pub mod layout {
     pub use rutter_layout::{layouts::*, *};
