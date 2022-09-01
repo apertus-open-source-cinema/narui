@@ -50,11 +50,15 @@ impl VulkanContext {
 
         #[cfg(target_os = "macos")]
         let instance = {
+            use std::os::raw::{c_char, c_void};
+            use vulkano::instance::loader::{FunctionPointers, Loader};
+
+
             let extensions =
                 InstanceExtensions { khr_surface: true, mvk_macos_surface: true, ..extensions };
 
             struct AshMoltenLoader {
-                staticFn: ash_molten_version::vk::StaticFn,
+                static_fn: ash_molten_version::vk::StaticFn,
             }
             unsafe impl Loader for AshMoltenLoader {
                 fn get_instance_proc_addr(
@@ -63,7 +67,7 @@ impl VulkanContext {
                     name: *const c_char,
                 ) -> *const c_void {
                     let inner_result = unsafe {
-                        self.staticFn.get_instance_proc_addr(std::mem::transmute(instance), name)
+                        self.static_fn.get_instance_proc_addr(std::mem::transmute(instance), name)
                     };
                     if let Some(result) = inner_result {
                         result as *const c_void
@@ -73,12 +77,16 @@ impl VulkanContext {
                 }
             }
 
-            let function_pointers: FunctionPointers<Box<dyn Loader + Send + Sync>> =
+            let function_pointers: FunctionPointers<Box<dyn Loader>> =
                 FunctionPointers::new(Box::new(AshMoltenLoader {
-                    staticFn: ash_molten::load().static_fn().clone(),
+                    static_fn: ash_molten::load().static_fn().clone(),
                 }));
 
-            Instance::with_loader(function_pointers, None, Version::V1_2, &extensions, None)?;
+            Instance::new(vulkano::instance::InstanceCreateInfo {
+                enabled_extensions: extensions,
+                function_pointers: Some(function_pointers),
+                ..Default::default()
+            })?
         };
 
         // Safety: callback must not make any calls to the Vulkan API

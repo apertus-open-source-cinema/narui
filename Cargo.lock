@@ -73,15 +73,6 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
 name = "ash"
-version = "0.33.3+1.2.191"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc4f1d82f164f838ae413296d1131aa6fa79b917d25bebaa7033d25620c09219"
-dependencies = [
- "libloading",
-]
-
-[[package]]
-name = "ash"
 version = "0.35.2+1.2.203"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f6a491bcad4563b355ac2bb6e3f09d5e1c5d628710c7156e901dad0c416075e"
@@ -907,8 +898,8 @@ version = "0.1.2"
 dependencies = [
  "ahash 0.8.0",
  "anyhow",
- "ash 0.33.3+1.2.191",
  "ash 0.35.2+1.2.203",
+ "ash 0.37.0+1.3.209",
  "ash-molten",
  "bytemuck",
  "crevice",
