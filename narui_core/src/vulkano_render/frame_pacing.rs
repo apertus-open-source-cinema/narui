@@ -61,6 +61,7 @@ impl FramePacer {
             } else {
                 next_frame_seq - next_frame_seq % self.refresh_factor + self.refresh_factor
             };
+            dbg!(next_frame_seq, self.last_frame_seq);
             let next_frame_seq = if next_frame_seq == self.last_frame_seq {
                 //                println!("two frames for same target, delaying target");
                 next_frame_seq + self.refresh_factor
@@ -72,12 +73,13 @@ impl FramePacer {
             let next_frame_time = self.frame_time_for_seq(next_frame_seq);
             let diff = next_frame_time - now;
 
+            let refresh = self.refresh.get();
+            let fudge = (refresh / 8.0) as i64;
 
             // give 1ms extra
             // let actual_time = self.processing_time.get() as i64 - 1_000_000;
-            let actual_time =
-                self.render_loop_begin_to_swapchain_present_time.get() as i64 - 1_000_000;
-            let needed_time = actual_time + 2_000_000;
+            let actual_time = self.render_loop_begin_to_swapchain_present_time.get() as i64 - fudge;
+            let needed_time = actual_time + fudge + fudge;
 
             dbg!(
                 self.refresh.get() / 1e6,
@@ -93,10 +95,14 @@ impl FramePacer {
 
             // we wont manage to render to display in this frame
             if diff < actual_time {
-                println!("wont make this target, sleeping for the next");
-                // TODO(robin): we probably only ever want to sleep to the next frame, not
-                // further
-                Some(now_inst + Duration::from_nanos(diff as u64))
+                if dbg!(diff + self.get_refresh() as i64) < needed_time {
+                    None
+                } else {
+                    println!("wont make this target, sleeping for the next");
+                    // TODO(robin): we probably only ever want to sleep to the next frame, not
+                    // further
+                    Some(now_inst + Duration::from_nanos(diff as u64) / 15)
+                }
             } else if diff < needed_time {
                 // render
                 self.last_frame_seq = next_frame_seq;
@@ -129,10 +135,13 @@ impl FramePacer {
 
         // TODO(robin): revisit when we replace processing time with better estimate
         if self.refresh.inited() {
-            let processing_time = self.render_loop_begin_to_present_time.get()
-                - self.swapchain_present_to_present_time.get();
+            // TODO(robin): this should be correct, because we can overlap gpu and cpu
+            // but how do we schedule in want_redraw then?
+            // let processing_time = self.processing_time.get();
+            //
+            let processing_time = self.render_loop_begin_to_swapchain_present_time.get();
 
-            if processing_time > (self.get_refresh() - 1_000_000.0) {
+            if processing_time > (self.get_refresh() - 2_000_000.0) {
                 self.refresh_factor += 1;
             } else if processing_time < (self.get_refresh() - self.refresh.get()) {
                 self.refresh_factor = (self.refresh_factor - 1).max(1);
@@ -175,8 +184,12 @@ impl FramePacer {
         println!("swapchain present {time}");
         self.swapchain_present_time.push_front(time);
 
-        self.render_loop_begin_to_swapchain_present_time
-            .push((time - self.render_loop_start_hist.back().unwrap()) as f64);
+        dbg!(&self.swapchain_present_time, &self.render_loop_start_hist);
+
+        let diff_time = (self.swapchain_present_time.back().unwrap()
+            - self.render_loop_start_hist.back().unwrap()) as f64;
+        println!("render_loop_begin_to_swapchain_present_time {}", diff_time / 1e6);
+        self.render_loop_begin_to_swapchain_present_time.push(diff_time);
     }
 }
 

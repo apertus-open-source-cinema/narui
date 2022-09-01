@@ -224,6 +224,9 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
         // *control_flow = ControlFlow::Poll;
         wl_event_queue.sync_roundtrip(&mut (), |_, _, _| {}).unwrap();
 
+        dbg!(&event);
+
+        let mut dirty = false;
         match event {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 *control_flow = ControlFlow::Exit;
@@ -238,16 +241,26 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 *control_flow = ControlFlow::Poll;
             }
             Event::MainEventsCleared => {
-                input_handler.handle_input(
+                let update = input_handler.handle_input(
                     &input_render_objects[..],
                     &layouter,
                     evaluator.callback_context(&layouter, &scale_factor),
                     scale_factor,
                 );
-                has_update |= evaluator.update(&mut layouter);
+                if has_update {
+                    dirty |= update;
+                } else {
+                    if update {
+                        has_update |= evaluator.update(&mut layouter);
+                    }
+                }
                 if has_update {
                     let time = frame_pacer.lock().want_redraw();
                     if let Some(time) = time {
+                        println!(
+                            "waiting for {}ms",
+                            Instant::now().duration_since(time).as_secs_f64() * 1000.0
+                        );
                         *control_flow = ControlFlow::WaitUntil(time);
                     } else {
                         surface.window().request_redraw();
@@ -259,7 +272,12 @@ pub fn render(window_builder: WindowBuilder, top_node: UnevaluatedFragment) {
                 //                println!("redraw requested after {}ms",
                 // t.duration_since(start).as_secs_f64() * 1000.0);
                 frame_pacer.lock().render_loop_begin();
+                if dirty {
+                    evaluator.update(&mut layouter);
+                }
+                dirty = false;
                 previous_frame_end.as_mut().unwrap().cleanup_finished();
+
 
                 if recreate_swapchain {
                     dimensions = surface.window().inner_size().into();
