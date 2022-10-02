@@ -458,6 +458,20 @@ impl Renderer {
 
         let texture = ImageView::new_default(font_texture).unwrap();
 
+        // TODO: this is an ugly hack, we need better handling for rendering nothing
+        if self.data.primitive_data.len() == 0 {
+            self.data.add_rounded_rect(
+                [0.0, 0.0, 0.0, 0.0],
+                0.0,
+                Physical::new(Rect::zero()),
+                Physical::new(Rect::zero()),
+                Physical::new(0.0),
+                Physical::new(0.0),
+                false,
+                false,
+            )
+        }
+
         let (primitive_buffer, primitive_fut) = ImmutableBuffer::from_iter(
             self.data.primitive_data.drain(..),
             BufferUsage { storage_buffer: true, ..BufferUsage::none() },
