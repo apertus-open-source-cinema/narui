@@ -1,6 +1,4 @@
 use anyhow::{anyhow, Result};
-
-
 use std::sync::Arc;
 use vulkano::{
     device::{
@@ -19,9 +17,11 @@ use vulkano::{
             DebugUtilsMessengerCreateInfo,
         },
         Instance,
+        InstanceCreateInfo,
         InstanceExtensions,
     },
 };
+use vulkano_maybe_molten::NewMaybeMolten;
 
 
 #[derive(Clone)]
@@ -39,55 +39,10 @@ impl VulkanContext {
             ..required_extensions
         };
 
-
-        #[cfg(not(target_os = "macos"))]
-        let instance = {
-            Instance::new(vulkano::instance::InstanceCreateInfo {
-                enabled_extensions: extensions,
-                ..Default::default()
-            })?
-        };
-
-        #[cfg(target_os = "macos")]
-        let instance = {
-            use std::os::raw::{c_char, c_void};
-            use vulkano::instance::loader::{FunctionPointers, Loader};
-
-
-            let extensions =
-                InstanceExtensions { khr_surface: true, mvk_macos_surface: true, ..extensions };
-
-            struct AshMoltenLoader {
-                static_fn: ash_molten_version::vk::StaticFn,
-            }
-            unsafe impl Loader for AshMoltenLoader {
-                fn get_instance_proc_addr(
-                    &self,
-                    instance: ash_vulkano_version::vk::Instance,
-                    name: *const c_char,
-                ) -> *const c_void {
-                    let inner_result = unsafe {
-                        self.static_fn.get_instance_proc_addr(std::mem::transmute(instance), name)
-                    };
-                    if let Some(result) = inner_result {
-                        result as *const c_void
-                    } else {
-                        0 as *const c_void
-                    }
-                }
-            }
-
-            let function_pointers: FunctionPointers<Box<dyn Loader>> =
-                FunctionPointers::new(Box::new(AshMoltenLoader {
-                    static_fn: ash_molten::load().static_fn().clone(),
-                }));
-
-            Instance::new(vulkano::instance::InstanceCreateInfo {
-                enabled_extensions: extensions,
-                function_pointers: Some(function_pointers),
-                ..Default::default()
-            })?
-        };
+        let instance = Instance::new_maybe_molten(InstanceCreateInfo {
+            enabled_extensions: extensions,
+            ..Default::default()
+        })?;
 
         // Safety: callback must not make any calls to the Vulkan API
         unsafe {
