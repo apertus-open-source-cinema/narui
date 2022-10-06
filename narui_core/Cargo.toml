@@ -41,8 +41,4 @@ smallvec = "1.7.0"
 take_mut = "0.2.2"
 tinyset = { version = "0.4.6", default-features = false }
 crevice = "0.11.0"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-ash-molten = { version = "0.13.0", features = ["pre-built"] }
-ash_molten_version = {package = "ash", version = "0.35.2"}
-ash_vulkano_version = {package = "ash", version = "0.37.0"}
+vulkano_maybe_molten = "0.30.0"
